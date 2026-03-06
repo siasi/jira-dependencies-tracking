@@ -218,3 +218,20 @@ def test_fetch_initiatives_jql_with_quarter_filter():
     assert "issuetype = Initiative" in jql
     assert 'status != "Done"' in jql
     assert 'customfield_12108 = "25 Q1"' in jql
+
+
+def test_fetch_result_includes_jql():
+    """Test FetchResult includes jql field."""
+    from src.fetcher import FetchResult
+
+    result = FetchResult(
+        success=True,
+        items=[{"key": "TEST-1"}],
+        jql="project = TEST AND issuetype = Epic"
+    )
+
+    assert result.jql == "project = TEST AND issuetype = Epic"
+
+    # Test optional
+    result_no_jql = FetchResult(success=True, items=[])
+    assert result_no_jql.jql is None

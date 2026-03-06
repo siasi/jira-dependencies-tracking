@@ -12,6 +12,7 @@ class FetchResult:
     items: List[Dict[str, Any]]
     error_message: Optional[str] = None
     project_key: Optional[str] = None
+    jql: Optional[str] = None
 
 
 class DataFetcher:
