@@ -49,8 +49,17 @@ class DataFetcher:
         Returns:
             FetchResult with initiatives data
         """
+        # Build base JQL
         jql = f"project = {self.initiatives_project} AND issuetype = Initiative"
+
+        # Add filters if configured
+        if self.filter_quarter:
+            jql += f' AND status != "Done" AND {self.quarter_field_id} = "{self.filter_quarter}"'
+
+        # Build fields list
         fields = ["summary", "status", self.rag_field_id]
+        if self.quarter_field_id and self.filter_quarter:
+            fields.append(self.quarter_field_id)
 
         try:
             issues = self.client.search_issues(jql, fields=fields)
@@ -68,13 +77,25 @@ class DataFetcher:
                 elif isinstance(rag_field, str):
                     rag_status = rag_field
 
-                initiatives.append({
+                initiative_data = {
                     "key": issue["key"],
                     "summary": fields_data.get("summary", ""),
                     "status": fields_data.get("status", {}).get("name", "Unknown"),
                     "rag_status": rag_status,
                     "url": f"{self.client.base_url}/browse/{issue['key']}",
-                })
+                }
+
+                # Add quarter if present
+                if self.quarter_field_id and self.filter_quarter:
+                    quarter_field = fields_data.get(self.quarter_field_id, {})
+                    quarter_value = None
+                    if isinstance(quarter_field, dict):
+                        quarter_value = quarter_field.get("value")
+                    elif isinstance(quarter_field, str):
+                        quarter_value = quarter_field
+                    initiative_data["quarter"] = quarter_value
+
+                initiatives.append(initiative_data)
 
             return FetchResult(success=True, items=initiatives)
 

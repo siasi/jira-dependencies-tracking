@@ -161,3 +161,60 @@ def test_data_fetcher_accepts_filter_params():
 
     assert fetcher.quarter_field_id == "customfield_12108"
     assert fetcher.filter_quarter == "25 Q1"
+
+
+def test_fetch_initiatives_jql_without_filters():
+    """Test JQL construction without filters."""
+    from src.fetcher import DataFetcher
+    from unittest.mock import Mock
+
+    mock_client = Mock()
+    mock_client.search_issues.return_value = []
+
+    fetcher = DataFetcher(
+        client=mock_client,
+        initiatives_project="INIT",
+        team_projects=["TEAM1"],
+        rag_field_id="customfield_12111"
+    )
+
+    fetcher.fetch_initiatives()
+
+    # Check JQL does not include filters
+    call_args = mock_client.search_issues.call_args
+    jql = call_args[0][0]
+
+    assert "project = INIT" in jql
+    assert "issuetype = Initiative" in jql
+    assert "status !=" not in jql
+    assert "customfield_12108" not in jql
+
+
+def test_fetch_initiatives_jql_with_quarter_filter():
+    """Test JQL construction with quarter filter."""
+    from src.fetcher import DataFetcher
+    from unittest.mock import Mock
+
+    mock_client = Mock()
+    mock_client.search_issues.return_value = []
+    mock_client.base_url = "https://test.atlassian.net"
+
+    fetcher = DataFetcher(
+        client=mock_client,
+        initiatives_project="INIT",
+        team_projects=["TEAM1"],
+        rag_field_id="customfield_12111",
+        quarter_field_id="customfield_12108",
+        filter_quarter="25 Q1"
+    )
+
+    fetcher.fetch_initiatives()
+
+    # Check JQL includes filters
+    call_args = mock_client.search_issues.call_args
+    jql = call_args[0][0]
+
+    assert "project = INIT" in jql
+    assert "issuetype = Initiative" in jql
+    assert 'status != "Done"' in jql
+    assert 'customfield_12108 = "25 Q1"' in jql
