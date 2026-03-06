@@ -114,3 +114,51 @@ def test_filename_pattern_with_timestamp(tmp_path):
     assert output_path.name.startswith("jira_")
     assert output_path.name.endswith(".json")
     assert len(output_path.name) > len("jira_.json")
+
+
+def test_generate_output_with_queries(tmp_path):
+    """Test output includes queries object."""
+    output_dir = tmp_path / "data"
+    output_path = output_dir / "test_output.json"
+
+    generator = OutputGenerator(
+        jira_instance="test.atlassian.net",
+        output_directory=str(output_dir)
+    )
+
+    data = {
+        "initiatives": [],
+        "orphaned_epics": [],
+        "summary": {
+            "total_initiatives": 0,
+            "total_epics": 0,
+            "teams_involved": []
+        }
+    }
+
+    extraction_status = ExtractionStatus(
+        complete=True,
+        issues=[]
+    )
+
+    queries = {
+        "initiatives": "project = INIT AND issuetype = Initiative",
+        "epics": "(project = RSK OR project = CBNK) AND issuetype = Epic"
+    }
+
+    # Execute
+    result_path = generator.generate(data, extraction_status, queries=queries, custom_path=output_path)
+
+    # Verify
+    with open(result_path) as f:
+        output = json.load(f)
+
+    assert "queries" in output
+    assert output["queries"]["initiatives"] == "project = INIT AND issuetype = Initiative"
+    assert output["queries"]["epics"] == "(project = RSK OR project = CBNK) AND issuetype = Epic"
+
+    # Verify queries is at top level, before extraction_status
+    keys = list(output.keys())
+    queries_index = keys.index("queries")
+    status_index = keys.index("extraction_status")
+    assert queries_index < status_index

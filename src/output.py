@@ -41,6 +41,7 @@ class OutputGenerator:
         self,
         data: Dict[str, Any],
         extraction_status: ExtractionStatus,
+        queries: Optional[Dict[str, str]] = None,
         custom_path: Optional[Path] = None,
     ) -> Path:
         """Generate JSON output file.
@@ -48,6 +49,7 @@ class OutputGenerator:
         Args:
             data: Hierarchy data from builder
             extraction_status: Extraction status information
+            queries: JQL queries used for extraction (initiatives and epics)
             custom_path: Optional custom output path (overrides directory/pattern)
 
         Returns:
@@ -57,11 +59,18 @@ class OutputGenerator:
         output = {
             "extracted_at": datetime.utcnow().isoformat() + "Z",
             "jira_instance": self.jira_instance,
+        }
+
+        # Add queries if provided
+        if queries:
+            output["queries"] = queries
+
+        output.update({
             "extraction_status": asdict(extraction_status),
             "initiatives": data["initiatives"],
             "orphaned_epics": data.get("orphaned_epics", []),
             "summary": data["summary"],
-        }
+        })
 
         # Determine output path
         if custom_path:
