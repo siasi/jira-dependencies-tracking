@@ -87,3 +87,57 @@ def test_fetch_with_api_error():
     assert result.success is False
     assert "403" in result.error_message
     assert len(result.items) == 0
+
+
+def test_fetch_epics_with_empty_team_projects():
+    """Test epic fetching with empty team projects list."""
+    mock_client = Mock()
+    mock_client.search_issues.return_value = []
+
+    fetcher = DataFetcher(mock_client, "INIT", [], "customfield_10050")
+    result = fetcher.fetch_epics()
+
+    # Should handle gracefully and return empty results
+    assert result.success is True
+    assert len(result.items) == 0
+    # Verify search_issues was not called with invalid JQL
+    assert mock_client.search_issues.call_count == 0
+
+
+def test_fetch_epics_with_multiple_teams():
+    """Test epic fetching with multiple team projects."""
+    mock_client = Mock()
+    mock_client.search_issues.return_value = [
+        {
+            "key": "TEAM1-10",
+            "fields": {
+                "summary": "Epic 1",
+                "status": {"name": "To Do"},
+                "parent": {"key": "INIT-1"},
+                "project": {"key": "TEAM1", "name": "Team One"},
+                "customfield_10050": {"value": "Green"},
+            },
+        },
+        {
+            "key": "TEAM2-20",
+            "fields": {
+                "summary": "Epic 2",
+                "status": {"name": "In Progress"},
+                "parent": {"key": "INIT-1"},
+                "project": {"key": "TEAM2", "name": "Team Two"},
+                "customfield_10050": {"value": "Amber"},
+            },
+        },
+    ]
+
+    fetcher = DataFetcher(mock_client, "INIT", ["TEAM1", "TEAM2"], "customfield_10050")
+    result = fetcher.fetch_epics()
+
+    assert result.success is True
+    assert len(result.items) == 2
+
+    # Verify the JQL was constructed correctly with multiple projects
+    call_args = mock_client.search_issues.call_args
+    jql = call_args[0][0] if call_args[0] else call_args[1]['jql']
+    assert "project = TEAM1 OR project = TEAM2" in jql
+    assert "type = Epic" in jql

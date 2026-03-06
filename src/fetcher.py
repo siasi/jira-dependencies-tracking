@@ -86,6 +86,10 @@ class DataFetcher:
         Returns:
             FetchResult with epics data
         """
+        # Handle empty team projects list
+        if not self.team_projects:
+            return FetchResult(success=True, items=[])
+
         # Build JQL for all team projects
         project_filter = " OR ".join([f"project = {p}" for p in self.team_projects])
         jql = f"({project_filter}) AND type = Epic"
