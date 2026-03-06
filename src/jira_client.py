@@ -71,7 +71,7 @@ class JiraClient:
 
             try:
                 response = self.session.get(
-                    f"{self.base_url}/rest/api/3/search",
+                    f"{self.base_url}/rest/api/3/search/jql",
                     params=params,
                     timeout=self.timeout,
                 )
