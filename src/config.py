@@ -1,7 +1,8 @@
 # src/config.py
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional, List
+from dataclasses import dataclass
 import yaml
 from dotenv import load_dotenv
 
@@ -9,6 +10,49 @@ from dotenv import load_dotenv
 class ConfigError(Exception):
     """Configuration error."""
     pass
+
+
+@dataclass
+class Filters:
+    """Filtering configuration."""
+    quarter: Optional[str] = None
+
+
+@dataclass
+class CustomFields:
+    """Custom field IDs."""
+    rag_status: str
+    quarter: Optional[str] = None
+
+
+@dataclass
+class JiraConfig:
+    """Jira connection configuration."""
+    instance: str
+
+
+@dataclass
+class ProjectsConfig:
+    """Projects configuration."""
+    initiatives: str
+    teams: List[str]
+
+
+@dataclass
+class OutputConfig:
+    """Output configuration."""
+    directory: str
+    filename_pattern: str
+
+
+@dataclass
+class Config:
+    """Main configuration."""
+    jira: JiraConfig
+    projects: ProjectsConfig
+    custom_fields: CustomFields
+    output: OutputConfig
+    filters: Optional[Filters] = None
 
 
 def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:

@@ -57,3 +57,56 @@ def test_load_config_missing_file():
     """Test error when config file doesn't exist."""
     with pytest.raises(ConfigError, match="not found"):
         load_config("/nonexistent/config.yaml")
+
+
+def test_filters_dataclass():
+    """Test Filters dataclass."""
+    from src.config import Filters
+
+    filters = Filters(quarter="25 Q1")
+    assert filters.quarter == "25 Q1"
+
+    # Test optional
+    filters_empty = Filters(quarter=None)
+    assert filters_empty.quarter is None
+
+
+def test_custom_fields_with_quarter():
+    """Test CustomFields with quarter field."""
+    from src.config import CustomFields
+
+    fields = CustomFields(
+        rag_status="customfield_12111",
+        quarter="customfield_12108"
+    )
+    assert fields.rag_status == "customfield_12111"
+    assert fields.quarter == "customfield_12108"
+
+    # Test optional
+    fields_no_quarter = CustomFields(rag_status="customfield_12111")
+    assert fields_no_quarter.quarter is None
+
+
+def test_config_with_filters():
+    """Test Config with filters section."""
+    from src.config import Config, JiraConfig, ProjectsConfig, CustomFields, Filters, OutputConfig
+
+    config = Config(
+        jira=JiraConfig(instance="test.atlassian.net"),
+        projects=ProjectsConfig(initiatives="INIT", teams=["TEAM1"]),
+        custom_fields=CustomFields(rag_status="customfield_12111", quarter="customfield_12108"),
+        output=OutputConfig(directory="./data", filename_pattern="test_{timestamp}.json"),
+        filters=Filters(quarter="25 Q1")
+    )
+
+    assert config.filters is not None
+    assert config.filters.quarter == "25 Q1"
+
+    # Test optional
+    config_no_filters = Config(
+        jira=JiraConfig(instance="test.atlassian.net"),
+        projects=ProjectsConfig(initiatives="INIT", teams=["TEAM1"]),
+        custom_fields=CustomFields(rag_status="customfield_12111"),
+        output=OutputConfig(directory="./data", filename_pattern="test_{timestamp}.json")
+    )
+    assert config_no_filters.filters is None
