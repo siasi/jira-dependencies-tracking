@@ -110,3 +110,33 @@ def test_config_with_filters():
         output=OutputConfig(directory="./data", filename_pattern="test_{timestamp}.json")
     )
     assert config_no_filters.filters is None
+
+
+def test_validate_filters_requires_quarter_field():
+    """Test that filters.quarter requires custom_fields.quarter."""
+    from src.config import Config, JiraConfig, ProjectsConfig, CustomFields, Filters, OutputConfig, ConfigError
+
+    # Should raise error when filters.quarter is set but custom_fields.quarter is not
+    with pytest.raises(ConfigError, match="Quarter filtering requires custom_fields.quarter"):
+        config = Config(
+            jira=JiraConfig(instance="test.atlassian.net"),
+            projects=ProjectsConfig(initiatives="INIT", teams=["TEAM1"]),
+            custom_fields=CustomFields(rag_status="customfield_12111"),  # No quarter field
+            output=OutputConfig(directory="./data", filename_pattern="test_{timestamp}.json"),
+            filters=Filters(quarter="25 Q1")  # But filter is set
+        )
+        config.validate()
+
+
+def test_validate_filters_with_quarter_field_ok():
+    """Test that filters work when quarter field is defined."""
+    from src.config import Config, JiraConfig, ProjectsConfig, CustomFields, Filters, OutputConfig
+
+    config = Config(
+        jira=JiraConfig(instance="test.atlassian.net"),
+        projects=ProjectsConfig(initiatives="INIT", teams=["TEAM1"]),
+        custom_fields=CustomFields(rag_status="customfield_12111", quarter="customfield_12108"),
+        output=OutputConfig(directory="./data", filename_pattern="test_{timestamp}.json"),
+        filters=Filters(quarter="25 Q1")
+    )
+    config.validate()  # Should not raise

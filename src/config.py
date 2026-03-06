@@ -54,6 +54,19 @@ class Config:
     output: OutputConfig
     filters: Optional[Filters] = None
 
+    def validate(self) -> None:
+        """Validate configuration.
+
+        Raises:
+            ConfigError: If configuration is invalid
+        """
+        # Check if filters.quarter is set but custom_fields.quarter is missing
+        if self.filters and self.filters.quarter:
+            if not self.custom_fields.quarter:
+                raise ConfigError(
+                    "Quarter filtering requires custom_fields.quarter to be defined"
+                )
+
 
 def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
     """Load configuration from YAML file and environment variables.
