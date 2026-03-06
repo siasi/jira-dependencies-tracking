@@ -1,185 +1,72 @@
 # Jira Dependencies Tracking
 
-A Python CLI tool to extract Jira initiatives and related epics for tracking dependencies across teams.
+Extract Jira initiatives and epics to analyze team contributions.
 
-## Overview
+## Setup
 
-This tool extracts data from Jira Cloud instances to help track:
-- Initiatives from a dedicated project
-- Epics linked to those initiatives across multiple team projects
-- Custom field values (e.g., RAG status)
-- Initiative-Epic relationships
+1. **Prerequisites:** Python 3.9+, Jira Cloud access
 
-## Prerequisites
-
-- Python 3.9 or higher
-- Jira Cloud instance access
-- Jira API token with read permissions
-
-## Installation
-
-1. Clone this repository
-2. Install dependencies:
+2. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-   Or install in development mode:
+3. **Configure:**
    ```bash
-   pip install -e .
+   cp config.yaml.example config.yaml
+   cp .env.example .env
    ```
 
-## Configuration
+4. **Edit config.yaml:**
+   - Update `jira.instance` with your Jira URL
+   - Update `projects.teams` with your team project keys
+   - Find RAG custom field ID: `python jira_extract.py list-fields`
 
-### 1. Environment Variables
-
-Copy `.env.example` to `.env` and fill in your credentials:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env`:
-```
-JIRA_EMAIL=your-email@company.com
-JIRA_API_TOKEN=your-api-token-here
-```
-
-**Getting a Jira API Token:**
-1. Go to https://id.atlassian.com/manage-profile/security/api-tokens
-2. Click "Create API token"
-3. Give it a label and copy the token
-
-### 2. Configuration File
-
-Copy `config.yaml.example` to `config.yaml` and customize:
-
-```bash
-cp config.yaml.example config.yaml
-```
-
-Edit `config.yaml`:
-```yaml
-jira:
-  instance: "your-company.atlassian.net"
-
-projects:
-  initiatives: "INIT"  # Your initiatives project key
-  teams:
-    - "TEAM1"
-    - "TEAM2"
-    # Add all team project keys
-
-custom_fields:
-  rag_status: "customfield_XXXXX"  # Find your custom field IDs
-
-output:
-  directory: "./data"
-  filename_pattern: "jira_extract_{timestamp}.json"
-```
-
-**Finding Custom Field IDs:**
-1. Open a Jira issue in your browser
-2. Add `.json` to the URL (e.g., `https://company.atlassian.net/browse/INIT-123.json`)
-3. Search for your custom field name in the JSON
-4. Note the `customfield_XXXXX` ID
+5. **Edit .env:**
+   - Add your Jira email
+   - Get API token from: https://id.atlassian.com/manage-profile/security/api-tokens
 
 ## Usage
 
-Run the extraction:
-
+Extract data:
 ```bash
-python -m jira_extract
+python jira_extract.py extract
 ```
 
-Or if installed:
-
+List custom fields:
 ```bash
-jira-extract
+python jira_extract.py list-fields
 ```
 
-The tool will:
-1. Load configuration from `config.yaml` and `.env`
-2. Authenticate with Jira
-3. Extract all initiatives from the specified project
-4. For each initiative, find linked epics across team projects
-5. Save the data to a timestamped JSON file
-
-## Output Format
-
-The tool generates a JSON file with the following structure:
-
-```json
-{
-  "extracted_at": "2024-01-15T10:30:00Z",
-  "initiatives": [
-    {
-      "key": "INIT-123",
-      "summary": "Initiative Title",
-      "status": "In Progress",
-      "custom_fields": {
-        "rag_status": "Green"
-      },
-      "epics": [
-        {
-          "key": "TEAM1-456",
-          "summary": "Epic Title",
-          "status": "To Do",
-          "project": "TEAM1"
-        }
-      ]
-    }
-  ]
-}
+Validate config:
+```bash
+python jira_extract.py validate-config
 ```
 
-## Project Structure
-
-```
-jira-dependencies-tracking/
-├── src/
-│   ├── __init__.py
-│   ├── config.py       # Configuration loading
-│   ├── jira_client.py  # Jira API client
-│   └── extractor.py    # Main extraction logic
-├── jira_extract.py     # CLI entry point
-├── requirements.txt
-├── setup.py
-├── config.yaml.example
-├── .env.example
-└── README.md
+Options:
+```bash
+python jira_extract.py extract --config custom.yaml --output ./report.json --verbose
 ```
 
-## Development
+## Output
 
-To contribute or modify the tool:
-
-1. Install in development mode:
-   ```bash
-   pip install -e .
-   ```
-
-2. Make your changes
-
-3. Test manually:
-   ```bash
-   python -m jira_extract
-   ```
+JSON file in `./data/` directory with:
+- Initiative → Team → Epics hierarchy
+- Status and RAG indicators
+- Completeness tracking
+- Orphaned epics (no parent initiative)
 
 ## Troubleshooting
 
-**Authentication Errors:**
-- Verify your email and API token in `.env`
-- Ensure the API token has not expired
+**Authentication failed:**
+- Verify API token is valid
+- Check email matches Atlassian account
 
-**Custom Field Not Found:**
-- Check the custom field ID in `config.yaml`
-- Verify the field exists in your Jira instance
+**Custom field not found:**
+- Run `list-fields` to find correct field ID
+- Update `custom_fields.rag_status` in config.yaml
 
-**Missing Epics:**
-- Ensure epics are properly linked to initiatives using Jira's issue linking
-- Verify your API token has access to all specified team projects
-
-## License
-
-MIT
+**Missing data:**
+- Check `extraction_status` in output JSON
+- Verify permissions to access all projects
+- Tool continues with partial data but reports issues
