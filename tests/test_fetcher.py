@@ -141,3 +141,23 @@ def test_fetch_epics_with_multiple_teams():
     jql = call_args[0][0] if call_args[0] else call_args[1]['jql']
     assert "project = TEAM1 OR project = TEAM2" in jql
     assert "type = Epic" in jql
+
+
+def test_data_fetcher_accepts_filter_params():
+    """Test DataFetcher accepts quarter field and filter parameters."""
+    from src.fetcher import DataFetcher
+    from unittest.mock import Mock
+
+    mock_client = Mock()
+
+    fetcher = DataFetcher(
+        client=mock_client,
+        initiatives_project="INIT",
+        team_projects=["TEAM1"],
+        rag_field_id="customfield_12111",
+        quarter_field_id="customfield_12108",
+        filter_quarter="25 Q1"
+    )
+
+    assert fetcher.quarter_field_id == "customfield_12108"
+    assert fetcher.filter_quarter == "25 Q1"

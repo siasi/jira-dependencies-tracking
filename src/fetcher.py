@@ -23,6 +23,8 @@ class DataFetcher:
         initiatives_project: str,
         team_projects: List[str],
         rag_field_id: str,
+        quarter_field_id: Optional[str] = None,
+        filter_quarter: Optional[str] = None,
     ):
         """Initialize data fetcher.
 
@@ -31,11 +33,15 @@ class DataFetcher:
             initiatives_project: Project key for initiatives (e.g., "INIT")
             team_projects: List of team project keys
             rag_field_id: Custom field ID for RAG status
+            quarter_field_id: Custom field ID for quarter (optional)
+            filter_quarter: Quarter value to filter by (e.g., "25 Q1", optional)
         """
         self.client = client
         self.initiatives_project = initiatives_project
         self.team_projects = team_projects
         self.rag_field_id = rag_field_id
+        self.quarter_field_id = quarter_field_id
+        self.filter_quarter = filter_quarter
 
     def fetch_initiatives(self) -> FetchResult:
         """Fetch all initiatives from the initiatives project.
