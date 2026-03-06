@@ -243,3 +243,48 @@ def test_fetch_result_includes_jql():
     # Test optional
     result_no_jql = FetchResult(success=True, items=[])
     assert result_no_jql.jql is None
+
+
+def test_fetch_epics_returns_jql():
+    """Test fetch_epics returns JQL in result."""
+    from src.fetcher import DataFetcher
+    from unittest.mock import Mock
+
+    mock_client = Mock()
+    mock_client.search_issues.return_value = []
+    mock_client.base_url = "https://test.atlassian.net"
+
+    fetcher = DataFetcher(
+        client=mock_client,
+        initiatives_project="INIT",
+        team_projects=["RSK", "CBNK"],
+        rag_field_id="customfield_12111"
+    )
+
+    result = fetcher.fetch_epics()
+
+    # Check JQL is returned
+    assert result.jql is not None
+    assert "project = RSK OR project = CBNK" in result.jql
+    assert "issuetype = Epic" in result.jql
+
+
+def test_fetch_epics_empty_teams_returns_none_jql():
+    """Test fetch_epics with empty teams returns None for JQL."""
+    from src.fetcher import DataFetcher
+    from unittest.mock import Mock
+
+    mock_client = Mock()
+
+    fetcher = DataFetcher(
+        client=mock_client,
+        initiatives_project="INIT",
+        team_projects=[],
+        rag_field_id="customfield_12111"
+    )
+
+    result = fetcher.fetch_epics()
+
+    # Empty teams means no query executed
+    assert result.success is True
+    assert result.jql is None

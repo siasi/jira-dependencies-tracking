@@ -117,7 +117,7 @@ class DataFetcher:
         """
         # Handle empty team projects list
         if not self.team_projects:
-            return FetchResult(success=True, items=[])
+            return FetchResult(success=True, items=[], jql=None)
 
         # Build JQL for all team projects
         project_filter = " OR ".join([f"project = {p}" for p in self.team_projects])
@@ -158,13 +158,14 @@ class DataFetcher:
                     "url": f"{self.client.base_url}/browse/{issue['key']}",
                 })
 
-            return FetchResult(success=True, items=epics)
+            return FetchResult(success=True, items=epics, jql=jql)
 
         except JiraAPIError as e:
             return FetchResult(
                 success=False,
                 items=[],
                 error_message=str(e),
+                jql=jql,
             )
 
     def fetch_all(self) -> Tuple[FetchResult, FetchResult]:
