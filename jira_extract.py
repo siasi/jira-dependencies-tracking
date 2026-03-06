@@ -93,6 +93,12 @@ def extract(config: str, output: Optional[str], dry_run: bool, verbose: bool):
             initiatives_result, epics_result = fetcher.fetch_all()
             bar.update(2)
 
+        # Extract queries
+        queries = {
+            "initiatives": initiatives_result.jql,
+            "epics": epics_result.jql
+        }
+
         # Build extraction status
         issues = []
 
@@ -148,6 +154,7 @@ def extract(config: str, output: Optional[str], dry_run: bool, verbose: bool):
         output_path = generator.generate(
             data=hierarchy_data,
             extraction_status=extraction_status,
+            queries=queries,
             custom_path=Path(output) if output else None,
         )
 
