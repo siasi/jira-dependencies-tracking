@@ -57,31 +57,38 @@ def extract(config: str, output: Optional[str], dry_run: bool, verbose: bool):
 
         # Initialize Jira client
         if verbose:
-            click.echo(f"Connecting to: {cfg['jira']['instance']}")
+            click.echo(f"Connecting to: {cfg.jira.instance}")
 
         client = JiraClient(
-            instance=cfg["jira"]["instance"],
-            email=cfg["jira"]["email"],
-            api_token=cfg["jira"]["api_token"],
+            instance=cfg.jira.instance,
+            email=cfg.jira.email,
+            api_token=cfg.jira.api_token,
         )
 
         # Initialize fetcher
         fetcher = DataFetcher(
             client=client,
-            initiatives_project=cfg["projects"]["initiatives"],
-            team_projects=cfg["projects"]["teams"],
-            rag_field_id=cfg["custom_fields"]["rag_status"],
+            initiatives_project=cfg.projects.initiatives,
+            team_projects=cfg.projects.teams,
+            rag_field_id=cfg.custom_fields.rag_status,
+            quarter_field_id=cfg.custom_fields.quarter,
+            filter_quarter=cfg.filters.quarter if cfg.filters else None,
         )
 
         if dry_run:
             click.echo("\nDry run - showing what would be fetched:\n")
-            click.echo(f"  Initiatives project: {cfg['projects']['initiatives']}")
-            click.echo(f"  Team projects: {', '.join(cfg['projects']['teams'])}")
-            click.echo(f"  RAG field ID: {cfg['custom_fields']['rag_status']}")
+            click.echo(f"  Initiatives project: {cfg.projects.initiatives}")
+            click.echo(f"  Team projects: {', '.join(cfg.projects.teams)}")
+            click.echo(f"  RAG field ID: {cfg.custom_fields.rag_status}")
             return
 
         # Fetch data
         click.echo("Fetching data from Jira...")
+
+        # Show filtering status
+        if cfg.filters and cfg.filters.quarter:
+            click.echo(f"Applying filters: quarter='{cfg.filters.quarter}', status!='Done'")
+
         with click.progressbar(length=2, label="Extracting") as bar:
             initiatives_result, epics_result = fetcher.fetch_all()
             bar.update(2)
@@ -118,8 +125,8 @@ def extract(config: str, output: Optional[str], dry_run: bool, verbose: bool):
             issues=issues,
             initiatives_fetched=len(initiatives_result.items) if initiatives_result.success else 0,
             initiatives_failed=0 if initiatives_result.success else 1,
-            team_projects_fetched=len(cfg["projects"]["teams"]) if epics_result.success else 0,
-            team_projects_failed=0 if epics_result.success else len(cfg["projects"]["teams"]),
+            team_projects_fetched=len(cfg.projects.teams) if epics_result.success else 0,
+            team_projects_failed=0 if epics_result.success else len(cfg.projects.teams),
         )
 
         # Build hierarchy
@@ -133,9 +140,9 @@ def extract(config: str, output: Optional[str], dry_run: bool, verbose: bool):
 
         # Generate output
         generator = OutputGenerator(
-            jira_instance=cfg["jira"]["instance"],
-            output_directory=cfg["output"]["directory"],
-            filename_pattern=cfg["output"]["filename_pattern"],
+            jira_instance=cfg.jira.instance,
+            output_directory=cfg.output.directory,
+            filename_pattern=cfg.output.filename_pattern,
         )
 
         output_path = generator.generate(
@@ -147,7 +154,10 @@ def extract(config: str, output: Optional[str], dry_run: bool, verbose: bool):
         # Print summary
         click.echo(f"\n✓ Data extracted to: {output_path}")
         click.echo(f"\nSummary:")
-        click.echo(f"  Initiatives: {hierarchy_data['summary']['total_initiatives']}")
+        if cfg.filters and cfg.filters.quarter:
+            click.echo(f"  Initiatives: {hierarchy_data['summary']['total_initiatives']} (filtered by quarter: {cfg.filters.quarter})")
+        else:
+            click.echo(f"  Initiatives: {hierarchy_data['summary']['total_initiatives']}")
         click.echo(f"  Epics: {hierarchy_data['summary']['total_epics']}")
         click.echo(f"  Teams: {len(hierarchy_data['summary']['teams_involved'])}")
 
@@ -182,9 +192,9 @@ def list_fields(config: str):
         cfg = load_config(config)
 
         client = JiraClient(
-            instance=cfg["jira"]["instance"],
-            email=cfg["jira"]["email"],
-            api_token=cfg["jira"]["api_token"],
+            instance=cfg.jira.instance,
+            email=cfg.jira.email,
+            api_token=cfg.jira.api_token,
         )
 
         click.echo("Fetching custom fields...")
@@ -220,18 +230,18 @@ def validate_config(config: str):
         cfg = load_config(config)
 
         click.echo("\n✓ Configuration valid:\n")
-        click.echo(f"  Jira instance: {cfg['jira']['instance']}")
-        click.echo(f"  Initiatives project: {cfg['projects']['initiatives']}")
-        click.echo(f"  Team projects: {', '.join(cfg['projects']['teams'])}")
-        click.echo(f"  RAG field: {cfg['custom_fields']['rag_status']}")
-        click.echo(f"  Output directory: {cfg['output']['directory']}")
+        click.echo(f"  Jira instance: {cfg.jira.instance}")
+        click.echo(f"  Initiatives project: {cfg.projects.initiatives}")
+        click.echo(f"  Team projects: {', '.join(cfg.projects.teams)}")
+        click.echo(f"  RAG field: {cfg.custom_fields.rag_status}")
+        click.echo(f"  Output directory: {cfg.output.directory}")
 
         # Test connection
         click.echo("\nTesting Jira connection...")
         client = JiraClient(
-            instance=cfg["jira"]["instance"],
-            email=cfg["jira"]["email"],
-            api_token=cfg["jira"]["api_token"],
+            instance=cfg.jira.instance,
+            email=cfg.jira.email,
+            api_token=cfg.jira.api_token,
         )
 
         # Simple test query

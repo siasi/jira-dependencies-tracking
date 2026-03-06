@@ -86,7 +86,7 @@ def test_config_with_filters():
     from src.config import Config, JiraConfig, ProjectsConfig, CustomFields, Filters, OutputConfig
 
     config = Config(
-        jira=JiraConfig(instance="test.atlassian.net"),
+        jira=JiraConfig(instance="test.atlassian.net", email="test@example.com", api_token="test-token"),
         projects=ProjectsConfig(initiatives="INIT", teams=["TEAM1"]),
         custom_fields=CustomFields(rag_status="customfield_12111", quarter="customfield_12108"),
         output=OutputConfig(directory="./data", filename_pattern="test_{timestamp}.json"),
@@ -98,7 +98,7 @@ def test_config_with_filters():
 
     # Test optional
     config_no_filters = Config(
-        jira=JiraConfig(instance="test.atlassian.net"),
+        jira=JiraConfig(instance="test.atlassian.net", email="test@example.com", api_token="test-token"),
         projects=ProjectsConfig(initiatives="INIT", teams=["TEAM1"]),
         custom_fields=CustomFields(rag_status="customfield_12111"),
         output=OutputConfig(directory="./data", filename_pattern="test_{timestamp}.json")
@@ -113,7 +113,7 @@ def test_validate_filters_requires_quarter_field():
     # Should raise error when filters.quarter is set but custom_fields.quarter is not
     with pytest.raises(ConfigError, match="Quarter filtering requires custom_fields.quarter"):
         config = Config(
-            jira=JiraConfig(instance="test.atlassian.net"),
+            jira=JiraConfig(instance="test.atlassian.net", email="test@example.com", api_token="test-token"),
             projects=ProjectsConfig(initiatives="INIT", teams=["TEAM1"]),
             custom_fields=CustomFields(rag_status="customfield_12111"),  # No quarter field
             output=OutputConfig(directory="./data", filename_pattern="test_{timestamp}.json"),
@@ -127,7 +127,7 @@ def test_validate_filters_with_quarter_field_ok():
     from src.config import Config, JiraConfig, ProjectsConfig, CustomFields, Filters, OutputConfig
 
     config = Config(
-        jira=JiraConfig(instance="test.atlassian.net"),
+        jira=JiraConfig(instance="test.atlassian.net", email="test@example.com", api_token="test-token"),
         projects=ProjectsConfig(initiatives="INIT", teams=["TEAM1"]),
         custom_fields=CustomFields(rag_status="customfield_12111", quarter="customfield_12108"),
         output=OutputConfig(directory="./data", filename_pattern="test_{timestamp}.json"),

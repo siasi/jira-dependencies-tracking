@@ -29,6 +29,8 @@ class CustomFields:
 class JiraConfig:
     """Jira connection configuration."""
     instance: str
+    email: str
+    api_token: str
 
 
 @dataclass
@@ -69,7 +71,7 @@ class Config:
 
 
 def load_config(config_path: str = "config.yaml") -> Config:
-    """Load configuration from YAML file.
+    """Load configuration from YAML file and environment variables.
 
     Args:
         config_path: Path to config file
@@ -80,6 +82,9 @@ def load_config(config_path: str = "config.yaml") -> Config:
     Raises:
         ConfigError: If config is invalid
     """
+    # Load environment variables from .env if present
+    load_dotenv()
+
     try:
         with open(config_path) as f:
             data = yaml.safe_load(f)
@@ -87,6 +92,22 @@ def load_config(config_path: str = "config.yaml") -> Config:
         raise ConfigError(f"Config file not found: {config_path}")
     except yaml.YAMLError as e:
         raise ConfigError(f"Invalid YAML: {e}")
+
+    # Load credentials from environment
+    email = os.environ.get("JIRA_EMAIL")
+    api_token = os.environ.get("JIRA_API_TOKEN")
+
+    if not email:
+        raise ConfigError(
+            "JIRA_EMAIL environment variable required. "
+            "Create .env file or export JIRA_EMAIL=your-email@company.com"
+        )
+
+    if not api_token:
+        raise ConfigError(
+            "JIRA_API_TOKEN environment variable required. "
+            "Get token from: https://id.atlassian.com/manage-profile/security/api-tokens"
+        )
 
     try:
         # Parse filters section (optional)
@@ -99,6 +120,8 @@ def load_config(config_path: str = "config.yaml") -> Config:
         config = Config(
             jira=JiraConfig(
                 instance=data["jira"]["instance"],
+                email=email,
+                api_token=api_token,
             ),
             projects=ProjectsConfig(
                 initiatives=data["projects"]["initiatives"],
