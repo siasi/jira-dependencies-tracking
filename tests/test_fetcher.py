@@ -178,7 +178,7 @@ def test_fetch_initiatives_jql_without_filters():
         rag_field_id="customfield_12111"
     )
 
-    fetcher.fetch_initiatives()
+    result = fetcher.fetch_initiatives()
 
     # Check JQL does not include filters
     call_args = mock_client.search_issues.call_args
@@ -188,6 +188,10 @@ def test_fetch_initiatives_jql_without_filters():
     assert "issuetype = Initiative" in jql
     assert "status !=" not in jql
     assert "customfield_12108" not in jql
+
+    # NEW: Check JQL is returned in result
+    assert result.jql is not None
+    assert result.jql == jql
 
 
 def test_fetch_initiatives_jql_with_quarter_filter():
@@ -208,7 +212,7 @@ def test_fetch_initiatives_jql_with_quarter_filter():
         filter_quarter="25 Q1"
     )
 
-    fetcher.fetch_initiatives()
+    result = fetcher.fetch_initiatives()
 
     # Check JQL includes filters
     call_args = mock_client.search_issues.call_args
@@ -218,6 +222,10 @@ def test_fetch_initiatives_jql_with_quarter_filter():
     assert "issuetype = Initiative" in jql
     assert 'status != "Done"' in jql
     assert 'customfield_12108 = "25 Q1"' in jql
+
+    # Check JQL is returned in result
+    assert result.jql is not None
+    assert result.jql == jql
 
 
 def test_fetch_result_includes_jql():

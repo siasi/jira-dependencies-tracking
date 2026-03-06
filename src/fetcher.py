@@ -98,7 +98,7 @@ class DataFetcher:
 
                 initiatives.append(initiative_data)
 
-            return FetchResult(success=True, items=initiatives)
+            return FetchResult(success=True, items=initiatives, jql=jql)
 
         except JiraAPIError as e:
             return FetchResult(
@@ -106,6 +106,7 @@ class DataFetcher:
                 items=[],
                 error_message=str(e),
                 project_key=self.initiatives_project,
+                jql=jql,
             )
 
     def fetch_epics(self) -> FetchResult:
