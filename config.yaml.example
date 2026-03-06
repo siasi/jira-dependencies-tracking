@@ -1,0 +1,15 @@
+jira:
+  instance: "your-company.atlassian.net"
+
+projects:
+  initiatives: "INIT"
+  teams:
+    - "TEAM1"
+    - "TEAM2"
+
+custom_fields:
+  rag_status: "customfield_XXXXX"
+
+output:
+  directory: "./data"
+  filename_pattern: "jira_extract_{timestamp}.json"
