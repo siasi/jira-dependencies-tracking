@@ -57,36 +57,45 @@ class JiraClient:
             JiraAPIError: If API request fails
         """
         all_issues = []
-        start_at = 0
+        next_page_token = None
 
         while True:
             params = {
                 "jql": jql,
-                "startAt": start_at,
                 "maxResults": min(max_results, 100),
             }
+
+            if next_page_token:
+                params["nextPageToken"] = next_page_token
 
             if fields:
                 params["fields"] = ",".join(fields)
 
             try:
+                url = f"{self.base_url}/rest/api/3/search/jql"
+
                 response = self.session.get(
-                    f"{self.base_url}/rest/api/3/search/jql",
+                    url,
                     params=params,
                     timeout=self.timeout,
                 )
+
                 response.raise_for_status()
                 data = response.json()
 
+                # Get issues from response
                 issues = data.get("issues", [])
                 all_issues.extend(issues)
 
-                # Check if more results available
-                total = data.get("total", 0)
-                if start_at + len(issues) >= total:
+                # Check if more pages available using new pagination
+                is_last = data.get("isLast", True)
+                if is_last:
                     break
 
-                start_at += len(issues)
+                # Get token for next page
+                next_page_token = data.get("nextPageToken")
+                if not next_page_token:
+                    break
 
             except requests.HTTPError as e:
                 raise JiraAPIError(f"Jira API error: {e.response.status_code} - {e.response.text}")

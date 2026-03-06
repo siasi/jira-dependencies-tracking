@@ -43,7 +43,7 @@ class DataFetcher:
         Returns:
             FetchResult with initiatives data
         """
-        jql = f"project = {self.initiatives_project} AND type = Initiative"
+        jql = f"project = {self.initiatives_project} AND issuetype = Initiative"
         fields = ["summary", "status", self.rag_field_id]
 
         try:
@@ -92,7 +92,7 @@ class DataFetcher:
 
         # Build JQL for all team projects
         project_filter = " OR ".join([f"project = {p}" for p in self.team_projects])
-        jql = f"({project_filter}) AND type = Epic"
+        jql = f"({project_filter}) AND issuetype = Epic"
         fields = ["summary", "status", "parent", "project", self.rag_field_id]
 
         try:
