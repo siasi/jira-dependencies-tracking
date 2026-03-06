@@ -89,7 +89,7 @@ class JiraClient:
                 start_at += len(issues)
 
             except requests.HTTPError as e:
-                raise JiraAPIError(f"Jira API error: {response.status_code} - {response.text}")
+                raise JiraAPIError(f"Jira API error: {e.response.status_code} - {e.response.text}")
             except requests.RequestException as e:
                 raise JiraAPIError(f"Request failed: {str(e)}")
 
@@ -121,6 +121,6 @@ class JiraClient:
             return custom_fields
 
         except requests.HTTPError as e:
-            raise JiraAPIError(f"Jira API error: {response.status_code} - {response.text}")
+            raise JiraAPIError(f"Jira API error: {e.response.status_code} - {e.response.text}")
         except requests.RequestException as e:
             raise JiraAPIError(f"Request failed: {str(e)}")

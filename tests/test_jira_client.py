@@ -74,7 +74,10 @@ def test_search_issues_api_error():
     mock_response = Mock()
     mock_response.status_code = 403
     mock_response.text = "Forbidden"
-    mock_response.raise_for_status.side_effect = requests.HTTPError("403 Forbidden")
+
+    http_error = requests.HTTPError("403 Forbidden")
+    http_error.response = mock_response
+    mock_response.raise_for_status.side_effect = http_error
 
     with patch.object(client.session, "get", return_value=mock_response):
         with pytest.raises(JiraAPIError, match="403"):
