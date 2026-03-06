@@ -56,6 +56,30 @@ Extract Jira initiatives and epics to analyze team contributions.
    - Add your Jira email
    - Get API token from: https://id.atlassian.com/manage-profile/security/api-tokens
 
+### Optional: Filter by Quarter
+
+To extract only initiatives for a specific quarter:
+
+1. Add the quarter custom field ID to your config:
+   ```yaml
+   custom_fields:
+     rag_status: "customfield_12111"
+     quarter: "customfield_12108"  # Add this
+   ```
+
+2. Add the filters section:
+   ```yaml
+   filters:
+     quarter: "25 Q1"  # Format: "YY QN"
+   ```
+
+When filtering is enabled:
+- Only initiatives matching the specified quarter are extracted
+- Initiatives with status "Done" are excluded
+- Epics are still extracted for all team projects, but only those linked to filtered initiatives appear in the output
+
+To disable filtering, simply remove or comment out the `filters` section.
+
 ## Usage
 
 Extract data:
