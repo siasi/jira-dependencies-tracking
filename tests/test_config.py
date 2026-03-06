@@ -22,20 +22,18 @@ output:
   filename_pattern: "jira_{timestamp}.json"
 """)
 
-    os.environ["JIRA_EMAIL"] = "test@example.com"
-    os.environ["JIRA_API_TOKEN"] = "test-token"
-
     config = load_config(str(config_file))
 
-    assert config["jira"]["instance"] == "test.atlassian.net"
-    assert config["jira"]["email"] == "test@example.com"
-    assert config["jira"]["api_token"] == "test-token"
-    assert config["projects"]["initiatives"] == "INIT"
-    assert "TEAM1" in config["projects"]["teams"]
+    assert config.jira.instance == "test.atlassian.net"
+    assert config.projects.initiatives == "INIT"
+    assert "TEAM1" in config.projects.teams
+    assert config.custom_fields.rag_status == "customfield_10050"
+    assert config.output.directory == "./data"
+    assert config.output.filename_pattern == "jira_{timestamp}.json"
 
 
-def test_load_config_missing_env_vars(tmp_path):
-    """Test error when environment variables missing."""
+def test_load_config_missing_required_field(tmp_path):
+    """Test error when required field is missing."""
     config_file = tmp_path / "config.yaml"
     config_file.write_text("""
 jira:
@@ -45,11 +43,7 @@ projects:
   teams: []
 """)
 
-    # Clear env vars
-    os.environ.pop("JIRA_EMAIL", None)
-    os.environ.pop("JIRA_API_TOKEN", None)
-
-    with pytest.raises(ConfigError, match="JIRA_EMAIL"):
+    with pytest.raises(ConfigError, match="Missing required config key"):
         load_config(str(config_file))
 
 
@@ -140,3 +134,68 @@ def test_validate_filters_with_quarter_field_ok():
         filters=Filters(quarter="25 Q1")
     )
     config.validate()  # Should not raise
+
+
+def test_load_config_with_filters(tmp_path):
+    """Test loading config with filters section."""
+    from src.config import load_config
+
+    config_content = """
+jira:
+  instance: "test.atlassian.net"
+
+projects:
+  initiatives: "INIT"
+  teams:
+    - "TEAM1"
+    - "TEAM2"
+
+custom_fields:
+  rag_status: "customfield_12111"
+  quarter: "customfield_12108"
+
+filters:
+  quarter: "25 Q1"
+
+output:
+  directory: "./data"
+  filename_pattern: "test_{timestamp}.json"
+"""
+
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(config_content)
+
+    config = load_config(str(config_file))
+
+    assert config.filters is not None
+    assert config.filters.quarter == "25 Q1"
+    assert config.custom_fields.quarter == "customfield_12108"
+
+
+def test_load_config_without_filters(tmp_path):
+    """Test loading config without filters section (backward compatibility)."""
+    from src.config import load_config
+
+    config_content = """
+jira:
+  instance: "test.atlassian.net"
+
+projects:
+  initiatives: "INIT"
+  teams:
+    - "TEAM1"
+
+custom_fields:
+  rag_status: "customfield_12111"
+
+output:
+  directory: "./data"
+  filename_pattern: "test_{timestamp}.json"
+"""
+
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(config_content)
+
+    config = load_config(str(config_file))
+
+    assert config.filters is None

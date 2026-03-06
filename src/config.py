@@ -68,48 +68,57 @@ class Config:
                 )
 
 
-def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
-    """Load configuration from YAML file and environment variables.
+def load_config(config_path: str = "config.yaml") -> Config:
+    """Load configuration from YAML file.
 
     Args:
-        config_path: Path to config.yaml file
+        config_path: Path to config file
 
     Returns:
-        Complete configuration dictionary
+        Config object
 
     Raises:
-        ConfigError: If config is invalid or required values missing
+        ConfigError: If config is invalid
     """
-    # Load environment variables from .env if present
-    load_dotenv()
-
-    # Check config file exists
-    config_file = Path(config_path)
-    if not config_file.exists():
+    try:
+        with open(config_path) as f:
+            data = yaml.safe_load(f)
+    except FileNotFoundError:
         raise ConfigError(f"Config file not found: {config_path}")
+    except yaml.YAMLError as e:
+        raise ConfigError(f"Invalid YAML: {e}")
 
-    # Load YAML config
-    with open(config_file) as f:
-        config = yaml.safe_load(f)
+    try:
+        # Parse filters section (optional)
+        filters = None
+        if "filters" in data:
+            filters = Filters(
+                quarter=data["filters"].get("quarter")
+            )
 
-    # Load credentials from environment
-    email = os.environ.get("JIRA_EMAIL")
-    api_token = os.environ.get("JIRA_API_TOKEN")
-
-    if not email:
-        raise ConfigError(
-            "JIRA_EMAIL environment variable required. "
-            "Create .env file or export JIRA_EMAIL=your-email@company.com"
+        config = Config(
+            jira=JiraConfig(
+                instance=data["jira"]["instance"],
+            ),
+            projects=ProjectsConfig(
+                initiatives=data["projects"]["initiatives"],
+                teams=data["projects"]["teams"],
+            ),
+            custom_fields=CustomFields(
+                rag_status=data["custom_fields"]["rag_status"],
+                quarter=data["custom_fields"].get("quarter"),  # Optional
+            ),
+            output=OutputConfig(
+                directory=data["output"]["directory"],
+                filename_pattern=data["output"]["filename_pattern"],
+            ),
+            filters=filters,
         )
 
-    if not api_token:
-        raise ConfigError(
-            "JIRA_API_TOKEN environment variable required. "
-            "Get token from: https://id.atlassian.com/manage-profile/security/api-tokens"
-        )
+        # Validate configuration
+        config.validate()
 
-    # Add credentials to config
-    config["jira"]["email"] = email
-    config["jira"]["api_token"] = api_token
+        return config
 
-    return config
+    except KeyError as e:
+        raise ConfigError(f"Missing required config key: {e}")
