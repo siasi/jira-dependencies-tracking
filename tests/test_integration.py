@@ -79,3 +79,35 @@ def test_end_to_end_extraction_with_custom_fields():
     assert initiative["rag_status"] == "🟢"
     assert initiative["objective"] == "Strategic Goal A"
     assert initiative["quarter"] == "26 Q2"
+
+    # Verify base initiative fields
+    assert initiative["summary"] == "Test Initiative"
+    assert initiative["status"] == "In Progress"
+    assert "https://test.atlassian.net/browse/INIT-1" in initiative["url"]
+
+    # Verify contributing teams structure
+    assert "contributing_teams" in initiative
+    assert len(initiative["contributing_teams"]) == 1
+
+    # Verify epic appears in hierarchy with custom fields
+    team = initiative["contributing_teams"][0]
+    assert team["team_project_key"] == "TEAM1"
+    assert team["team_project_name"] == "Team One"
+    assert len(team["epics"]) == 1
+
+    epic = team["epics"][0]
+    assert epic["key"] == "EPIC-1"
+    assert epic["summary"] == "Test Epic"
+    assert epic["status"] == "In Progress"
+    assert epic["rag_status"] == "🟡"  # Verify epic custom field extracted
+    assert "https://test.atlassian.net/browse/EPIC-1" in epic["url"]
+
+    # Verify fetch results indicate success
+    assert initiatives_result.success is True
+    assert epics_result.success is True
+
+    # Verify hierarchy summary
+    assert "summary" in hierarchy
+    assert hierarchy["summary"]["total_initiatives"] == 1
+    assert hierarchy["summary"]["total_epics"] == 1
+    assert "TEAM1" in hierarchy["summary"]["teams_involved"]
