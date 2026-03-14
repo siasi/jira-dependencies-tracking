@@ -40,3 +40,8 @@ data/
 # OS
 .DS_Store
 Thumbs.db
+
+# Extraction logs
+extraction.log
+*.log
+Claude.md
