@@ -70,8 +70,7 @@ def extract(config: str, output: Optional[str], dry_run: bool, verbose: bool):
             client=client,
             initiatives_project=cfg.projects.initiatives,
             team_projects=cfg.projects.teams,
-            rag_field_id=cfg.custom_fields.get("rag_status"),
-            quarter_field_id=cfg.custom_fields.get("quarter"),
+            custom_fields=cfg.custom_fields,
             filter_quarter=cfg.filters.quarter if cfg.filters else None,
         )
 
@@ -255,6 +254,21 @@ def validate_config(config: str):
         client.search_issues("project = XYZ", fields=["key"], max_results=1)
 
         click.echo("✓ Connection successful")
+
+        # Validate custom fields exist in Jira
+        if cfg.custom_fields:
+            click.echo("\nValidating custom fields...")
+            all_fields = client.get_custom_fields()
+            field_ids = {f["id"] for f in all_fields}
+
+            for field_name, field_id in cfg.custom_fields.items():
+                if field_id not in field_ids:
+                    raise ConfigError(
+                        f"Custom field '{field_name}' (ID: {field_id}) not found in Jira"
+                    )
+                click.echo(f"  ✓ {field_name}: {field_id}")
+
+            click.echo("✓ All custom fields valid")
 
     except ConfigError as e:
         click.echo(click.style(f"\n✗ Configuration error: {e}", fg="red"), err=True)
