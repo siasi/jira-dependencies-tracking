@@ -52,10 +52,6 @@ Extract Jira initiatives and epics to analyze team contributions.
    - Add your Jira email
    - Get API token from: https://id.atlassian.com/manage-profile/security/api-tokens
 
-5. **Edit .env:**
-   - Add your Jira email
-   - Get API token from: https://id.atlassian.com/manage-profile/security/api-tokens
-
 ### Custom Fields Configuration
 
 Custom fields for initiatives are configured under `custom_fields.initiatives`:
