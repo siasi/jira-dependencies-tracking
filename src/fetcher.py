@@ -40,9 +40,6 @@ class DataFetcher:
         self.team_projects = team_projects
         self.custom_fields = custom_fields
         self.filter_quarter = filter_quarter
-        # Backward compatibility: provide direct access to common fields
-        self.rag_field_id = custom_fields.get("rag_status")
-        self.quarter_field_id = custom_fields.get("quarter")
 
     def _extract_field_value(self, field_data: Any) -> Optional[str]:
         """Extract value from Jira custom field.
