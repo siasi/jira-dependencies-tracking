@@ -91,12 +91,7 @@ class DataFetcher:
                 fields_data = issue.get("fields", {})
 
                 # Extract RAG status
-                rag_field = fields_data.get(self.rag_field_id, {})
-                rag_status = None
-                if isinstance(rag_field, dict):
-                    rag_status = rag_field.get("value")
-                elif isinstance(rag_field, str):
-                    rag_status = rag_field
+                rag_status = self._extract_field_value(fields_data.get(self.rag_field_id))
 
                 initiative_data = {
                     "key": issue["key"],
@@ -108,12 +103,7 @@ class DataFetcher:
 
                 # Add quarter if present
                 if self.quarter_field_id and self.filter_quarter:
-                    quarter_field = fields_data.get(self.quarter_field_id, {})
-                    quarter_value = None
-                    if isinstance(quarter_field, dict):
-                        quarter_value = quarter_field.get("value")
-                    elif isinstance(quarter_field, str):
-                        quarter_value = quarter_field
+                    quarter_value = self._extract_field_value(fields_data.get(self.quarter_field_id))
                     initiative_data["quarter"] = quarter_value
 
                 initiatives.append(initiative_data)
@@ -157,12 +147,7 @@ class DataFetcher:
                 parent_key = parent.get("key") if parent else None
 
                 # Extract RAG status
-                rag_field = fields_data.get(self.rag_field_id, {})
-                rag_status = None
-                if isinstance(rag_field, dict):
-                    rag_status = rag_field.get("value")
-                elif isinstance(rag_field, str):
-                    rag_status = rag_field
+                rag_status = self._extract_field_value(fields_data.get(self.rag_field_id))
 
                 # Extract project info
                 project = fields_data.get("project", {})
