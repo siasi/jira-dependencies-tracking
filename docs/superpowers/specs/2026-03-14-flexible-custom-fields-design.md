@@ -173,6 +173,8 @@ def fetch_initiatives(self) -> FetchResult:
         jql += f' AND status != "Done" AND {quarter_field_id} = "{self.filter_quarter}"'
 
     # Build fields list - dynamic from config
+    # NOTE: Fetches ALL configured custom fields, even if not used for filtering
+    # This simplifies the code; Jira API batches field requests efficiently
     fields = ["summary", "status"] + list(self.custom_fields.values())
 
     issues = self.client.search_issues(jql, fields=fields)
@@ -297,11 +299,66 @@ def validate_config(config: str):
 }
 ```
 
+**With no custom fields configured (empty dict):**
+```json
+{
+  "initiatives": [
+    {
+      "key": "INIT-1485",
+      "summary": "Deprecate EU connector",
+      "status": "Proposed",
+      "url": "https://...",
+      "contributing_teams": [...]
+    }
+  ]
+}
+```
+
 **Key points:**
 - Field names in output match config keys exactly
 - Fields appear in initiative objects only (not epics)
 - Missing/null fields appear as `null` in JSON
-- No changes to `builder.py` - it passes through custom fields as-is
+
+**How builder.py handles dynamic fields:**
+
+The current `builder.py` code explicitly extracts known fields:
+```python
+result_initiatives.append({
+    "key": initiative["key"],
+    "summary": initiative["summary"],
+    "status": initiative["status"],
+    "rag_status": initiative["rag_status"],  # Hardcoded
+    "url": initiative["url"],
+    "contributing_teams": contributing_teams,
+})
+```
+
+**After this change**, builder.py will pass through ALL fields from the initiative dict:
+```python
+# Build base initiative with known fields
+initiative_output = {
+    "key": initiative["key"],
+    "summary": initiative["summary"],
+    "status": initiative["status"],
+    "url": initiative["url"],
+}
+
+# Add all custom fields dynamically
+for field_name in initiative.keys():
+    if field_name not in ["key", "summary", "status", "url", "contributing_teams"]:
+        initiative_output[field_name] = initiative[field_name]
+
+# Add contributing teams last
+initiative_output["contributing_teams"] = contributing_teams
+
+result_initiatives.append(initiative_output)
+```
+
+This approach:
+- Preserves known field order (key, summary, status, url)
+- Passes through any custom fields from fetcher
+- Doesn't require builder.py to know about specific custom field names
+- Works with zero, one, or many custom fields
 
 ## Error Handling
 
@@ -323,8 +380,9 @@ custom_fields = data.get("custom_fields", {}).get("initiatives", {})
 **2. Invalid field ID (Jira API doesn't recognize it):**
 - Jira API silently returns empty/null for unknown fields
 - Output will show `null` for that field
-- `validate-config` command will catch this and report error
-- Normal extraction continues (degraded, not failing)
+- `validate-config` command will catch this and report error (checks field exists in Jira)
+- **Validation limitation:** validate-config only checks field ID exists globally, not whether it's accessible on Initiative issue type
+- Normal extraction continues (degraded, not failing) if field exists but isn't on initiatives
 
 **3. Quarter filtering without quarter field:**
 ```python
@@ -369,8 +427,17 @@ def _extract_field_value(self, field_data):
 - `test_extract_field_value_null()` - Handles `None` → `None`
 - `test_fetch_initiatives_with_multiple_custom_fields()` - All configured fields appear in output
 - `test_fetch_initiatives_with_no_custom_fields()` - Works with empty custom_fields dict
+- `test_fetch_initiatives_with_partially_missing_custom_field_values()` - Some initiatives have field, others don't (returns null)
 
-**3. Integration tests** (`tests/test_integration.py`):
+**3. Builder tests** (`tests/test_builder.py`):
+- `test_build_hierarchy_with_custom_fields()` - Custom fields from fetcher pass through to output
+- `test_build_hierarchy_with_no_custom_fields()` - Works with initiatives containing only base fields
+
+**4. Validation tests** (`tests/test_config.py` or `tests/test_cli.py`):
+- `test_validate_config_checks_custom_field_exists()` - validate-config command detects invalid field IDs
+- `test_validate_config_passes_with_valid_custom_fields()` - validate-config succeeds with valid fields
+
+**5. Integration tests** (`tests/test_integration.py`):
 - `test_end_to_end_with_custom_fields()` - Full extraction with custom fields produces correct JSON
 
 ### Testing Principles
