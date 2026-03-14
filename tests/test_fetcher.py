@@ -18,7 +18,7 @@ def test_fetch_initiatives_success():
         },
     ]
 
-    fetcher = DataFetcher(mock_client, "INIT", ["TEAM1"], "customfield_10050")
+    fetcher = DataFetcher(mock_client, "INIT", ["TEAM1"], {"rag_status": "customfield_10050"})
     result = fetcher.fetch_initiatives()
 
     assert result.success is True
@@ -43,7 +43,7 @@ def test_fetch_epics_success():
         },
     ]
 
-    fetcher = DataFetcher(mock_client, "INIT", ["TEAM1"], "customfield_10050")
+    fetcher = DataFetcher(mock_client, "INIT", ["TEAM1"], {"rag_status": "customfield_10050"})
     result = fetcher.fetch_epics()
 
     assert result.success is True
@@ -65,7 +65,7 @@ def test_fetch_all_parallel():
 
     mock_client.search_issues.side_effect = mock_search
 
-    fetcher = DataFetcher(mock_client, "INIT", ["TEAM1"], "customfield_10050")
+    fetcher = DataFetcher(mock_client, "INIT", ["TEAM1"], {"rag_status": "customfield_10050"})
     initiatives_result, epics_result = fetcher.fetch_all()
 
     assert initiatives_result.success is True
@@ -81,7 +81,7 @@ def test_fetch_with_api_error():
     mock_client = Mock()
     mock_client.search_issues.side_effect = JiraAPIError("403 Forbidden")
 
-    fetcher = DataFetcher(mock_client, "INIT", ["TEAM1"], "customfield_10050")
+    fetcher = DataFetcher(mock_client, "INIT", ["TEAM1"], {"rag_status": "customfield_10050"})
     result = fetcher.fetch_initiatives()
 
     assert result.success is False
@@ -94,7 +94,7 @@ def test_fetch_epics_with_empty_team_projects():
     mock_client = Mock()
     mock_client.search_issues.return_value = []
 
-    fetcher = DataFetcher(mock_client, "INIT", [], "customfield_10050")
+    fetcher = DataFetcher(mock_client, "INIT", [], {"rag_status": "customfield_10050"})
     result = fetcher.fetch_epics()
 
     # Should handle gracefully and return empty results
@@ -130,7 +130,7 @@ def test_fetch_epics_with_multiple_teams():
         },
     ]
 
-    fetcher = DataFetcher(mock_client, "INIT", ["TEAM1", "TEAM2"], "customfield_10050")
+    fetcher = DataFetcher(mock_client, "INIT", ["TEAM1", "TEAM2"], {"rag_status": "customfield_10050"})
     result = fetcher.fetch_epics()
 
     assert result.success is True
@@ -144,7 +144,7 @@ def test_fetch_epics_with_multiple_teams():
 
 
 def test_data_fetcher_accepts_filter_params():
-    """Test DataFetcher accepts quarter field and filter parameters."""
+    """Test DataFetcher accepts filter parameters."""
     from src.fetcher import DataFetcher
     from unittest.mock import Mock
 
@@ -154,13 +154,12 @@ def test_data_fetcher_accepts_filter_params():
         client=mock_client,
         initiatives_project="INIT",
         team_projects=["TEAM1"],
-        rag_field_id="customfield_12111",
-        quarter_field_id="customfield_12108",
+        custom_fields={"rag_status": "customfield_12111", "quarter": "customfield_12108"},
         filter_quarter="25 Q1"
     )
 
-    assert fetcher.quarter_field_id == "customfield_12108"
     assert fetcher.filter_quarter == "25 Q1"
+    assert fetcher.custom_fields["quarter"] == "customfield_12108"
 
 
 def test_fetch_initiatives_jql_without_filters():
@@ -175,7 +174,7 @@ def test_fetch_initiatives_jql_without_filters():
         client=mock_client,
         initiatives_project="INIT",
         team_projects=["TEAM1"],
-        rag_field_id="customfield_12111"
+        custom_fields={"rag_status": "customfield_12111"}
     )
 
     result = fetcher.fetch_initiatives()
@@ -207,8 +206,7 @@ def test_fetch_initiatives_jql_with_quarter_filter():
         client=mock_client,
         initiatives_project="INIT",
         team_projects=["TEAM1"],
-        rag_field_id="customfield_12111",
-        quarter_field_id="customfield_12108",
+        custom_fields={"rag_status": "customfield_12111", "quarter": "customfield_12108"},
         filter_quarter="25 Q1"
     )
 
@@ -258,7 +256,7 @@ def test_fetch_epics_returns_jql():
         client=mock_client,
         initiatives_project="INIT",
         team_projects=["RSK", "CBNK"],
-        rag_field_id="customfield_12111"
+        custom_fields={"rag_status": "customfield_12111"}
     )
 
     result = fetcher.fetch_epics()
@@ -280,7 +278,7 @@ def test_fetch_epics_empty_teams_returns_none_jql():
         client=mock_client,
         initiatives_project="INIT",
         team_projects=[],
-        rag_field_id="customfield_12111"
+        custom_fields={"rag_status": "customfield_12111"}
     )
 
     result = fetcher.fetch_epics()
@@ -288,3 +286,59 @@ def test_fetch_epics_empty_teams_returns_none_jql():
     # Empty teams means no query executed
     assert result.success is True
     assert result.jql is None
+
+
+def test_extract_field_value_select_field():
+    """Test extracting value from select field."""
+    from src.fetcher import DataFetcher
+    from unittest.mock import Mock
+
+    mock_client = Mock()
+    fetcher = DataFetcher(
+        client=mock_client,
+        initiatives_project="INIT",
+        team_projects=["TEAM1"],
+        custom_fields={"rag_status": "customfield_12111"}
+    )
+
+    field_data = {"value": "🟢"}
+    result = fetcher._extract_field_value(field_data)
+
+    assert result == "🟢"
+
+
+def test_extract_field_value_text_field():
+    """Test extracting value from text field."""
+    from src.fetcher import DataFetcher
+    from unittest.mock import Mock
+
+    mock_client = Mock()
+    fetcher = DataFetcher(
+        client=mock_client,
+        initiatives_project="INIT",
+        team_projects=["TEAM1"],
+        custom_fields={"objective": "customfield_12101"}
+    )
+
+    field_data = "Reduce technical debt"
+    result = fetcher._extract_field_value(field_data)
+
+    assert result == "Reduce technical debt"
+
+
+def test_extract_field_value_null():
+    """Test extracting value from None/missing field."""
+    from src.fetcher import DataFetcher
+    from unittest.mock import Mock
+
+    mock_client = Mock()
+    fetcher = DataFetcher(
+        client=mock_client,
+        initiatives_project="INIT",
+        team_projects=["TEAM1"],
+        custom_fields={"rag_status": "customfield_12111"}
+    )
+
+    result = fetcher._extract_field_value(None)
+
+    assert result is None

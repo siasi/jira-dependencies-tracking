@@ -23,8 +23,7 @@ class DataFetcher:
         client: JiraClient,
         initiatives_project: str,
         team_projects: List[str],
-        rag_field_id: str,
-        quarter_field_id: Optional[str] = None,
+        custom_fields: Dict[str, str],
         filter_quarter: Optional[str] = None,
     ):
         """Initialize data fetcher.
@@ -33,16 +32,37 @@ class DataFetcher:
             client: JiraClient instance
             initiatives_project: Project key for initiatives (e.g., "INIT")
             team_projects: List of team project keys
-            rag_field_id: Custom field ID for RAG status
-            quarter_field_id: Custom field ID for quarter (optional)
+            custom_fields: Dict mapping output field names to Jira field IDs
             filter_quarter: Quarter value to filter by (e.g., "25 Q1", optional)
         """
         self.client = client
         self.initiatives_project = initiatives_project
         self.team_projects = team_projects
-        self.rag_field_id = rag_field_id
-        self.quarter_field_id = quarter_field_id
+        self.custom_fields = custom_fields
         self.filter_quarter = filter_quarter
+        # Backward compatibility: provide direct access to common fields
+        self.rag_field_id = custom_fields.get("rag_status")
+        self.quarter_field_id = custom_fields.get("quarter")
+
+    def _extract_field_value(self, field_data: Any) -> Optional[str]:
+        """Extract value from Jira custom field.
+
+        Handles:
+        - Select fields: {"value": "🟢"} → "🟢"
+        - Text fields: "plain text" → "plain text"
+        - Missing fields: None → None
+
+        Args:
+            field_data: Raw field data from Jira API
+
+        Returns:
+            Extracted string value or None
+        """
+        if field_data is None:
+            return None
+        if isinstance(field_data, dict):
+            return field_data.get("value")
+        return field_data  # Plain string or other simple type
 
     def fetch_initiatives(self) -> FetchResult:
         """Fetch all initiatives from the initiatives project.
