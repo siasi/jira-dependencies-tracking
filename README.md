@@ -72,8 +72,9 @@ custom_fields:
 3. Run extraction - the field will appear in the output JSON
 
 **Field Types Supported:**
-- Select fields (e.g., RAG status) - extracted as the selected value
-- Text fields - extracted as-is
+- **Select fields** (e.g., RAG status) - extracted as the selected value
+- **Text fields** - extracted as-is
+- **Multi-select fields** (e.g., strategic objectives) - extracted as comma-separated values if multiple selected, or single value if only one
 
 All custom fields are optional. If a field is missing on an initiative, it will appear as `null` in the output.
 
