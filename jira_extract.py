@@ -70,8 +70,8 @@ def extract(config: str, output: Optional[str], dry_run: bool, verbose: bool):
             client=client,
             initiatives_project=cfg.projects.initiatives,
             team_projects=cfg.projects.teams,
-            rag_field_id=cfg.custom_fields.rag_status,
-            quarter_field_id=cfg.custom_fields.quarter,
+            rag_field_id=cfg.custom_fields.get("rag_status"),
+            quarter_field_id=cfg.custom_fields.get("quarter"),
             filter_quarter=cfg.filters.quarter if cfg.filters else None,
         )
 
@@ -79,7 +79,7 @@ def extract(config: str, output: Optional[str], dry_run: bool, verbose: bool):
             click.echo("\nDry run - showing what would be fetched:\n")
             click.echo(f"  Initiatives project: {cfg.projects.initiatives}")
             click.echo(f"  Team projects: {', '.join(cfg.projects.teams)}")
-            click.echo(f"  RAG field ID: {cfg.custom_fields.rag_status}")
+            click.echo(f"  RAG field ID: {cfg.custom_fields.get('rag_status')}")
             return
 
         # Fetch data
@@ -240,7 +240,7 @@ def validate_config(config: str):
         click.echo(f"  Jira instance: {cfg.jira.instance}")
         click.echo(f"  Initiatives project: {cfg.projects.initiatives}")
         click.echo(f"  Team projects: {', '.join(cfg.projects.teams)}")
-        click.echo(f"  RAG field: {cfg.custom_fields.rag_status}")
+        click.echo(f"  RAG field: {cfg.custom_fields.get('rag_status')}")
         click.echo(f"  Output directory: {cfg.output.directory}")
 
         # Test connection
