@@ -56,6 +56,31 @@ Extract Jira initiatives and epics to analyze team contributions.
    - Add your Jira email
    - Get API token from: https://id.atlassian.com/manage-profile/security/api-tokens
 
+### Custom Fields Configuration
+
+Custom fields for initiatives are configured under `custom_fields.initiatives`:
+
+```yaml
+custom_fields:
+  initiatives:
+    rag_status: "customfield_12111"      # RAG status indicator
+    quarter: "customfield_12108"          # Planning quarter
+    objective: "customfield_12101"        # Strategic objective
+    # Add any custom field here without code changes
+```
+
+**Adding New Custom Fields:**
+
+1. Find the Jira field ID (use `python jira_extract.py list-fields` to list available fields)
+2. Add to `custom_fields.initiatives` with your desired output name
+3. Run extraction - the field will appear in the output JSON
+
+**Field Types Supported:**
+- Select fields (e.g., RAG status) - extracted as the selected value
+- Text fields - extracted as-is
+
+All custom fields are optional. If a field is missing on an initiative, it will appear as `null` in the output.
+
 ### Optional: Filter by Quarter
 
 To extract only initiatives for a specific quarter:
@@ -63,8 +88,9 @@ To extract only initiatives for a specific quarter:
 1. Add the quarter custom field ID to your config:
    ```yaml
    custom_fields:
-     rag_status: "customfield_12111"
-     quarter: "customfield_12108"  # Add this
+     initiatives:
+       rag_status: "customfield_12111"
+       quarter: "customfield_12108"  # Add this
    ```
 
 2. Add the filters section:
