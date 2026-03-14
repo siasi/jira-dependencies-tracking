@@ -379,6 +379,74 @@ def test_extract_field_value_null():
     assert result is None
 
 
+def test_extract_field_value_array_single_item():
+    """Test extracting value from array field with single item."""
+    from src.fetcher import DataFetcher
+    from unittest.mock import Mock
+
+    mock_client = Mock()
+    fetcher = DataFetcher(
+        client=mock_client,
+        initiatives_project="INIT",
+        team_projects=["TEAM1"],
+        custom_fields={"strategic_objective": "customfield_12101"}
+    )
+
+    # Array with single object (like multi-select field with one selection)
+    field_data = [
+        {
+            "self": "https://test.atlassian.net/rest/api/3/customFieldOption/12697",
+            "value": "2025_FR_DE_payments",
+            "id": "12697"
+        }
+    ]
+    result = fetcher._extract_field_value(field_data)
+
+    assert result == "2025_FR_DE_payments"
+
+
+def test_extract_field_value_array_multiple_items():
+    """Test extracting values from array field with multiple items."""
+    from src.fetcher import DataFetcher
+    from unittest.mock import Mock
+
+    mock_client = Mock()
+    fetcher = DataFetcher(
+        client=mock_client,
+        initiatives_project="INIT",
+        team_projects=["TEAM1"],
+        custom_fields={"strategic_objective": "customfield_12101"}
+    )
+
+    # Array with multiple objects (multi-select with multiple selections)
+    field_data = [
+        {"value": "2025_FR_DE_payments", "id": "12697"},
+        {"value": "engineering_excellence", "id": "12698"}
+    ]
+    result = fetcher._extract_field_value(field_data)
+
+    # Should return comma-separated values
+    assert result == "2025_FR_DE_payments, engineering_excellence"
+
+
+def test_extract_field_value_empty_array():
+    """Test extracting value from empty array field."""
+    from src.fetcher import DataFetcher
+    from unittest.mock import Mock
+
+    mock_client = Mock()
+    fetcher = DataFetcher(
+        client=mock_client,
+        initiatives_project="INIT",
+        team_projects=["TEAM1"],
+        custom_fields={"strategic_objective": "customfield_12101"}
+    )
+
+    result = fetcher._extract_field_value([])
+
+    assert result is None
+
+
 def test_fetch_initiatives_with_multiple_custom_fields():
     """Test fetching initiatives with multiple custom fields configured."""
     from src.fetcher import DataFetcher

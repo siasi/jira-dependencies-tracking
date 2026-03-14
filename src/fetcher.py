@@ -47,6 +47,9 @@ class DataFetcher:
         Handles:
         - Select fields: {"value": "🟢"} → "🟢"
         - Text fields: "plain text" → "plain text"
+        - Array fields: [{"value": "A"}, {"value": "B"}] → "A, B"
+        - Single-item arrays: [{"value": "A"}] → "A"
+        - Empty arrays: [] → None
         - Missing fields: None → None
 
         Args:
@@ -57,9 +60,24 @@ class DataFetcher:
         """
         if field_data is None:
             return None
+
+        # Handle array fields (multi-select, checkboxes, etc.)
+        if isinstance(field_data, list):
+            if not field_data:  # Empty array
+                return None
+            # Extract "value" from each item in the array
+            values = [item.get("value") for item in field_data if isinstance(item, dict) and "value" in item]
+            if not values:
+                return None
+            # Return single value if only one, otherwise comma-separated
+            return values[0] if len(values) == 1 else ", ".join(values)
+
+        # Handle single select fields
         if isinstance(field_data, dict):
             return field_data.get("value")
-        return field_data  # Plain string or other simple type
+
+        # Handle plain text fields
+        return field_data
 
     def fetch_initiatives(self) -> FetchResult:
         """Fetch all initiatives from the initiatives project.
