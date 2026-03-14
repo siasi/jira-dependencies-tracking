@@ -46,9 +46,8 @@ def test_search_issues_pagination():
     mock_response_1.status_code = 200
     mock_response_1.json.return_value = {
         "issues": [{"key": "INIT-1"}],
-        "total": 2,
-        "maxResults": 1,
-        "startAt": 0,
+        "isLast": False,
+        "nextPageToken": "token_page_2",
     }
 
     # Second page
@@ -56,9 +55,7 @@ def test_search_issues_pagination():
     mock_response_2.status_code = 200
     mock_response_2.json.return_value = {
         "issues": [{"key": "INIT-2"}],
-        "total": 2,
-        "maxResults": 1,
-        "startAt": 1,
+        "isLast": True,
     }
 
     with patch.object(client.session, "get", side_effect=[mock_response_1, mock_response_2]):
