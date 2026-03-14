@@ -124,3 +124,70 @@ def test_build_hierarchy_initiative_without_epics():
 
     assert len(result["initiatives"]) == 1
     assert result["initiatives"][0]["contributing_teams"] == []
+
+
+def test_build_hierarchy_with_custom_fields():
+    """Test that custom fields from fetcher pass through to output."""
+    initiatives = [
+        {
+            "key": "INIT-1",
+            "summary": "Initiative 1",
+            "status": "In Progress",
+            "rag_status": "🟢",
+            "objective": "Reduce technical debt",
+            "quarter": "26 Q2",
+            "url": "https://test.atlassian.net/browse/INIT-1",
+        },
+    ]
+
+    epics = []
+
+    result = build_hierarchy(initiatives, epics)
+
+    assert len(result["initiatives"]) == 1
+    initiative = result["initiatives"][0]
+
+    # Check base fields
+    assert initiative["key"] == "INIT-1"
+    assert initiative["summary"] == "Initiative 1"
+    assert initiative["status"] == "In Progress"
+    assert initiative["url"] == "https://test.atlassian.net/browse/INIT-1"
+
+    # Check custom fields pass through
+    assert initiative["rag_status"] == "🟢"
+    assert initiative["objective"] == "Reduce technical debt"
+    assert initiative["quarter"] == "26 Q2"
+
+    # Check contributing_teams present
+    assert "contributing_teams" in initiative
+    assert len(initiative["contributing_teams"]) == 0
+
+
+def test_build_hierarchy_with_no_custom_fields():
+    """Test build_hierarchy works with initiatives containing only base fields."""
+    initiatives = [
+        {
+            "key": "INIT-1",
+            "summary": "Initiative 1",
+            "status": "Proposed",
+            "url": "https://test.atlassian.net/browse/INIT-1",
+        },
+    ]
+
+    epics = []
+
+    result = build_hierarchy(initiatives, epics)
+
+    assert len(result["initiatives"]) == 1
+    initiative = result["initiatives"][0]
+
+    # Check only base fields present
+    assert initiative["key"] == "INIT-1"
+    assert initiative["summary"] == "Initiative 1"
+    assert initiative["status"] == "Proposed"
+    assert initiative["url"] == "https://test.atlassian.net/browse/INIT-1"
+    assert "contributing_teams" in initiative
+
+    # No custom fields
+    assert "rag_status" not in initiative
+    assert "objective" not in initiative

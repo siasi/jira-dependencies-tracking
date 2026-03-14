@@ -70,14 +70,24 @@ def build_hierarchy(
             key=lambda t: t["team_project_key"]
         )
 
-        result_initiatives.append({
+        # Build base initiative with known fields
+        initiative_output = {
             "key": initiative["key"],
             "summary": initiative["summary"],
             "status": initiative["status"],
-            "rag_status": initiative["rag_status"],
             "url": initiative["url"],
-            "contributing_teams": contributing_teams,
-        })
+        }
+
+        # Add all custom fields dynamically
+        # Pass through any field that isn't a known base field or contributing_teams
+        for field_name, field_value in initiative.items():
+            if field_name not in ["key", "summary", "status", "url", "contributing_teams"]:
+                initiative_output[field_name] = field_value
+
+        # Add contributing teams last
+        initiative_output["contributing_teams"] = contributing_teams
+
+        result_initiatives.append(initiative_output)
 
     # Build summary
     total_epics = sum(
