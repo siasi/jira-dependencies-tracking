@@ -19,13 +19,6 @@ class Filters:
 
 
 @dataclass
-class CustomFields:
-    """Custom field IDs."""
-    rag_status: str
-    quarter: Optional[str] = None
-
-
-@dataclass
 class JiraConfig:
     """Jira connection configuration."""
     instance: str
@@ -52,7 +45,7 @@ class Config:
     """Main configuration."""
     jira: JiraConfig
     projects: ProjectsConfig
-    custom_fields: CustomFields
+    custom_fields: Dict[str, str]
     output: OutputConfig
     filters: Optional[Filters] = None
 
@@ -62,11 +55,11 @@ class Config:
         Raises:
             ConfigError: If configuration is invalid
         """
-        # Check if filters.quarter is set but custom_fields.quarter is missing
+        # Check if filters.quarter is set but quarter field is missing
         if self.filters and self.filters.quarter:
-            if not self.custom_fields.quarter:
+            if "quarter" not in self.custom_fields:
                 raise ConfigError(
-                    "Quarter filtering requires custom_fields.quarter to be defined"
+                    "Quarter filtering requires custom_fields.initiatives.quarter to be defined"
                 )
 
 
@@ -127,10 +120,7 @@ def load_config(config_path: str = "config.yaml") -> Config:
                 initiatives=data["projects"]["initiatives"],
                 teams=data["projects"]["teams"],
             ),
-            custom_fields=CustomFields(
-                rag_status=data["custom_fields"]["rag_status"],
-                quarter=data["custom_fields"].get("quarter"),  # Optional
-            ),
+            custom_fields=data.get("custom_fields", {}).get("initiatives", {}),
             output=OutputConfig(
                 directory=data["output"]["directory"],
                 filename_pattern=data["output"]["filename_pattern"],

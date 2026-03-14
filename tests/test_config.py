@@ -16,7 +16,8 @@ projects:
   teams:
     - "TEAM1"
 custom_fields:
-  rag_status: "customfield_10050"
+  initiatives:
+    rag_status: "customfield_10050"
 output:
   directory: "./data"
   filename_pattern: "jira_{timestamp}.json"
@@ -27,7 +28,7 @@ output:
     assert config.jira.instance == "test.atlassian.net"
     assert config.projects.initiatives == "INIT"
     assert "TEAM1" in config.projects.teams
-    assert config.custom_fields.rag_status == "customfield_10050"
+    assert config.custom_fields["rag_status"] == "customfield_10050"
     assert config.output.directory == "./data"
     assert config.output.filename_pattern == "jira_{timestamp}.json"
 
@@ -65,57 +66,18 @@ def test_filters_dataclass():
     assert filters_empty.quarter is None
 
 
-def test_custom_fields_with_quarter():
-    """Test CustomFields with quarter field."""
-    from src.config import CustomFields
-
-    fields = CustomFields(
-        rag_status="customfield_12111",
-        quarter="customfield_12108"
-    )
-    assert fields.rag_status == "customfield_12111"
-    assert fields.quarter == "customfield_12108"
-
-    # Test optional
-    fields_no_quarter = CustomFields(rag_status="customfield_12111")
-    assert fields_no_quarter.quarter is None
-
-
-def test_config_with_filters():
-    """Test Config with filters section."""
-    from src.config import Config, JiraConfig, ProjectsConfig, CustomFields, Filters, OutputConfig
-
-    config = Config(
-        jira=JiraConfig(instance="test.atlassian.net", email="test@example.com", api_token="test-token"),
-        projects=ProjectsConfig(initiatives="INIT", teams=["TEAM1"]),
-        custom_fields=CustomFields(rag_status="customfield_12111", quarter="customfield_12108"),
-        output=OutputConfig(directory="./data", filename_pattern="test_{timestamp}.json"),
-        filters=Filters(quarter="25 Q1")
-    )
-
-    assert config.filters is not None
-    assert config.filters.quarter == "25 Q1"
-
-    # Test optional
-    config_no_filters = Config(
-        jira=JiraConfig(instance="test.atlassian.net", email="test@example.com", api_token="test-token"),
-        projects=ProjectsConfig(initiatives="INIT", teams=["TEAM1"]),
-        custom_fields=CustomFields(rag_status="customfield_12111"),
-        output=OutputConfig(directory="./data", filename_pattern="test_{timestamp}.json")
-    )
-    assert config_no_filters.filters is None
 
 
 def test_validate_filters_requires_quarter_field():
-    """Test that filters.quarter requires custom_fields.quarter."""
-    from src.config import Config, JiraConfig, ProjectsConfig, CustomFields, Filters, OutputConfig, ConfigError
+    """Test that filters.quarter requires custom_fields['quarter']."""
+    from src.config import Config, JiraConfig, ProjectsConfig, Filters, OutputConfig, ConfigError
 
-    # Should raise error when filters.quarter is set but custom_fields.quarter is not
-    with pytest.raises(ConfigError, match="Quarter filtering requires custom_fields.quarter"):
+    # Should raise error when filters.quarter is set but custom_fields['quarter'] is not
+    with pytest.raises(ConfigError, match="Quarter filtering requires custom_fields.initiatives.quarter"):
         config = Config(
             jira=JiraConfig(instance="test.atlassian.net", email="test@example.com", api_token="test-token"),
             projects=ProjectsConfig(initiatives="INIT", teams=["TEAM1"]),
-            custom_fields=CustomFields(rag_status="customfield_12111"),  # No quarter field
+            custom_fields={"rag_status": "customfield_12111"},  # No quarter field
             output=OutputConfig(directory="./data", filename_pattern="test_{timestamp}.json"),
             filters=Filters(quarter="25 Q1")  # But filter is set
         )
@@ -124,12 +86,12 @@ def test_validate_filters_requires_quarter_field():
 
 def test_validate_filters_with_quarter_field_ok():
     """Test that filters work when quarter field is defined."""
-    from src.config import Config, JiraConfig, ProjectsConfig, CustomFields, Filters, OutputConfig
+    from src.config import Config, JiraConfig, ProjectsConfig, Filters, OutputConfig
 
     config = Config(
         jira=JiraConfig(instance="test.atlassian.net", email="test@example.com", api_token="test-token"),
         projects=ProjectsConfig(initiatives="INIT", teams=["TEAM1"]),
-        custom_fields=CustomFields(rag_status="customfield_12111", quarter="customfield_12108"),
+        custom_fields={"rag_status": "customfield_12111", "quarter": "customfield_12108"},
         output=OutputConfig(directory="./data", filename_pattern="test_{timestamp}.json"),
         filters=Filters(quarter="25 Q1")
     )
@@ -151,8 +113,9 @@ projects:
     - "TEAM2"
 
 custom_fields:
-  rag_status: "customfield_12111"
-  quarter: "customfield_12108"
+  initiatives:
+    rag_status: "customfield_12111"
+    quarter: "customfield_12108"
 
 filters:
   quarter: "25 Q1"
@@ -169,7 +132,7 @@ output:
 
     assert config.filters is not None
     assert config.filters.quarter == "25 Q1"
-    assert config.custom_fields.quarter == "customfield_12108"
+    assert config.custom_fields["quarter"] == "customfield_12108"
 
 
 def test_load_config_without_filters(tmp_path):
@@ -186,7 +149,8 @@ projects:
     - "TEAM1"
 
 custom_fields:
-  rag_status: "customfield_12111"
+  initiatives:
+    rag_status: "customfield_12111"
 
 output:
   directory: "./data"
@@ -199,3 +163,89 @@ output:
     config = load_config(str(config_file))
 
     assert config.filters is None
+
+
+def test_load_config_with_custom_fields_dict(tmp_path):
+    """Test loading config with custom_fields.initiatives as dict."""
+    config_content = """
+jira:
+  instance: "test.atlassian.net"
+
+projects:
+  initiatives: "INIT"
+  teams:
+    - "TEAM1"
+
+custom_fields:
+  initiatives:
+    rag_status: "customfield_12111"
+    quarter: "customfield_12108"
+    objective: "customfield_12101"
+
+output:
+  directory: "./data"
+  filename_pattern: "test_{timestamp}.json"
+"""
+
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(config_content)
+
+    config = load_config(str(config_file))
+
+    assert isinstance(config.custom_fields, dict)
+    assert config.custom_fields["rag_status"] == "customfield_12111"
+    assert config.custom_fields["quarter"] == "customfield_12108"
+    assert config.custom_fields["objective"] == "customfield_12101"
+
+
+def test_load_config_empty_custom_fields(tmp_path):
+    """Test loading config with empty custom_fields.initiatives section."""
+    config_content = """
+jira:
+  instance: "test.atlassian.net"
+
+projects:
+  initiatives: "INIT"
+  teams:
+    - "TEAM1"
+
+custom_fields:
+  initiatives: {}
+
+output:
+  directory: "./data"
+  filename_pattern: "test_{timestamp}.json"
+"""
+
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(config_content)
+
+    config = load_config(str(config_file))
+
+    assert isinstance(config.custom_fields, dict)
+    assert len(config.custom_fields) == 0
+
+
+def test_load_config_missing_custom_fields(tmp_path):
+    """Test loading config with missing custom_fields section defaults to empty dict."""
+    config_content = """
+jira:
+  instance: "test.atlassian.net"
+
+projects:
+  initiatives: "INIT"
+  teams:
+    - "TEAM1"
+
+output:
+  directory: "./data"
+  filename_pattern: "test_{timestamp}.json"
+"""
+
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(config_content)
+
+    config = load_config(str(config_file))
+
+    assert isinstance(config.custom_fields, dict)
+    assert len(config.custom_fields) == 0
