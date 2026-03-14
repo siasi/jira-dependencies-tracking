@@ -74,13 +74,14 @@ class DataFetcher:
         jql = f"project = {self.initiatives_project} AND issuetype = Initiative"
 
         # Add filters if configured
-        if self.filter_quarter:
-            jql += f' AND status != "Done" AND {self.quarter_field_id} = "{self.filter_quarter}"'
+        if self.filter_quarter and "quarter" in self.custom_fields:
+            quarter_field_id = self.custom_fields["quarter"]
+            jql += f' AND status != "Done" AND {quarter_field_id} = "{self.filter_quarter}"'
 
-        # Build fields list
-        fields = ["summary", "status", self.rag_field_id]
-        if self.quarter_field_id and self.filter_quarter:
-            fields.append(self.quarter_field_id)
+        # Build fields list - dynamic from config
+        # NOTE: Fetches ALL configured custom fields, even if not used for filtering
+        # This simplifies the code; Jira API batches field requests efficiently
+        fields = ["summary", "status"] + list(self.custom_fields.values())
 
         try:
             issues = self.client.search_issues(jql, fields=fields)
@@ -90,21 +91,18 @@ class DataFetcher:
             for issue in issues:
                 fields_data = issue.get("fields", {})
 
-                # Extract RAG status
-                rag_status = self._extract_field_value(fields_data.get(self.rag_field_id))
-
+                # Build base initiative data
                 initiative_data = {
                     "key": issue["key"],
                     "summary": fields_data.get("summary", ""),
                     "status": fields_data.get("status", {}).get("name", "Unknown"),
-                    "rag_status": rag_status,
                     "url": f"{self.client.base_url}/browse/{issue['key']}",
                 }
 
-                # Add quarter if present
-                if self.quarter_field_id and self.filter_quarter:
-                    quarter_value = self._extract_field_value(fields_data.get(self.quarter_field_id))
-                    initiative_data["quarter"] = quarter_value
+                # Add all custom fields dynamically
+                for output_name, field_id in self.custom_fields.items():
+                    field_data = fields_data.get(field_id)
+                    initiative_data[output_name] = self._extract_field_value(field_data)
 
                 initiatives.append(initiative_data)
 
@@ -132,7 +130,12 @@ class DataFetcher:
         # Build JQL for all team projects
         project_filter = " OR ".join([f"project = {p}" for p in self.team_projects])
         jql = f"({project_filter}) AND issuetype = Epic"
-        fields = ["summary", "status", "parent", "project", self.rag_field_id]
+
+        # Get rag_field_id from custom_fields if present
+        rag_field_id = self.custom_fields.get("rag_status")
+        fields = ["summary", "status", "parent", "project"]
+        if rag_field_id:
+            fields.append(rag_field_id)
 
         try:
             issues = self.client.search_issues(jql, fields=fields)
@@ -146,8 +149,11 @@ class DataFetcher:
                 parent = fields_data.get("parent", {})
                 parent_key = parent.get("key") if parent else None
 
-                # Extract RAG status
-                rag_status = self._extract_field_value(fields_data.get(self.rag_field_id))
+                # Extract RAG status if field is configured
+                rag_status = None
+                if rag_field_id:
+                    rag_field = fields_data.get(rag_field_id, {})
+                    rag_status = self._extract_field_value(rag_field)
 
                 # Extract project info
                 project = fields_data.get("project", {})
