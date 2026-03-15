@@ -160,27 +160,49 @@ CSV file in `./data/` directory with denormalized structure:
 - One row per epic with initiative data repeated
 - Orphaned epics included with empty initiative columns
 - UTF-8 encoding with BOM for Excel compatibility
-- Dynamic columns based on configured custom fields
+- **Dynamic columns based on your configured custom fields**
 
-**CSV Structure:**
+**Column Structure:**
+
+CSV columns adapt to your `custom_fields.initiatives` configuration. The column order is:
+
+1. **Fixed initiative fields**: `initiative_key`, `initiative_summary`
+2. **Custom fields** (alphabetically sorted): Whatever you configure in `config.yaml`
+3. **Remaining fixed fields**: `initiative_status`, `team_project_key`, `epic_key`, `epic_summary`, `epic_rag_status`, `epic_status`
+
+**Example with full custom fields:**
+
+```yaml
+# config.yaml
+custom_fields:
+  initiatives:
+    quarter: "customfield_12108"
+    rag_status: "customfield_12111"
+    strategic_objective: "customfield_12101"
+```
+
 ```csv
-initiative_key,initiative_summary,strategic_objective,quarter,initiative_status,team_project_key,epic_key,epic_summary,epic_rag_status,epic_status
-INIT-1485,Initiative Title,growth,26 Q2,Proposed,CBPPE,CBPPE-529,Epic Title,🟡,Backlog
-INIT-1485,Initiative Title,growth,26 Q2,Proposed,CBPPE,CBPPE-530,Another Epic,🟢,In Progress
+initiative_key,initiative_summary,quarter,rag_status,strategic_objective,initiative_status,team_project_key,epic_key,epic_summary,epic_rag_status,epic_status
+INIT-1485,Initiative Title,26 Q2,🟢,growth,Proposed,CBPPE,CBPPE-529,Epic Title,🟡,Backlog
+INIT-1485,Initiative Title,26 Q2,🟢,growth,Proposed,CBPPE,CBPPE-530,Another Epic,🟢,In Progress
 ,,,,,RSK,RSK-123,Orphaned Epic,🟡,Done
 ```
 
-**Columns (in order):**
-1. `initiative_key` - Initiative issue key
-2. `initiative_summary` - Initiative title
-3. `strategic_objective` - Strategic objective (custom field)
-4. `quarter` - Planning quarter (custom field)
-5. `initiative_status` - Initiative status
-6. `team_project_key` - Team project key
-7. `epic_key` - Epic issue key
-8. `epic_summary` - Epic title
-9. `epic_rag_status` - Epic RAG status (🟢🟡🔴)
-10. `epic_status` - Epic status
+**Example with minimal custom fields:**
+
+```yaml
+# config.yaml
+custom_fields:
+  initiatives:
+    rag_status: "customfield_12111"
+```
+
+```csv
+initiative_key,initiative_summary,rag_status,initiative_status,team_project_key,epic_key,epic_summary,epic_rag_status,epic_status
+INIT-1485,Initiative Title,🟢,Proposed,CBPPE,CBPPE-529,Epic Title,🟡,Backlog
+```
+
+**Note:** Only configured custom fields appear as columns. If a field isn't in your config, it won't be in the CSV.
 
 **Excel Compatibility:**
 - CSV files use UTF-8 with BOM encoding

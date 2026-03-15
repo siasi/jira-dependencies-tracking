@@ -154,6 +154,7 @@ def extract(config: str, output: Optional[str], format: str, dry_run: bool, verb
             jira_instance=cfg.jira.instance,
             output_directory=cfg.output.directory,
             filename_pattern=cfg.output.filename_pattern,
+            custom_fields=cfg.custom_fields,
         )
 
         custom_path = Path(output) if output else None

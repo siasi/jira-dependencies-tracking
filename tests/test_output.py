@@ -206,7 +206,8 @@ def test_generate_csv_basic(tmp_path):
     generator = OutputGenerator(
         jira_instance="test.atlassian.net",
         output_directory=str(output_dir),
-        filename_pattern="test_{timestamp}.json"
+        filename_pattern="test_{timestamp}.json",
+        custom_fields={"quarter": "customfield_12108"}
     )
 
     result = generator.generate_csv(data, extraction_status)
@@ -485,7 +486,11 @@ def test_generate_csv_column_ordering(tmp_path):
     output_dir = tmp_path / "data"
     generator = OutputGenerator(
         jira_instance="test.atlassian.net",
-        output_directory=str(output_dir)
+        output_directory=str(output_dir),
+        custom_fields={
+            "quarter": "customfield_12108",
+            "strategic_objective": "customfield_12101"
+        }
     )
 
     result = generator.generate_csv(data, extraction_status)
@@ -494,12 +499,12 @@ def test_generate_csv_column_ordering(tmp_path):
         reader = csv.DictReader(f)
         fieldnames = reader.fieldnames
 
-        # Verify exact column order as specified
+        # Verify exact column order: fixed fields, then custom fields (alphabetical), then remaining fixed
         expected_order = [
             "initiative_key",
             "initiative_summary",
+            "quarter",  # Custom fields in alphabetical order
             "strategic_objective",
-            "quarter",
             "initiative_status",
             "team_project_key",
             "epic_key",
@@ -508,3 +513,86 @@ def test_generate_csv_column_ordering(tmp_path):
             "epic_status",
         ]
         assert fieldnames == expected_order
+
+
+def test_generate_csv_dynamic_custom_fields(tmp_path):
+    """CSV columns adapt to configured custom fields."""
+    data = {
+        "initiatives": [
+            {
+                "key": "INIT-1",
+                "summary": "Test",
+                "status": "Active",
+                "url": "https://test",
+                "owner": "Alice",
+                "priority": "High",
+                "contributing_teams": [
+                    {
+                        "team_project_key": "TEAM",
+                        "team_project_name": "Test Team",
+                        "epics": [
+                            {
+                                "key": "TEAM-1",
+                                "summary": "Epic",
+                                "status": "Done",
+                                "url": "https://test"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "orphaned_epics": [],
+        "summary": {"total_initiatives": 1, "total_epics": 1, "teams_involved": ["TEAM"]}
+    }
+
+    extraction_status = ExtractionStatus(complete=True, issues=[])
+    output_dir = tmp_path / "data"
+
+    # Test with different custom field configs
+    generator_with_fields = OutputGenerator(
+        jira_instance="test.atlassian.net",
+        output_directory=str(output_dir),
+        custom_fields={
+            "owner": "customfield_12345",
+            "priority": "customfield_12346"
+        }
+    )
+
+    result = generator_with_fields.generate_csv(data, extraction_status)
+
+    with open(result.csv_file, encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+        fieldnames = reader.fieldnames
+
+        # Verify custom fields appear in alphabetical order
+        assert "owner" in fieldnames
+        assert "priority" in fieldnames
+        assert fieldnames.index("owner") < fieldnames.index("priority")  # Alphabetical
+
+        # Verify values are extracted
+        assert rows[0]["owner"] == "Alice"
+        assert rows[0]["priority"] == "High"
+
+    # Test with no custom fields - should only have fixed columns
+    generator_no_fields = OutputGenerator(
+        jira_instance="test.atlassian.net",
+        output_directory=str(output_dir / "no_fields")
+    )
+
+    result2 = generator_no_fields.generate_csv(data, extraction_status)
+
+    with open(result2.csv_file, encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        fieldnames = reader.fieldnames
+
+        # Verify no custom field columns when not configured
+        assert "owner" not in fieldnames
+        assert "priority" not in fieldnames
+        assert "quarter" not in fieldnames
+        assert "strategic_objective" not in fieldnames
+
+        # But fixed columns should still be there
+        assert "initiative_key" in fieldnames
+        assert "epic_key" in fieldnames

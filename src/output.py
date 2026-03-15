@@ -32,6 +32,7 @@ class OutputGenerator:
         jira_instance: str,
         output_directory: str = "./data",
         filename_pattern: str = "jira_extract_{timestamp}.json",
+        custom_fields: dict[str, str] | None = None,
     ):
         """Initialize output generator.
 
@@ -39,10 +40,12 @@ class OutputGenerator:
             jira_instance: Jira instance URL
             output_directory: Directory for output files
             filename_pattern: Filename pattern (use {timestamp} for current time)
+            custom_fields: Custom field configuration (field_name -> field_id mapping)
         """
         self.jira_instance = jira_instance
         self.output_directory = Path(output_directory)
         self.filename_pattern = filename_pattern
+        self.custom_fields = custom_fields or {}
 
     def generate(
         self,
@@ -162,15 +165,21 @@ class OutputGenerator:
                     row = {
                         "initiative_key": initiative["key"],
                         "initiative_summary": initiative["summary"],
-                        "strategic_objective": initiative.get("strategic_objective", ""),
-                        "quarter": initiative.get("quarter", ""),
+                    }
+
+                    # Add custom fields dynamically
+                    for field_name in sorted(self.custom_fields.keys()):
+                        row[field_name] = initiative.get(field_name, "")
+
+                    # Add remaining initiative and epic fields
+                    row.update({
                         "initiative_status": initiative["status"],
                         "team_project_key": team["team_project_key"],
                         "epic_key": epic["key"],
                         "epic_summary": epic["summary"],
                         "epic_rag_status": epic.get("rag_status") or "",
                         "epic_status": epic["status"],
-                    }
+                    })
                     rows.append(row)
 
         # Process orphaned epics (no parent initiative)
@@ -178,15 +187,21 @@ class OutputGenerator:
             row = {
                 "initiative_key": "",
                 "initiative_summary": "",
-                "strategic_objective": "",
-                "quarter": "",
+            }
+
+            # Add empty custom fields for orphaned epics
+            for field_name in sorted(self.custom_fields.keys()):
+                row[field_name] = ""
+
+            # Add remaining fields
+            row.update({
                 "initiative_status": "",
                 "team_project_key": epic.get("team_project_key", ""),
                 "epic_key": epic["key"],
                 "epic_summary": epic["summary"],
                 "epic_rag_status": epic.get("rag_status") or "",
                 "epic_status": epic["status"],
-            }
+            })
             rows.append(row)
 
         return rows
@@ -198,19 +213,24 @@ class OutputGenerator:
             path: Output file path
             rows: List of dictionaries to write as CSV rows
         """
-        # Fixed column order as specified
+        # Build column order dynamically based on configured custom fields
         fieldnames = [
             "initiative_key",
             "initiative_summary",
-            "strategic_objective",
-            "quarter",
+        ]
+
+        # Add custom fields in alphabetical order
+        fieldnames.extend(sorted(self.custom_fields.keys()))
+
+        # Add remaining fixed fields
+        fieldnames.extend([
             "initiative_status",
             "team_project_key",
             "epic_key",
             "epic_summary",
             "epic_rag_status",
             "epic_status",
-        ]
+        ])
 
         # Write CSV with UTF-8 BOM for Excel compatibility
         with open(path, "w", encoding="utf-8-sig", newline="") as f:
