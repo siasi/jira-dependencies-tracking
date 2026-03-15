@@ -105,9 +105,19 @@ To disable filtering, simply remove or comment out the `filters` section.
 
 ## Usage
 
-Extract data:
+Extract data (JSON format):
 ```bash
 python jira_extract.py extract
+```
+
+Extract as CSV:
+```bash
+python jira_extract.py extract --format csv
+```
+
+Extract both JSON and CSV:
+```bash
+python jira_extract.py extract --format both
 ```
 
 List custom fields:
@@ -120,18 +130,63 @@ Validate config:
 python jira_extract.py validate-config
 ```
 
-Options:
+### Options
+
 ```bash
 python jira_extract.py extract --config custom.yaml --output ./report.json --verbose
+python jira_extract.py extract --format csv --output ./data/export.csv
 ```
 
+**Available options:**
+- `--config PATH` - Path to config file (default: `config.yaml`)
+- `--format [json|csv|both]` - Output format (default: `json`)
+- `--output PATH` - Custom output file path
+- `--verbose` - Enable verbose output for debugging
+- `--dry-run` - Show what would be fetched without writing output
+
 ## Output
+
+### JSON Format
 
 JSON file in `./data/` directory with:
 - Initiative → Team → Epics hierarchy
 - Status and RAG indicators
 - Completeness tracking
 - Orphaned epics (no parent initiative)
+
+### CSV Format
+
+CSV file in `./data/` directory with denormalized structure:
+- One row per epic with initiative data repeated
+- Orphaned epics included with empty initiative columns
+- UTF-8 encoding with BOM for Excel compatibility
+- Dynamic columns based on configured custom fields
+
+**CSV Structure:**
+```csv
+initiative_key,initiative_summary,strategic_objective,quarter,initiative_status,team_project_key,epic_key,epic_summary,epic_rag_status,epic_status
+INIT-1485,Initiative Title,growth,26 Q2,Proposed,CBPPE,CBPPE-529,Epic Title,🟡,Backlog
+INIT-1485,Initiative Title,growth,26 Q2,Proposed,CBPPE,CBPPE-530,Another Epic,🟢,In Progress
+,,,,,RSK,RSK-123,Orphaned Epic,🟡,Done
+```
+
+**Columns (in order):**
+1. `initiative_key` - Initiative issue key
+2. `initiative_summary` - Initiative title
+3. `strategic_objective` - Strategic objective (custom field)
+4. `quarter` - Planning quarter (custom field)
+5. `initiative_status` - Initiative status
+6. `team_project_key` - Team project key
+7. `epic_key` - Epic issue key
+8. `epic_summary` - Epic title
+9. `epic_rag_status` - Epic RAG status (🟢🟡🔴)
+10. `epic_status` - Epic status
+
+**Excel Compatibility:**
+- CSV files use UTF-8 with BOM encoding
+- Opens correctly in Microsoft Excel, Google Sheets, and Numbers
+- Emoji characters (🟢🟡🔴) preserved
+- Special characters (commas, quotes, newlines) properly escaped
 
 ## Troubleshooting
 
