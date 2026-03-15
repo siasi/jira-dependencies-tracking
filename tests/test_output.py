@@ -1,4 +1,5 @@
 # tests/test_output.py
+import csv
 import json
 from pathlib import Path
 from datetime import datetime
@@ -162,3 +163,358 @@ def test_generate_output_with_queries(tmp_path):
     queries_index = keys.index("queries")
     status_index = keys.index("extraction_status")
     assert queries_index < status_index
+
+
+# CSV Export Tests
+
+
+def test_generate_csv_basic(tmp_path):
+    """Test basic CSV generation with denormalized structure."""
+    data = {
+        "initiatives": [
+            {
+                "key": "INIT-1",
+                "summary": "Test Initiative",
+                "status": "Proposed",
+                "url": "https://test.atlassian.net/browse/INIT-1",
+                "rag_status": "🟢",
+                "quarter": "26 Q2",
+                "contributing_teams": [
+                    {
+                        "team_project_key": "TEAM",
+                        "team_project_name": "Test Team",
+                        "epics": [
+                            {
+                                "key": "TEAM-1",
+                                "summary": "Test Epic",
+                                "status": "In Progress",
+                                "rag_status": "🟡",
+                                "url": "https://test.atlassian.net/browse/TEAM-1"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "orphaned_epics": [],
+        "summary": {"total_initiatives": 1, "total_epics": 1, "teams_involved": ["TEAM"]}
+    }
+
+    extraction_status = ExtractionStatus(complete=True, issues=[])
+
+    output_dir = tmp_path / "data"
+    generator = OutputGenerator(
+        jira_instance="test.atlassian.net",
+        output_directory=str(output_dir),
+        filename_pattern="test_{timestamp}.json"
+    )
+
+    result = generator.generate_csv(data, extraction_status)
+
+    # Verify file exists
+    assert result.csv_file.exists()
+    assert result.csv_file.suffix == ".csv"
+
+    # Read and verify CSV content
+    with open(result.csv_file, encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+
+        assert len(rows) == 1
+        assert rows[0]["initiative_key"] == "INIT-1"
+        assert rows[0]["initiative_summary"] == "Test Initiative"
+        assert rows[0]["epic_key"] == "TEAM-1"
+        assert rows[0]["epic_summary"] == "Test Epic"
+        assert rows[0]["rag_status"] == "🟢"
+        assert rows[0]["quarter"] == "26 Q2"
+
+
+def test_generate_csv_utf8_bom(tmp_path):
+    """Verify UTF-8 BOM is present for Excel compatibility."""
+    data = {
+        "initiatives": [{
+            "key": "INIT-1",
+            "summary": "Test",
+            "status": "Proposed",
+            "url": "https://test",
+            "contributing_teams": []
+        }],
+        "orphaned_epics": [],
+        "summary": {"total_initiatives": 1, "total_epics": 0, "teams_involved": []}
+    }
+
+    extraction_status = ExtractionStatus(complete=True, issues=[])
+
+    output_dir = tmp_path / "data"
+    generator = OutputGenerator(
+        jira_instance="test.atlassian.net",
+        output_directory=str(output_dir)
+    )
+
+    result = generator.generate_csv(data, extraction_status)
+
+    # Read raw bytes
+    with open(result.csv_file, "rb") as f:
+        first_bytes = f.read(3)
+
+    # Verify BOM is present (EF BB BF in hex)
+    assert first_bytes == b'\xef\xbb\xbf', "UTF-8 BOM missing"
+
+
+def test_generate_csv_with_orphaned_epics(tmp_path):
+    """Orphaned epics included in CSV with empty initiative columns."""
+    data = {
+        "initiatives": [
+            {
+                "key": "INIT-1",
+                "summary": "Initiative",
+                "status": "Active",
+                "url": "https://test/INIT-1",
+                "contributing_teams": [
+                    {
+                        "team_project_key": "TEAM",
+                        "team_project_name": "Team A",
+                        "epics": [
+                            {
+                                "key": "TEAM-1",
+                                "summary": "Linked Epic",
+                                "status": "Done",
+                                "url": "https://test/TEAM-1"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "orphaned_epics": [
+            {
+                "team_project_key": "RSK",
+                "team_project_name": "Risk Team",
+                "key": "RSK-123",
+                "summary": "Orphaned Epic",
+                "status": "In Progress",
+                "rag_status": "🟡",
+                "url": "https://test/RSK-123"
+            }
+        ],
+        "summary": {"total_initiatives": 1, "total_epics": 2, "teams_involved": ["TEAM", "RSK"]}
+    }
+
+    extraction_status = ExtractionStatus(complete=True, issues=[])
+
+    output_dir = tmp_path / "data"
+    generator = OutputGenerator(
+        jira_instance="test.atlassian.net",
+        output_directory=str(output_dir)
+    )
+
+    result = generator.generate_csv(data, extraction_status)
+
+    with open(result.csv_file, encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+
+        # Should have 2 rows (1 linked epic + 1 orphaned epic)
+        assert len(rows) == 2
+
+        # First row: linked epic
+        assert rows[0]["epic_key"] == "TEAM-1"
+        assert rows[0]["initiative_key"] == "INIT-1"
+
+        # Second row: orphaned epic with empty initiative fields
+        assert rows[1]["epic_key"] == "RSK-123"
+        assert rows[1]["initiative_key"] == ""
+        assert rows[1]["initiative_summary"] == ""
+        assert rows[1]["epic_rag_status"] == "🟡"
+
+
+def test_generate_csv_special_characters(tmp_path):
+    """CSV properly handles commas, quotes, newlines."""
+    data = {
+        "initiatives": [
+            {
+                "key": "INIT-1",
+                "summary": 'Title with "quotes", commas, and\nnewlines',
+                "status": "Proposed",
+                "url": "https://test",
+                "contributing_teams": [
+                    {
+                        "team_project_key": "TEAM",
+                        "team_project_name": "Test Team",
+                        "epics": [
+                            {
+                                "key": "TEAM-1",
+                                "summary": "Epic, with, commas",
+                                "status": "In Progress",
+                                "url": "https://test"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "orphaned_epics": [],
+        "summary": {"total_initiatives": 1, "total_epics": 1, "teams_involved": ["TEAM"]}
+    }
+
+    extraction_status = ExtractionStatus(complete=True, issues=[])
+
+    output_dir = tmp_path / "data"
+    generator = OutputGenerator(
+        jira_instance="test.atlassian.net",
+        output_directory=str(output_dir)
+    )
+
+    result = generator.generate_csv(data, extraction_status)
+
+    # Read CSV and verify content preserved
+    with open(result.csv_file, encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+
+        # CSV module should handle escaping automatically
+        assert 'Title with "quotes", commas, and\nnewlines' in rows[0]["initiative_summary"]
+        assert "Epic, with, commas" in rows[0]["epic_summary"]
+
+
+def test_generate_csv_emoji_preservation(tmp_path):
+    """Emoji characters preserved in CSV output."""
+    data = {
+        "initiatives": [
+            {
+                "key": "INIT-1",
+                "summary": "Emoji test 🎉",
+                "status": "Active",
+                "url": "https://test",
+                "rag_status": "🟢",
+                "contributing_teams": [
+                    {
+                        "team_project_key": "TEAM",
+                        "team_project_name": "Test Team",
+                        "epics": [
+                            {
+                                "key": "TEAM-1",
+                                "summary": "Epic 🚀",
+                                "status": "Done",
+                                "rag_status": "🔴",
+                                "url": "https://test"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "orphaned_epics": [],
+        "summary": {"total_initiatives": 1, "total_epics": 1, "teams_involved": ["TEAM"]}
+    }
+
+    extraction_status = ExtractionStatus(complete=True, issues=[])
+
+    output_dir = tmp_path / "data"
+    generator = OutputGenerator(
+        jira_instance="test.atlassian.net",
+        output_directory=str(output_dir)
+    )
+
+    result = generator.generate_csv(data, extraction_status)
+
+    with open(result.csv_file, encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+
+        assert "🎉" in rows[0]["initiative_summary"]
+        assert rows[0]["rag_status"] == "🟢"
+        assert "🚀" in rows[0]["epic_summary"]
+        assert rows[0]["epic_rag_status"] == "🔴"
+
+
+def test_generate_csv_empty_data(tmp_path):
+    """CSV generation handles empty data gracefully."""
+    data = {
+        "initiatives": [],
+        "orphaned_epics": [],
+        "summary": {"total_initiatives": 0, "total_epics": 0, "teams_involved": []}
+    }
+
+    extraction_status = ExtractionStatus(complete=True, issues=[])
+
+    output_dir = tmp_path / "data"
+    generator = OutputGenerator(
+        jira_instance="test.atlassian.net",
+        output_directory=str(output_dir)
+    )
+
+    result = generator.generate_csv(data, extraction_status)
+
+    # File should exist but be empty (or just headers)
+    assert result.csv_file.exists()
+
+
+def test_generate_csv_column_ordering(tmp_path):
+    """CSV columns ordered: initiative -> custom -> team -> epic."""
+    data = {
+        "initiatives": [
+            {
+                "key": "INIT-1",
+                "summary": "Test",
+                "status": "Active",
+                "url": "https://test",
+                "quarter": "26 Q2",
+                "rag_status": "🟢",
+                "strategic_objective": "growth",
+                "contributing_teams": [
+                    {
+                        "team_project_key": "TEAM",
+                        "team_project_name": "Test Team",
+                        "epics": [
+                            {
+                                "key": "TEAM-1",
+                                "summary": "Epic",
+                                "status": "Done",
+                                "url": "https://test"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "orphaned_epics": [],
+        "summary": {"total_initiatives": 1, "total_epics": 1, "teams_involved": ["TEAM"]}
+    }
+
+    extraction_status = ExtractionStatus(complete=True, issues=[])
+
+    output_dir = tmp_path / "data"
+    generator = OutputGenerator(
+        jira_instance="test.atlassian.net",
+        output_directory=str(output_dir)
+    )
+
+    result = generator.generate_csv(data, extraction_status)
+
+    with open(result.csv_file, encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        fieldnames = reader.fieldnames
+
+        # Verify column order
+        # Initiative fields first
+        assert fieldnames[0] == "initiative_key"
+        assert fieldnames[1] == "initiative_summary"
+        assert fieldnames[2] == "initiative_status"
+        assert fieldnames[3] == "initiative_url"
+
+        # Custom fields (alphabetically sorted)
+        custom_start = 4
+        custom_fields = [f for f in fieldnames if f not in [
+            "initiative_key", "initiative_summary", "initiative_status", "initiative_url",
+            "team_project_key", "team_project_name",
+            "epic_key", "epic_summary", "epic_status", "epic_rag_status", "epic_url"
+        ]]
+        assert custom_fields == sorted(custom_fields)
+
+        # Team fields before epic fields
+        assert "team_project_key" in fieldnames
+        assert "team_project_name" in fieldnames
+        team_index = fieldnames.index("team_project_key")
+        epic_index = fieldnames.index("epic_key")
+        assert team_index < epic_index

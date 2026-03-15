@@ -105,9 +105,19 @@ To disable filtering, simply remove or comment out the `filters` section.
 
 ## Usage
 
-Extract data:
+Extract data (JSON format):
 ```bash
 python jira_extract.py extract
+```
+
+Extract as CSV:
+```bash
+python jira_extract.py extract --format csv
+```
+
+Extract both JSON and CSV:
+```bash
+python jira_extract.py extract --format both
 ```
 
 List custom fields:
@@ -120,18 +130,57 @@ Validate config:
 python jira_extract.py validate-config
 ```
 
-Options:
+### Options
+
 ```bash
 python jira_extract.py extract --config custom.yaml --output ./report.json --verbose
+python jira_extract.py extract --format csv --output ./data/export.csv
 ```
 
+**Available options:**
+- `--config PATH` - Path to config file (default: `config.yaml`)
+- `--format [json|csv|both]` - Output format (default: `json`)
+- `--output PATH` - Custom output file path
+- `--verbose` - Enable verbose output for debugging
+- `--dry-run` - Show what would be fetched without writing output
+
 ## Output
+
+### JSON Format
 
 JSON file in `./data/` directory with:
 - Initiative → Team → Epics hierarchy
 - Status and RAG indicators
 - Completeness tracking
 - Orphaned epics (no parent initiative)
+
+### CSV Format
+
+CSV file in `./data/` directory with denormalized structure:
+- One row per epic with initiative data repeated
+- Orphaned epics included with empty initiative columns
+- UTF-8 encoding with BOM for Excel compatibility
+- Dynamic columns based on configured custom fields
+
+**CSV Structure:**
+```csv
+initiative_key,initiative_summary,quarter,rag_status,team_project_key,epic_key,epic_summary,epic_status
+INIT-1485,Initiative Title,26 Q2,🟢,CBPPE,CBPPE-529,Epic Title,Backlog
+INIT-1485,Initiative Title,26 Q2,🟢,CBPPE,CBPPE-530,Another Epic,In Progress
+,,,,RSK,RSK-123,Orphaned Epic,Done
+```
+
+**Column Ordering:**
+1. Initiative fields (key, summary, status, url)
+2. Custom fields (alphabetically sorted: quarter, rag_status, strategic_objective, etc.)
+3. Team fields (team_project_key, team_project_name)
+4. Epic fields (key, summary, status, rag_status, url)
+
+**Excel Compatibility:**
+- CSV files use UTF-8 with BOM encoding
+- Opens correctly in Microsoft Excel, Google Sheets, and Numbers
+- Emoji characters (🟢🟡🔴) preserved
+- Special characters (commas, quotes, newlines) properly escaped
 
 ## Troubleshooting
 

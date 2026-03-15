@@ -37,6 +37,12 @@ def cli():
     type=click.Path(),
 )
 @click.option(
+    "--format",
+    type=click.Choice(["json", "csv", "both"], case_sensitive=False),
+    default="json",
+    help="Output format: json (default), csv, or both",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     help="Show what would be fetched without writing output",
@@ -46,7 +52,7 @@ def cli():
     is_flag=True,
     help="Verbose output for debugging",
 )
-def extract(config: str, output: Optional[str], dry_run: bool, verbose: bool):
+def extract(config: str, output: Optional[str], format: str, dry_run: bool, verbose: bool):
     """Extract data from Jira."""
     try:
         # Load configuration
@@ -150,15 +156,28 @@ def extract(config: str, output: Optional[str], dry_run: bool, verbose: bool):
             filename_pattern=cfg.output.filename_pattern,
         )
 
-        output_path = generator.generate(
-            data=hierarchy_data,
-            extraction_status=extraction_status,
-            queries=queries,
-            custom_path=Path(output) if output else None,
-        )
+        custom_path = Path(output) if output else None
+
+        # Generate output based on format
+        if format in ["json", "both"]:
+            json_path = generator.generate(
+                data=hierarchy_data,
+                extraction_status=extraction_status,
+                queries=queries,
+                custom_path=custom_path,
+            )
+            click.echo(f"\n✓ JSON output: {json_path}")
+
+        if format in ["csv", "both"]:
+            csv_result = generator.generate_csv(
+                data=hierarchy_data,
+                extraction_status=extraction_status,
+                queries=queries,
+                custom_path=custom_path,
+            )
+            click.echo(f"✓ CSV output: {csv_result.csv_file}")
 
         # Print summary
-        click.echo(f"\n✓ Data extracted to: {output_path}")
         click.echo(f"\nSummary:")
         if cfg.filters and cfg.filters.quarter:
             click.echo(f"  Initiatives: {hierarchy_data['summary']['total_initiatives']} (filtered by quarter: {cfg.filters.quarter})")
