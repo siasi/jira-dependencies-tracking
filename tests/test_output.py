@@ -289,7 +289,6 @@ def test_generate_csv_with_orphaned_epics(tmp_path):
         "orphaned_epics": [
             {
                 "team_project_key": "RSK",
-                "team_project_name": "Risk Team",
                 "key": "RSK-123",
                 "summary": "Orphaned Epic",
                 "status": "In Progress",
