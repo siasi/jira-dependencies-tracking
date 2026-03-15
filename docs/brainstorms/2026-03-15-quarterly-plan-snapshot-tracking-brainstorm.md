@@ -52,19 +52,22 @@ We evaluated three approaches:
 
 **What constitutes a "commitment":**
 - Initiative status = "Planned" with all contributing teams committed (RAG status present)
-- No ETA tracking initially (focus on plan stability, not delivery predictability)
+- **Optional ETA tracking**: If configured, initiatives can have a Due Date (ETA = Estimated Time of Arrival)
+  - ETA field: `customfield_12204` ("Due Date" in Jira)
+  - Add to `config.yaml`: `eta: "customfield_12204"` under `custom_fields.initiatives`
 - Two dimensions to track:
-  1. **Plan Stability**: Did the set of Planned initiatives stay stable?
-  2. **Delivery Predictability**: (Future) When ETAs added, did things ship when expected?
+  1. **Plan Stability** (always tracked): Did the set of Planned initiatives stay stable?
+  2. **Delivery Predictability** (optional, requires ETA field): When ETAs set, did things ship when expected?
 
 **Churn patterns to detect:**
 - Initiatives drop from Planned → Proposed/Cancelled (consequence of #2 and #3 below)
 - New initiatives added mid-quarter and fast-tracked to Planned
 - Epic scope changes within initiatives (epics added/removed)
+- Low predictability: initiatives systematically overrun their ETA by a substantial margin
 
 ### Diff Analysis Reports
 
-**Four core reports** generated when comparing two snapshots:
+**Five reports** generated when comparing two snapshots (Reports 1-3 always, Reports 4-5 only if ETA field configured):
 
 1. **Commitment Drift Report**
    - Initiatives with status=Planned in baseline, now status=Proposed/Cancelled
@@ -78,9 +81,39 @@ We evaluated three approaches:
    - For each initiative, list epics added/removed between snapshots
    - Shows: initiative context, epics added, epics removed, net change
 
-4. **Team Stability Report**
+4. **Initiative Overrun Report** *(requires ETA field)*
+   - Initiatives delivered more than 20% beyond their original ETA
+   - Compares: baseline ETA (Due Date) vs actual delivery (status = Done date)
+   - Shows: initiative key, summary, % of lead time increase, epics status
+
+5. **Team Stability Report**
    - Per-team metrics: % of planned epics that remained unchanged
+   - Per-team metrics: % of initiatives delivered according to initial ETA *(requires ETA field)*
    - Shows: team ranking by stability, churn patterns
+
+### Configuration Examples
+
+**Mode 1: Plan Stability Only (no ETA tracking)**
+```yaml
+custom_fields:
+  initiatives:
+    rag_status: "customfield_12111"
+    strategic_objective: "customfield_12101"
+    quarter: "customfield_12108"
+    # No ETA field - Reports 4-5 will be skipped
+```
+→ Generates Reports 1-3 (commitment drift, new work injection, epic churn)
+
+**Mode 2: Plan Stability + Delivery Predictability (with ETA tracking)**
+```yaml
+custom_fields:
+  initiatives:
+    rag_status: "customfield_12111"
+    strategic_objective: "customfield_12101"
+    quarter: "customfield_12108"
+    eta: "customfield_12204"  # Due Date field for ETA tracking
+```
+→ Generates all 5 reports (including overrun analysis and delivery metrics)
 
 ### Workflow
 
@@ -105,32 +138,41 @@ python jira_extract.py snapshots list
 
 ### For Planning Phase
 
-1. **Snapshot metadata**: Should we capture additional context at snapshot time?
+1. **ETA field handling**:
+   - If `eta: "customfield_12204"` is NOT in config, skip Reports 4-5 entirely
+   - If configured but some initiatives missing ETA value, how to handle?
+     - Option A: Skip those initiatives in overrun analysis
+     - Option B: Report them as "No ETA set"
+   - How to capture "actual delivery date"?
+     - Option A: Date when status changed to "Done" (need to track status change history)
+     - Option B: Use "Completion Date" custom field if populated
+     - Option C: Snapshot at quarter-end shows which initiatives are Done (binary: on-time vs late)
+
+2. **Snapshot metadata**: Should we capture additional context at snapshot time?
    - Filter settings used (quarter filter)
    - Custom fields configuration
    - Number of initiatives/epics for quick sanity check
 
-2. **Report output format**: Text to stdout? Markdown file? CSV? All of the above?
+3. **Report output format**: Text to stdout? Markdown file? CSV? All of the above?
 
-3. **Snapshot management**:
+4. **Snapshot management**:
    - Should there be a `snapshots delete` command?
    - Archive old snapshots after quarter ends?
    - How to handle snapshot storage growth over time?
 
-4. **Diff algorithm details**:
+5. **Diff algorithm details**:
    - Match initiatives by key (obvious)
    - Match epics by key (obvious)
    - How to detect "renamed" initiatives (key changed but it's conceptually the same)?
    - Should we diff at team level or initiative level first?
 
-5. **Edge cases**:
+6. **Edge cases**:
    - What if baseline snapshot used different custom fields than current config?
    - What if a team project was added/removed between snapshots?
    - Handle orphaned epics in diff analysis?
 
 ### Future Enhancements (Deferred)
 
-- **ETA tracking**: When Jira has ETA custom field, add delivery predictability analysis
 - **Multi-snapshot trends**: Compare baseline → month1 → month2 → end in single report
 - **Visualization**: Charts showing churn over time (could add spreadsheet export per Approach C)
 - **Database storage**: Migrate to SQLite for richer queries (per Approach B)
