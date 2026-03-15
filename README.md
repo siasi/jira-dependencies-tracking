@@ -164,17 +164,23 @@ CSV file in `./data/` directory with denormalized structure:
 
 **CSV Structure:**
 ```csv
-initiative_key,initiative_summary,quarter,rag_status,team_project_key,epic_key,epic_summary,epic_status
-INIT-1485,Initiative Title,26 Q2,🟢,CBPPE,CBPPE-529,Epic Title,Backlog
-INIT-1485,Initiative Title,26 Q2,🟢,CBPPE,CBPPE-530,Another Epic,In Progress
-,,,,RSK,RSK-123,Orphaned Epic,Done
+initiative_key,initiative_summary,strategic_objective,quarter,initiative_status,team_project_key,epic_key,epic_summary,epic_rag_status,epic_status
+INIT-1485,Initiative Title,growth,26 Q2,Proposed,CBPPE,CBPPE-529,Epic Title,🟡,Backlog
+INIT-1485,Initiative Title,growth,26 Q2,Proposed,CBPPE,CBPPE-530,Another Epic,🟢,In Progress
+,,,,,RSK,RSK-123,Orphaned Epic,🟡,Done
 ```
 
-**Column Ordering:**
-1. Initiative fields (key, summary, status, url)
-2. Custom fields (alphabetically sorted: quarter, rag_status, strategic_objective, etc.)
-3. Team fields (team_project_key, team_project_name)
-4. Epic fields (key, summary, status, rag_status, url)
+**Columns (in order):**
+1. `initiative_key` - Initiative issue key
+2. `initiative_summary` - Initiative title
+3. `strategic_objective` - Strategic objective (custom field)
+4. `quarter` - Planning quarter (custom field)
+5. `initiative_status` - Initiative status
+6. `team_project_key` - Team project key
+7. `epic_key` - Epic issue key
+8. `epic_summary` - Epic title
+9. `epic_rag_status` - Epic RAG status (🟢🟡🔴)
+10. `epic_status` - Epic status
 
 **Excel Compatibility:**
 - CSV files use UTF-8 with BOM encoding

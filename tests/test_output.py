@@ -223,10 +223,12 @@ def test_generate_csv_basic(tmp_path):
         assert len(rows) == 1
         assert rows[0]["initiative_key"] == "INIT-1"
         assert rows[0]["initiative_summary"] == "Test Initiative"
+        assert rows[0]["quarter"] == "26 Q2"
+        assert rows[0]["initiative_status"] == "Proposed"
         assert rows[0]["epic_key"] == "TEAM-1"
         assert rows[0]["epic_summary"] == "Test Epic"
-        assert rows[0]["rag_status"] == "🟢"
-        assert rows[0]["quarter"] == "26 Q2"
+        assert rows[0]["epic_rag_status"] == "🟡"
+        assert rows[0]["epic_status"] == "In Progress"
 
 
 def test_generate_csv_utf8_bom(tmp_path):
@@ -385,7 +387,6 @@ def test_generate_csv_emoji_preservation(tmp_path):
                 "summary": "Emoji test 🎉",
                 "status": "Active",
                 "url": "https://test",
-                "rag_status": "🟢",
                 "contributing_teams": [
                     {
                         "team_project_key": "TEAM",
@@ -422,7 +423,6 @@ def test_generate_csv_emoji_preservation(tmp_path):
         rows = list(reader)
 
         assert "🎉" in rows[0]["initiative_summary"]
-        assert rows[0]["rag_status"] == "🟢"
         assert "🚀" in rows[0]["epic_summary"]
         assert rows[0]["epic_rag_status"] == "🔴"
 
@@ -450,7 +450,7 @@ def test_generate_csv_empty_data(tmp_path):
 
 
 def test_generate_csv_column_ordering(tmp_path):
-    """CSV columns ordered: initiative -> custom -> team -> epic."""
+    """CSV columns in exact specified order."""
     data = {
         "initiatives": [
             {
@@ -459,7 +459,6 @@ def test_generate_csv_column_ordering(tmp_path):
                 "status": "Active",
                 "url": "https://test",
                 "quarter": "26 Q2",
-                "rag_status": "🟢",
                 "strategic_objective": "growth",
                 "contributing_teams": [
                     {
@@ -495,25 +494,17 @@ def test_generate_csv_column_ordering(tmp_path):
         reader = csv.DictReader(f)
         fieldnames = reader.fieldnames
 
-        # Verify column order
-        # Initiative fields first
-        assert fieldnames[0] == "initiative_key"
-        assert fieldnames[1] == "initiative_summary"
-        assert fieldnames[2] == "initiative_status"
-        assert fieldnames[3] == "initiative_url"
-
-        # Custom fields (alphabetically sorted)
-        custom_start = 4
-        custom_fields = [f for f in fieldnames if f not in [
-            "initiative_key", "initiative_summary", "initiative_status", "initiative_url",
-            "team_project_key", "team_project_name",
-            "epic_key", "epic_summary", "epic_status", "epic_rag_status", "epic_url"
-        ]]
-        assert custom_fields == sorted(custom_fields)
-
-        # Team fields before epic fields
-        assert "team_project_key" in fieldnames
-        assert "team_project_name" in fieldnames
-        team_index = fieldnames.index("team_project_key")
-        epic_index = fieldnames.index("epic_key")
-        assert team_index < epic_index
+        # Verify exact column order as specified
+        expected_order = [
+            "initiative_key",
+            "initiative_summary",
+            "strategic_objective",
+            "quarter",
+            "initiative_status",
+            "team_project_key",
+            "epic_key",
+            "epic_summary",
+            "epic_rag_status",
+            "epic_status",
+        ]
+        assert fieldnames == expected_order

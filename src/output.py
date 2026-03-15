@@ -156,38 +156,20 @@ class OutputGenerator:
 
         # Process linked epics (with parent initiatives)
         for initiative in data.get("initiatives", []):
-            # Extract initiative fields
-            base_fields = {
-                "initiative_key": initiative["key"],
-                "initiative_summary": initiative["summary"],
-                "initiative_status": initiative["status"],
-                "initiative_url": initiative["url"],
-            }
-
-            # Extract custom fields dynamically
-            custom_fields = {
-                k: str(v) if v is not None else ""
-                for k, v in initiative.items()
-                if k not in ["key", "summary", "status", "url", "contributing_teams"]
-            }
-
             # Process each epic under this initiative
             for team in initiative.get("contributing_teams", []):
-                team_fields = {
-                    "team_project_key": team["team_project_key"],
-                    "team_project_name": team["team_project_name"],
-                }
-
                 for epic in team.get("epics", []):
                     row = {
-                        **base_fields,
-                        **custom_fields,
-                        **team_fields,
+                        "initiative_key": initiative["key"],
+                        "initiative_summary": initiative["summary"],
+                        "strategic_objective": initiative.get("strategic_objective", ""),
+                        "quarter": initiative.get("quarter", ""),
+                        "initiative_status": initiative["status"],
+                        "team_project_key": team["team_project_key"],
                         "epic_key": epic["key"],
                         "epic_summary": epic["summary"],
-                        "epic_status": epic["status"],
                         "epic_rag_status": epic.get("rag_status") or "",
-                        "epic_url": epic["url"],
+                        "epic_status": epic["status"],
                     }
                     rows.append(row)
 
@@ -196,15 +178,14 @@ class OutputGenerator:
             row = {
                 "initiative_key": "",
                 "initiative_summary": "",
+                "strategic_objective": "",
+                "quarter": "",
                 "initiative_status": "",
-                "initiative_url": "",
                 "team_project_key": epic.get("team_project_key", ""),
-                "team_project_name": epic.get("team_project_name", ""),
                 "epic_key": epic["key"],
                 "epic_summary": epic["summary"],
-                "epic_status": epic["status"],
                 "epic_rag_status": epic.get("rag_status") or "",
-                "epic_url": epic["url"],
+                "epic_status": epic["status"],
             }
             rows.append(row)
 
@@ -217,36 +198,19 @@ class OutputGenerator:
             path: Output file path
             rows: List of dictionaries to write as CSV rows
         """
-        # Determine column order
-        # Fixed fields first, then custom fields, then team and epic fields
-        fixed_fields = [
+        # Fixed column order as specified
+        fieldnames = [
             "initiative_key",
             "initiative_summary",
+            "strategic_objective",
+            "quarter",
             "initiative_status",
-            "initiative_url",
-        ]
-        team_fields = ["team_project_key", "team_project_name"]
-        epic_fields = [
+            "team_project_key",
             "epic_key",
             "epic_summary",
-            "epic_status",
             "epic_rag_status",
-            "epic_url",
+            "epic_status",
         ]
-
-        if rows:
-            # Extract all keys from first row
-            all_keys = set(rows[0].keys())
-
-            # Identify custom fields (everything not in fixed/team/epic)
-            known_fields = set(fixed_fields + team_fields + epic_fields)
-            custom_fields = sorted(all_keys - known_fields)
-
-            # Final column order
-            fieldnames = fixed_fields + custom_fields + team_fields + epic_fields
-        else:
-            # No rows - use basic fieldnames (no custom fields)
-            fieldnames = fixed_fields + team_fields + epic_fields
 
         # Write CSV with UTF-8 BOM for Excel compatibility
         with open(path, "w", encoding="utf-8-sig", newline="") as f:
