@@ -202,10 +202,10 @@ class ComparisonResult:
 #### Phase 1: Snapshot Capture (MVP)
 
 **Deliverables**:
-- [ ] `snapshot` command captures current Jira data with label
-- [ ] Snapshots saved to `data/snapshots/snapshot_{label}_{timestamp}.json`
-- [ ] Metadata includes label, timestamp, config, totals
-- [ ] Reuses existing extract flow (no new Jira API calls)
+- [x] `snapshot` command captures current Jira data with label
+- [x] Snapshots saved to `data/snapshots/snapshot_{label}_{timestamp}.json`
+- [x] Metadata includes label, timestamp, config, totals
+- [x] Reuses existing extract flow (no new Jira API calls)
 
 **Files to modify/create**:
 - Modify: `jira_extract.py` (add `snapshot` command)
@@ -271,9 +271,9 @@ class SnapshotManager:
 #### Phase 2: Snapshot Listing
 
 **Deliverables**:
-- [ ] `snapshots list` command shows available snapshots
-- [ ] Displays: label, timestamp, jira instance, totals
-- [ ] Sorted by timestamp (newest first)
+- [x] `snapshots list` command shows available snapshots
+- [x] Displays: label, timestamp, jira instance, totals
+- [x] Sorted by timestamp (newest first)
 
 **Files to modify/create**:
 - Modify: `jira_extract.py` (add `snapshots` group with `list` command)
