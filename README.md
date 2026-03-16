@@ -144,6 +144,156 @@ python jira_extract.py extract --format csv --output ./data/export.csv
 - `--verbose` - Enable verbose output for debugging
 - `--dry-run` - Show what would be fetched without writing output
 
+## Snapshot Tracking
+
+Track plan stability and delivery over time by capturing quarterly snapshots and comparing them. This helps engineering leadership measure plan churn, commitment drift, and delivery predictability.
+
+### Capture Snapshots
+
+Capture a timestamped snapshot with a semantic label:
+
+```bash
+# Capture baseline when plan stabilizes
+python jira_extract.py snapshot --label "2026-Q2-baseline"
+
+# Monthly checkpoints
+python jira_extract.py snapshot --label "2026-Q2-month1"
+python jira_extract.py snapshot --label "2026-Q2-month2"
+python jira_extract.py snapshot --label "2026-Q2-end"
+```
+
+Snapshots are saved to `data/snapshots/` and include:
+- All Jira data (initiatives, epics, orphaned epics)
+- Metadata (timestamp, configuration, totals)
+- Same filtering rules as extract command
+
+### List Available Snapshots
+
+View all captured snapshots:
+
+```bash
+python jira_extract.py snapshots list
+```
+
+Output shows:
+- Label, timestamp, Jira instance
+- Total initiatives, epics, teams
+
+### Compare Snapshots
+
+Generate comparison reports between two snapshots:
+
+```bash
+# Compare baseline vs current month (text output to terminal)
+python jira_extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
+
+# Generate markdown report to file
+python jira_extract.py compare \
+  --from "2026-Q2-baseline" \
+  --to "2026-Q2-end" \
+  --format markdown \
+  --output ./reports/q2-final.md
+
+# Generate CSV export
+python jira_extract.py compare \
+  --from "2026-Q2-baseline" \
+  --to "2026-Q2-end" \
+  --format csv \
+  --output ./reports/q2-comparison.csv
+```
+
+**Report Formats:**
+- `text` - Terminal-friendly plain text (default)
+- `markdown` - GitHub/docs formatted with tables
+- `csv` - Spreadsheet-compatible export
+
+### Comparison Reports
+
+The comparison generates 5 reports (+ orphaned epics tracking):
+
+**Report 1: Commitment Drift**
+- Initiatives that were "Planned" in baseline, now "Proposed" or "Cancelled"
+- Shows which commitments dropped during the quarter
+
+**Report 2: New Work Injection**
+- Initiatives that weren't "Planned" in baseline, now "Planned"
+- Shows what new work was added mid-quarter
+
+**Report 3: Epic Churn**
+- Epics added or removed within each initiative
+- Net change per initiative
+
+**Report 4: Initiative Overruns** *(requires ETA field)*
+- Initiatives delivered >20% beyond their ETA
+- Requires `eta` custom field configured (e.g., Due Date)
+
+**Report 5: Team Stability**
+- Per-team metrics: % of epics unchanged, added, removed
+- Sorted by least stable first
+
+**Orphaned Epics Tracking:**
+- Epics that were orphaned, now assigned
+- Epics newly orphaned
+- Epics still orphaned
+
+### Configuration: ETA Tracking (Optional)
+
+To enable delivery predictability tracking (Reports 4-5), configure the ETA field:
+
+```yaml
+custom_fields:
+  initiatives:
+    rag_status: "customfield_12111"
+    quarter: "customfield_12108"
+    eta: "customfield_12204"  # Due Date field for ETA tracking
+```
+
+With ETA tracking:
+- Report 4 shows initiatives that overran their ETA
+- Report 5 includes delivery rate metrics
+
+Without ETA field:
+- Report 4 is skipped
+- Report 5 shows only plan stability (no delivery metrics)
+
+### Typical Workflow
+
+**Quarterly tracking:**
+
+1. Capture baseline when plan stabilizes:
+   ```bash
+   python jira_extract.py snapshot --label "2026-Q2-baseline"
+   ```
+
+2. Capture monthly checkpoints:
+   ```bash
+   python jira_extract.py snapshot --label "2026-Q2-month1"
+   python jira_extract.py snapshot --label "2026-Q2-month2"
+   ```
+
+3. Capture end-of-quarter snapshot:
+   ```bash
+   python jira_extract.py snapshot --label "2026-Q2-end"
+   ```
+
+4. Generate comparison reports:
+   ```bash
+   # Month 1 drift
+   python jira_extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
+
+   # Final quarter report
+   python jira_extract.py compare \
+     --from "2026-Q2-baseline" \
+     --to "2026-Q2-end" \
+     --format markdown \
+     --output ./reports/2026-Q2-final.md
+   ```
+
+**Success Metrics:**
+- Capture snapshot in < 30 seconds
+- Generate comparison in < 10 seconds (for 100 initiatives, 500 epics)
+- Monthly leadership reports prepared in < 15 minutes
+
 ## Output
 
 ### JSON Format

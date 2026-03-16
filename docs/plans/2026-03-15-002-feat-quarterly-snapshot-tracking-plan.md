@@ -589,7 +589,7 @@ class ReportGenerator:
 **Deliverables**:
 - [x] All CLI commands integrated and working
 - [x] Comprehensive test coverage
-- [ ] README updated with examples
+- [x] README updated with examples
 - [x] Error handling for edge cases
 
 **Files to modify/create**:
