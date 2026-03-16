@@ -308,10 +308,10 @@ def list_snapshots(self) -> List[SnapshotMetadata]:
 #### Phase 3: Comparison Engine (Core Logic)
 
 **Deliverables**:
-- [ ] Load two snapshots by label
-- [ ] Diff algorithm detects changes
-- [ ] Generate ComparisonResult with all 5 reports
-- [ ] Handle missing ETA field gracefully (skip Reports 4-5)
+- [x] Load two snapshots by label
+- [x] Diff algorithm detects changes
+- [x] Generate ComparisonResult with all 5 reports
+- [x] Handle missing ETA field gracefully (skip Reports 4-5)
 
 **Files to create**:
 - Create: `src/comparator.py` (SnapshotComparator class)
