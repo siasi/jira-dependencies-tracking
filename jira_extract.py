@@ -12,6 +12,8 @@ from src.fetcher import DataFetcher
 from src.builder import build_hierarchy
 from src.output import OutputGenerator, ExtractionStatus
 from src.snapshot import SnapshotManager, SnapshotError
+from src.comparator import SnapshotComparator
+from src.reports import ReportGenerator
 
 
 @click.group()
@@ -500,6 +502,89 @@ def snapshots_list():
         sys.exit(2)
     except Exception as e:
         click.echo(click.style(f"Error: {e}", fg="red"), err=True)
+        sys.exit(2)
+
+
+@cli.command()
+@click.option(
+    "--from",
+    "from_label",
+    required=True,
+    help="Baseline snapshot label",
+)
+@click.option(
+    "--to",
+    "to_label",
+    required=True,
+    help="Comparison snapshot label",
+)
+@click.option(
+    "--format",
+    type=click.Choice(["text", "markdown", "csv"], case_sensitive=False),
+    default="text",
+    help="Output format: text (default), markdown, or csv",
+)
+@click.option(
+    "--output",
+    type=click.Path(),
+    help="Output file path (writes to stdout if not specified)",
+)
+def compare(from_label: str, to_label: str, format: str, output: Optional[str]):
+    """Compare two snapshots and generate diff report."""
+    try:
+        snapshot_manager = SnapshotManager()
+
+        # Load snapshots
+        click.echo(f"Loading snapshots...")
+        baseline = snapshot_manager.load_snapshot(from_label)
+        current = snapshot_manager.load_snapshot(to_label)
+
+        click.echo(f"  Baseline: {baseline.metadata.label} ({baseline.metadata.timestamp})")
+        click.echo(f"  Current:  {current.metadata.label} ({current.metadata.timestamp})")
+
+        # Compare snapshots
+        click.echo(f"\nComparing snapshots...")
+        comparator = SnapshotComparator(baseline, current)
+        result = comparator.compare()
+
+        # Generate report
+        click.echo(f"Generating {format} report...")
+        generator = ReportGenerator(result)
+
+        if format == "text":
+            report_content = generator.generate_text()
+        elif format == "markdown":
+            report_content = generator.generate_markdown()
+        elif format == "csv":
+            report_content = generator.generate_csv()
+        else:
+            raise ValueError(f"Unsupported format: {format}")
+
+        # Output report
+        if output:
+            output_path = Path(output)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(report_content, encoding="utf-8")
+            click.echo(f"\n✓ Report saved: {output_path}")
+        else:
+            click.echo(f"\n{'-' * 80}\n")
+            click.echo(report_content)
+
+        # Print quick summary
+        click.echo(f"\n{'-' * 80}")
+        click.echo(f"Summary:")
+        click.echo(f"  Dropped initiatives: {len(result.dropped_initiatives)}")
+        click.echo(f"  Added initiatives: {len(result.added_initiatives)}")
+        click.echo(f"  Initiatives with epic churn: {len(result.epic_churn)}")
+        click.echo(f"  Teams analyzed: {len(result.team_stability)}")
+
+    except SnapshotError as e:
+        click.echo(click.style(f"Snapshot error: {e}", fg="red"), err=True)
+        sys.exit(2)
+    except Exception as e:
+        click.echo(click.style(f"Error: {e}", fg="red"), err=True)
+        import traceback
+        traceback.print_exc()
         sys.exit(2)
 
 

@@ -522,10 +522,10 @@ class SnapshotComparator:
 #### Phase 4: Report Generation
 
 **Deliverables**:
-- [ ] Format ComparisonResult as text report
-- [ ] Format as markdown report (with tables)
-- [ ] Format as CSV export
-- [ ] Output to stdout or file
+- [x] Format ComparisonResult as text report
+- [x] Format as markdown report (with tables)
+- [x] Format as CSV export
+- [x] Output to stdout or file
 
 **Files to create**:
 - Create: `src/reports.py` (ReportGenerator class)
