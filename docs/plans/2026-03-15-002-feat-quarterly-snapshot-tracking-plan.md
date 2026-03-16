@@ -1,7 +1,7 @@
 ---
 title: Quarterly Snapshot Tracking System
 type: feat
-status: active
+status: completed
 date: 2026-03-15
 origin: docs/brainstorms/2026-03-15-quarterly-plan-snapshot-tracking-brainstorm.md
 ---
