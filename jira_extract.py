@@ -16,6 +16,12 @@ from src.comparator import SnapshotComparator
 from src.reports import ReportGenerator
 
 
+def _handle_snapshot_error(e: SnapshotError) -> None:
+    """Handle snapshot errors consistently across all snapshot commands."""
+    click.echo(click.style(f"Snapshot error: {e}", fg="red"), err=True)
+    sys.exit(2)
+
+
 @click.group()
 @click.version_option(version="0.1.0")
 def cli():
@@ -453,8 +459,7 @@ def snapshot(config: str, label: str, verbose: bool):
         click.echo(click.style(f"Configuration error: {e}", fg="red"), err=True)
         sys.exit(2)
     except SnapshotError as e:
-        click.echo(click.style(f"Snapshot error: {e}", fg="red"), err=True)
-        sys.exit(2)
+        _handle_snapshot_error(e)
     except Exception as e:
         click.echo(click.style(f"Error: {e}", fg="red"), err=True)
         if verbose:
@@ -498,8 +503,7 @@ def snapshots_list():
         click.echo(f"\nSnapshots stored in: data/snapshots/")
 
     except SnapshotError as e:
-        click.echo(click.style(f"Snapshot error: {e}", fg="red"), err=True)
-        sys.exit(2)
+        _handle_snapshot_error(e)
     except Exception as e:
         click.echo(click.style(f"Error: {e}", fg="red"), err=True)
         sys.exit(2)
@@ -579,8 +583,7 @@ def compare(from_label: str, to_label: str, format: str, output: Optional[str]):
         click.echo(f"  Teams analyzed: {len(result.team_stability)}")
 
     except SnapshotError as e:
-        click.echo(click.style(f"Snapshot error: {e}", fg="red"), err=True)
-        sys.exit(2)
+        _handle_snapshot_error(e)
     except Exception as e:
         click.echo(click.style(f"Error: {e}", fg="red"), err=True)
         import traceback
