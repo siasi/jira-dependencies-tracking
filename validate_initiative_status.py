@@ -356,13 +356,9 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
                     ]
                     print(f"   ⚠️  Epic count mismatch")
                     print(f"       - Has {len(epic_keys)} epics: {', '.join(epic_keys)}")
-                    print(f"       - Teams Involved field shows {len(issue['teams_involved'])} teams: {', '.join(issue['teams_involved'])}")
-                    missing_from_field = set(issue['teams_with_epics']) - set(issue['teams_involved'])
-                    extra_in_field = set(issue['teams_involved']) - set(issue['teams_with_epics'])
-                    if missing_from_field:
-                        print(f"       - Unexpected Epics: {', '.join(missing_from_field)}")
-                    if extra_in_field:
-                        print(f"       - Teams with no epic: {', '.join(extra_in_field)}")
+                    print(f"       - Epics are from {len(issue['teams_with_epics'])} teams: {', '.join(sorted(issue['teams_with_epics']))}")
+                    print(f"       - Teams Involved field lists {len(issue['teams_involved'])} teams: {', '.join(issue['teams_involved'])}")
+                    print(f"       - Action: Update Teams Involved field to match the {len(issue['teams_with_epics'])} teams with epics")
                     print()
 
                 elif issue['type'] == 'missing_rag_status':
