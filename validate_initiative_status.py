@@ -24,6 +24,7 @@ import argparse
 import json
 import sys
 import yaml
+from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -352,6 +353,7 @@ def validate_initiative_status(json_file: Path, min_teams: int = 1) -> Validatio
         initiative_summary = initiative['summary']
         initiative_status = initiative.get('status', 'Unknown')
         initiative_assignee = initiative.get('assignee')
+        initiative_url = initiative.get('url', '')
 
         # Check data quality issues first (highest priority)
         data_quality_issues = _check_data_quality(initiative)
@@ -368,6 +370,7 @@ def validate_initiative_status(json_file: Path, min_teams: int = 1) -> Validatio
                     'summary': initiative_summary,
                     'status': initiative_status,
                     'assignee': initiative_assignee,
+                    'url': initiative_url,
                     'contributing_teams': initiative.get('contributing_teams', []),
                     'issues': data_quality_issues
                 })
@@ -377,13 +380,15 @@ def validate_initiative_status(json_file: Path, min_teams: int = 1) -> Validatio
                     'summary': initiative_summary,
                     'status': initiative_status,
                     'assignee': initiative_assignee,
+                    'url': initiative_url,
                     'contributing_teams': initiative.get('contributing_teams', []),
                     'issues': commitment_blocker_issues
                 })
             elif _is_ready_to_plan(initiative):
                 result.ready_to_plan.append({
                     'key': initiative_key,
-                    'summary': initiative_summary
+                    'summary': initiative_summary,
+                    'url': initiative_url
                 })
 
         elif initiative_status == 'Planned':
@@ -401,6 +406,7 @@ def validate_initiative_status(json_file: Path, min_teams: int = 1) -> Validatio
                     'summary': initiative_summary,
                     'status': initiative_status,
                     'assignee': initiative_assignee,
+                    'url': initiative_url,
                     'contributing_teams': initiative.get('contributing_teams', []),
                     'issues': all_issues if all_issues else []
                 })
@@ -410,7 +416,8 @@ def validate_initiative_status(json_file: Path, min_teams: int = 1) -> Validatio
             result.ignored_statuses.append({
                 'key': initiative_key,
                 'summary': initiative_summary,
-                'status': initiative_status
+                'status': initiative_status,
+                'url': initiative_url
             })
 
     return result
@@ -717,6 +724,257 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
         print(f"{'-' * 80}\n")
 
 
+def generate_markdown_report(result: ValidationResult, json_file: Path, min_teams: int = 1, verbose: bool = False) -> str:
+    """Generate markdown-formatted validation report for Notion import.
+
+    Args:
+        result: ValidationResult with findings
+        json_file: Path to validated JSON file
+        min_teams: Minimum team count filter applied
+        verbose: Include verbose sections
+
+    Returns:
+        Markdown-formatted report string
+    """
+    # Load team mappings for detailed action messages
+    team_mappings = _load_team_mappings()
+
+    lines = []
+
+    # Title
+    lines.append("# Initiative Planning Readiness Tracker")
+    lines.append("")
+
+    # Metadata
+    lines.append("## Report Metadata")
+    lines.append("")
+    lines.append(f"- **Data source**: `{json_file}`")
+    lines.append(f"- **Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    if min_teams > 1:
+        lines.append(f"- **Filter**: Teams Involved >= {min_teams}")
+        lines.append(f"- **Total initiatives in file**: {result.total_checked + result.total_filtered}")
+        lines.append(f"- **Initiatives analyzed**: {result.total_checked}")
+        lines.append(f"- **Initiatives filtered out**: {result.total_filtered}")
+    else:
+        lines.append(f"- **Total initiatives checked**: {result.total_checked}")
+    lines.append("")
+
+    # Summary
+    lines.append("## Summary")
+    lines.append("")
+    lines.append(f"- 📊 **Initiative Setup in Progress**: {len(result.fix_data_quality)} initiatives")
+    lines.append(f"- 🤝 **Commitment & Readiness Check**: {len(result.address_blockers)} initiatives")
+    lines.append(f"- ✅ **Cleared for Planning**: {len(result.ready_to_plan)} initiatives")
+    if verbose:
+        if result.planned_regressions:
+            lines.append(f"- 🔄 **Planned Initiatives Requiring Attention**: {len(result.planned_regressions)} initiatives")
+        if result.ignored_statuses:
+            lines.append(f"- ⏭️ **Not Analyzed** (other statuses): {len(result.ignored_statuses)} initiatives")
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+
+    # Section 1: Initiative Setup in Progress
+    if result.fix_data_quality:
+        lines.append(f"## 📊 Initiative Setup in Progress ({len(result.fix_data_quality)} initiatives)")
+        lines.append("")
+        lines.append("**To advance**: Complete epic setup and team coordination")
+        lines.append("")
+        lines.append("**Help needed**: Create missing epics, set initial RAG status")
+        lines.append("")
+
+        for item in result.fix_data_quality:
+            lines.append(f"### [{item['key']}]({item.get('url', '#')}): {item['summary']}")
+            lines.append("")
+            lines.append(f"- **Status**: {item['status']}")
+            lines.append(f"- **Assignee**: {item.get('assignee') or '*(none)*'}")
+            lines.append("")
+
+            for issue in item['issues']:
+                if issue['type'] == 'epic_count_mismatch':
+                    epic_keys = [
+                        epic['key']
+                        for tc in item['contributing_teams']
+                        for epic in tc.get('epics', [])
+                    ]
+                    teams_count = len(issue['teams_involved'])
+                    epics_count = len(issue['teams_with_epics'])
+
+                    lines.append("**⚠️ Epic count mismatch**")
+                    lines.append("")
+
+                    if epics_count < teams_count:
+                        teams_with_epics_set = set(issue['teams_with_epics'])
+                        missing_teams = []
+                        for display_name in issue['teams_involved']:
+                            project_key = team_mappings.get(display_name)
+                            if project_key and project_key not in teams_with_epics_set:
+                                missing_teams.append(f"{display_name} ({project_key})")
+                            elif not project_key and display_name not in teams_with_epics_set:
+                                missing_teams.append(f"{display_name} (unmapped)")
+
+                        if missing_teams:
+                            epic_word = "epic" if len(missing_teams) == 1 else "epics"
+                            lines.append(f"- [ ] **Action**: {', '.join(missing_teams)} to create {epic_word}")
+                        else:
+                            missing_count = teams_count - epics_count
+                            lines.append(f"- [ ] **Action**: Create {missing_count} missing epic{'s' if missing_count > 1 else ''} or update Teams Involved field")
+                    elif epics_count > teams_count:
+                        teams_involved_keys = set()
+                        for display_name in issue['teams_involved']:
+                            project_key = team_mappings.get(display_name)
+                            if project_key:
+                                teams_involved_keys.add(project_key.upper())
+                            else:
+                                teams_involved_keys.add(display_name.upper())
+
+                        extra_teams = [key for key in issue['teams_with_epics']
+                                      if key.upper() not in teams_involved_keys]
+
+                        if extra_teams:
+                            lines.append(f"- [ ] **Action**: Add {', '.join(extra_teams)} to Teams Involved field")
+                        else:
+                            lines.append(f"- [ ] **Action**: Update Teams Involved field to include all {epics_count} teams with epics")
+                    lines.append("")
+
+                elif issue['type'] == 'missing_rag_status':
+                    epic_keys = [epic['key'] for epic in issue['epics']]
+                    lines.append("**⚠️ Missing RAG status**")
+                    lines.append("")
+                    lines.append(f"- [ ] **Action**: {', '.join(epic_keys)} to set RAG status")
+                    lines.append("")
+
+                elif issue['type'] == 'no_epics':
+                    lines.append("**⚠️ No epics found**")
+                    lines.append("")
+                    lines.append("- Initiative has zero epics linked")
+                    lines.append("- Cannot validate RAG status or team involvement")
+                    lines.append("")
+
+        lines.append("---")
+        lines.append("")
+
+    # Section 2: Commitment & Readiness Check
+    if result.address_blockers:
+        lines.append(f"## 🤝 Commitment & Readiness Check ({len(result.address_blockers)} initiatives)")
+        lines.append("")
+        lines.append("**To advance**: Confirm all teams are ready with green RAG")
+        lines.append("")
+        lines.append("**Help needed**: Update RAG status, assign owner")
+        lines.append("")
+
+        for item in result.address_blockers:
+            lines.append(f"### [{item['key']}]({item.get('url', '#')}): {item['summary']}")
+            lines.append("")
+            lines.append(f"- **Status**: {item['status']}")
+            lines.append(f"- **Assignee**: {item.get('assignee') or '*(none)*'}")
+            lines.append("")
+
+            for issue in item['issues']:
+                if issue['type'] == 'red_epics':
+                    lines.append(f"**⚠️ Epics with RED status ({len(issue['epics'])})**")
+                    lines.append("")
+                    for epic in issue['epics']:
+                        rag_display = "🔴" if epic['rag_status'] == '🔴' else "*(missing - treated as RED)*"
+                        lines.append(f"- {epic['key']} {rag_display}: \"{epic['summary']}\"")
+                    lines.append("")
+
+                elif issue['type'] == 'yellow_epics':
+                    lines.append(f"**⚠️ Epics with YELLOW status ({len(issue['epics'])})**")
+                    lines.append("")
+                    for epic in issue['epics']:
+                        lines.append(f"- {epic['key']} 🟡: \"{epic['summary']}\"")
+                    lines.append("")
+
+                elif issue['type'] == 'no_assignee':
+                    lines.append("**⚠️ No assignee set**")
+                    lines.append("")
+                    lines.append("- [ ] **Action**: Initiative needs an owner before moving to Planned")
+                    lines.append("")
+
+        lines.append("---")
+        lines.append("")
+
+    # Section 3: Cleared for Planning
+    lines.append(f"## ✅ Cleared for Planning ({len(result.ready_to_plan)} initiatives)")
+    lines.append("")
+
+    if result.ready_to_plan:
+        for item in result.ready_to_plan:
+            lines.append(f"- [{item['key']}]({item.get('url', '#')}): {item['summary']}")
+        lines.append("")
+        lines.append("**Bulk update - Copy these issue keys for Jira:**")
+        lines.append("")
+        keys = [item['key'] for item in result.ready_to_plan]
+        lines.append(f"`{','.join(keys)}`")
+    else:
+        lines.append("*No initiatives are ready to move to Planned status at this time.*")
+
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+
+    # Section 4: Planned Initiatives Requiring Attention (verbose only)
+    if verbose and result.planned_regressions:
+        lines.append(f"## 🔄 Planned Initiatives Requiring Attention ({len(result.planned_regressions)} initiatives)")
+        lines.append("")
+        lines.append("**To maintain quality**: Review status changes for these planned initiatives")
+        lines.append("")
+        lines.append("**Help needed**: Verify RAG status updates, confirm team commitment")
+        lines.append("")
+
+        for item in result.planned_regressions:
+            lines.append(f"### [{item['key']}]({item.get('url', '#')}): {item['summary']}")
+            lines.append("")
+            lines.append(f"- **Status**: {item['status']}")
+            lines.append(f"- **Assignee**: {item.get('assignee') or '*(none)*'}")
+            lines.append("")
+
+            # Show same detailed issues as text output
+            for issue in item.get('issues', []):
+                if issue['type'] == 'epic_count_mismatch':
+                    lines.append("**⚠️ Epic count mismatch**")
+                    lines.append("")
+                    # Similar logic as Section 1
+                elif issue['type'] == 'missing_rag_status':
+                    epic_keys = [epic['key'] for epic in issue['epics']]
+                    lines.append("**⚠️ Missing RAG status**")
+                    lines.append("")
+                    lines.append(f"- [ ] **Action**: {', '.join(epic_keys)} to set RAG status")
+                    lines.append("")
+                elif issue['type'] == 'no_epics':
+                    lines.append("**⚠️ No epics found**")
+                    lines.append("")
+                elif issue['type'] == 'red_epics':
+                    lines.append(f"**⚠️ Epics with RED status ({len(issue['epics'])})**")
+                    lines.append("")
+                elif issue['type'] == 'yellow_epics':
+                    lines.append(f"**⚠️ Epics with YELLOW status ({len(issue['epics'])})**")
+                    lines.append("")
+                elif issue['type'] == 'no_assignee':
+                    lines.append("**⚠️ No assignee set**")
+                    lines.append("")
+                    lines.append("- [ ] **Action**: Initiative needs an owner before moving to Planned")
+                    lines.append("")
+
+        lines.append("---")
+        lines.append("")
+
+    # Section 5: Not Analyzed (verbose only)
+    if verbose and result.ignored_statuses:
+        lines.append(f"## ⏭️ Not Analyzed ({len(result.ignored_statuses)} initiatives)")
+        lines.append("")
+        lines.append("*These initiatives have statuses other than 'Proposed' or 'Planned' and are not included in the readiness validation:*")
+        lines.append("")
+
+        for item in result.ignored_statuses:
+            lines.append(f"- **[{item['key']}]({item.get('url', '#')})**: {item['summary']}")
+            lines.append(f"  - Status: `{item['status']}`")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 def find_latest_extract() -> Path:
     """Find the most recent extraction file.
 
@@ -768,6 +1026,15 @@ def main():
         action='store_true',
         help='Show detailed epic and team information in validation output'
     )
+    parser.add_argument(
+        '--markdown',
+        type=str,
+        nargs='?',
+        const='auto',
+        metavar='FILENAME',
+        help='Export report as markdown file (Notion-friendly format). '
+             'Optionally specify filename, otherwise auto-generates with timestamp.'
+    )
 
     args = parser.parse_args()
 
@@ -788,7 +1055,29 @@ def main():
     # Run validation
     try:
         result = validate_initiative_status(json_file, min_teams=args.min_teams)
+
+        # Print console report
         print_validation_report(result, json_file, min_teams=args.min_teams, verbose=args.verbose)
+
+        # Generate markdown export if requested
+        if args.markdown:
+            if args.markdown == 'auto':
+                # Auto-generate filename with timestamp
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                markdown_file = Path(f"initiative_validation_report_{timestamp}.md")
+            else:
+                markdown_file = Path(args.markdown)
+
+            # Generate markdown content
+            markdown_content = generate_markdown_report(
+                result, json_file, min_teams=args.min_teams, verbose=args.verbose
+            )
+
+            # Write to file
+            with open(markdown_file, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+
+            print(f"\n✅ Markdown report exported to: {markdown_file}")
 
         # Exit with error code if issues found
         sys.exit(1 if result.has_issues else 0)
