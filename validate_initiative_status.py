@@ -521,18 +521,20 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
 
         print(f"{'-' * 80}\n")
 
-    # Section 3: Ready to Move to Planned
-    if result.ready_to_plan:
-        print(f"✅ READY TO MOVE TO PLANNED ({len(result.ready_to_plan)} initiatives)\n")
+    # Section 3: Ready to Move to Planned (always show)
+    print(f"✅ READY TO MOVE TO PLANNED ({len(result.ready_to_plan)} initiatives)\n")
 
+    if result.ready_to_plan:
         for item in result.ready_to_plan:
             print(f"{item['key']}: {item['summary']}")
 
         print(f"\nBulk update - Copy these issue keys for Jira:")
         keys = [item['key'] for item in result.ready_to_plan]
         print(','.join(keys))
+    else:
+        print("No initiatives are ready to move to Planned status at this time.")
 
-        print(f"\n{'-' * 80}\n")
+    print(f"\n{'-' * 80}\n")
 
     # Section 4: Planned Initiatives with Issues (regressions)
     if result.planned_regressions:
