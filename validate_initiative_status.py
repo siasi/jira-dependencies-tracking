@@ -389,17 +389,20 @@ def validate_initiative_status(json_file: Path, min_teams: int = 1) -> Validatio
         elif initiative_status == 'Planned':
             # Check for regressions (Planned initiatives that no longer meet criteria)
             if not _is_ready_to_plan(initiative):
-                reason = []
+                # Collect all issues for detailed display
+                all_issues = []
                 if data_quality_issues:
-                    reason.append("Data quality issues")
+                    all_issues.extend(data_quality_issues)
                 if commitment_blocker_issues:
-                    reason.append("Commitment blockers")
+                    all_issues.extend(commitment_blocker_issues)
 
                 result.planned_regressions.append({
                     'key': initiative_key,
                     'summary': initiative_summary,
                     'status': initiative_status,
-                    'reason': ", ".join(reason) if reason else "Does not meet criteria"
+                    'assignee': initiative_assignee,
+                    'contributing_teams': initiative.get('contributing_teams', []),
+                    'issues': all_issues if all_issues else []
                 })
 
         else:
@@ -599,8 +602,103 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
         for item in result.planned_regressions:
             print(f"{item['key']}: {item['summary']}")
             print(f"   Current Status: {item['status']}")
-            print(f"   Issue: {item['reason']}")
+            if item.get('assignee'):
+                print(f"   Assignee: {item['assignee']}")
+            else:
+                print(f"   Assignee: (none)")
             print()
+
+            # Show detailed issues (same format as Sections 1 and 2)
+            for issue in item.get('issues', []):
+                if issue['type'] == 'epic_count_mismatch':
+                    # Show detailed epic count mismatch
+                    epic_keys = [
+                        epic['key']
+                        for tc in item['contributing_teams']
+                        for epic in tc.get('epics', [])
+                    ]
+                    teams_count = len(issue['teams_involved'])
+                    epics_count = len(issue['teams_with_epics'])
+
+                    print(f"   ⚠️  Epic count mismatch")
+                    if verbose:
+                        print(f"       - Has {len(epic_keys)} epics: {', '.join(epic_keys)}")
+                        print(f"       - Teams Involved: {', '.join(issue['teams_involved'])}")
+
+                    if epics_count < teams_count:
+                        # Find which teams are missing epics
+                        teams_with_epics_set = set(issue['teams_with_epics'])
+                        missing_teams = []
+
+                        for display_name in issue['teams_involved']:
+                            # Look up project key from mapping
+                            project_key = team_mappings.get(display_name)
+                            if project_key and project_key not in teams_with_epics_set:
+                                missing_teams.append(f"{display_name} ({project_key})")
+                            elif not project_key and display_name not in teams_with_epics_set:
+                                # No mapping found, show display name only
+                                missing_teams.append(f"{display_name} (unmapped)")
+
+                        if missing_teams:
+                            epic_word = "epic" if len(missing_teams) == 1 else "epics"
+                            print(f"       - Action: {', '.join(missing_teams)} to create {epic_word}")
+                        else:
+                            missing_count = teams_count - epics_count
+                            print(f"       - Action: Create {missing_count} missing epic{'s' if missing_count > 1 else ''} or update Teams Involved field")
+                    elif epics_count > teams_count:
+                        # Find which teams have epics but aren't in Teams Involved
+                        teams_involved_keys = set()
+                        for display_name in issue['teams_involved']:
+                            # Try mapping first, then fall back to display name (case-insensitive)
+                            project_key = team_mappings.get(display_name)
+                            if project_key:
+                                teams_involved_keys.add(project_key.upper())
+                            else:
+                                teams_involved_keys.add(display_name.upper())
+
+                        # Find teams with epics that aren't in the Teams Involved set
+                        extra_teams = [key for key in issue['teams_with_epics']
+                                      if key.upper() not in teams_involved_keys]
+
+                        if extra_teams:
+                            print(f"       - Action: Add {', '.join(extra_teams)} to Teams Involved field")
+                        else:
+                            print(f"       - Action: Update Teams Involved field to include all {epics_count} teams with epics")
+                    print()
+
+                elif issue['type'] == 'missing_rag_status':
+                    epic_keys = [epic['key'] for epic in issue['epics']]
+                    print(f"   ⚠️  Missing RAG status")
+                    if verbose:
+                        for epic in issue['epics']:
+                            print(f"       - {epic['key']}: \"{epic['summary']}\"")
+                    epic_word = "RAG status" if len(epic_keys) == 1 else "RAG status"
+                    print(f"       - Action: {', '.join(epic_keys)} to set {epic_word}")
+                    print()
+
+                elif issue['type'] == 'no_epics':
+                    print(f"   ⚠️  No epics found")
+                    print(f"       - Initiative has zero epics linked")
+                    print(f"       - Cannot validate RAG status or team involvement")
+                    print()
+
+                elif issue['type'] == 'red_epics':
+                    print(f"   ⚠️  Epics with RED status ({len(issue['epics'])})")
+                    for epic in issue['epics']:
+                        rag_display = "🔴" if epic['rag_status'] == '🔴' else "(missing - treated as RED)"
+                        print(f"       - {epic['key']} {rag_display}: \"{epic['summary']}\"")
+                    print()
+
+                elif issue['type'] == 'yellow_epics':
+                    print(f"   ⚠️  Epics with YELLOW status ({len(issue['epics'])})")
+                    for epic in issue['epics']:
+                        print(f"       - {epic['key']} 🟡: \"{epic['summary']}\"")
+                    print()
+
+                elif issue['type'] == 'no_assignee':
+                    print(f"   ⚠️  No assignee set")
+                    print(f"       - Initiative needs an owner before moving to Planned")
+                    print()
 
         print(f"{'-' * 80}\n")
 
