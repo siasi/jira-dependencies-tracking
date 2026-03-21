@@ -223,9 +223,11 @@ The comparison generates 5 reports (+ orphaned epics tracking):
 - Epics added or removed within each initiative
 - Net change per initiative
 
-**Report 4: Initiative Overruns** *(requires ETA field)*
-- Initiatives delivered >20% beyond their ETA
-- Requires `eta` custom field configured (e.g., Due Date)
+**Report 4: Initiative Overruns** *(optional - not yet implemented)*
+- **Planned:** Track initiatives delivered >20% beyond their ETA
+- **Status:** Placeholder implementation - returns empty results for MVP
+- **To enable:** Configure `eta` custom field and implement tracking logic
+- **Note:** All other reports (1-3, 5) work without ETA tracking
 
 **Report 5: Team Stability**
 - Per-team metrics: % of epics unchanged, added, removed
@@ -236,7 +238,9 @@ The comparison generates 5 reports (+ orphaned epics tracking):
 - Epics newly orphaned
 - Epics still orphaned
 
-### Configuration: ETA Tracking (Optional)
+### Configuration: ETA Tracking (Optional - Future Feature)
+
+**Note:** ETA tracking is a planned feature for future implementation. The configuration below is documented for when the feature is completed.
 
 To enable delivery predictability tracking (Reports 4-5), configure the ETA field:
 
@@ -245,15 +249,15 @@ custom_fields:
   initiatives:
     rag_status: "customfield_12111"
     quarter: "customfield_12108"
-    eta: "customfield_12204"  # Due Date field for ETA tracking
+    eta: "customfield_12204"  # Due Date field for ETA tracking (not yet implemented)
 ```
 
-With ETA tracking:
-- Report 4 shows initiatives that overran their ETA
-- Report 5 includes delivery rate metrics
+**When implemented:**
+- Report 4 will show initiatives that overran their ETA
+- Report 5 will include delivery rate metrics
 
-Without ETA field:
-- Report 4 is skipped
+**Current behavior:**
+- Report 4 returns empty results (placeholder)
 - Report 5 shows only plan stability (no delivery metrics)
 
 ### Typical Workflow
