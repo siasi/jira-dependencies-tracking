@@ -427,9 +427,13 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
                     print()
 
                 elif issue['type'] == 'missing_rag_status':
-                    print(f"   ⚠️  Missing RAG status on {len(issue['epics'])} epics")
-                    for epic in issue['epics']:
-                        print(f"       - {epic['key']}: \"{epic['summary']}\" (no RAG status set)")
+                    epic_keys = [epic['key'] for epic in issue['epics']]
+                    print(f"   ⚠️  Missing RAG status")
+                    if verbose:
+                        for epic in issue['epics']:
+                            print(f"       - {epic['key']}: \"{epic['summary']}\"")
+                    epic_word = "RAG status" if len(epic_keys) == 1 else "RAG status"
+                    print(f"       - Action: {', '.join(epic_keys)} to set {epic_word}")
                     print()
 
                 elif issue['type'] == 'no_epics':
