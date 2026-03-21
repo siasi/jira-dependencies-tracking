@@ -424,3 +424,54 @@ python validate_dependencies.py data/snapshots/snapshot_baseline_*.json
 # Fail build if data inconsistencies found
 python jira_extract.py extract && python validate_dependencies.py
 ```
+
+### Validate Initiative Status
+
+Validate initiative readiness for Proposed → Planned status transitions based on epic RAG status, team dependencies, and assignee presence.
+
+```bash
+# Validate latest extraction
+python validate_initiative_status.py
+
+# Validate specific file
+python validate_initiative_status.py data/jira_extract_20260321.json
+
+# Validate snapshot
+python validate_initiative_status.py data/snapshots/snapshot_baseline_*.json
+```
+
+**What It Checks:**
+
+**Fix Data Quality (blocks planning):**
+- Epic count matches Teams Involved count
+- All epics have RAG status set
+- Initiative has at least one epic
+
+**Address Commitment Blockers (not ready):**
+- No RED or YELLOW epics (all must be GREEN)
+- Initiative has assignee
+- Missing RAG status treated as RED
+
+**Ready to Move to Planned:**
+- All checks above pass
+- Outputs Jira-ready issue keys for bulk update
+
+**Bidirectional Checking:**
+- Checks Proposed → Planned transitions
+- Flags Planned → Proposed regressions
+
+**Output:**
+
+Terminal report with four sections:
+1. 🔴 **Fix Data Quality** - Initiatives with data issues (epic-level detail)
+2. 🟡 **Address Commitment Blockers** - Initiatives not ready (epic-level detail)
+3. ✅ **Ready to Move to Planned** - Comma-separated keys for bulk Jira update
+4. ⚠️  **Planned Initiatives with Issues** - Regressions to fix
+
+**Exit codes:**
+- `0` - All validations passed, initiatives ready
+- `1` - Validation issues found (data quality or commitment blockers)
+
+**Design Documentation:**
+
+See [brainstorm document](docs/brainstorms/2026-03-21-initiative-status-validation-brainstorm.md) for design decisions and approach rationale.
