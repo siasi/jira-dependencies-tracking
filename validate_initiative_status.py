@@ -36,6 +36,7 @@ class ValidationResult:
         self.address_blockers: List[Dict[str, Any]] = []
         self.ready_to_plan: List[Dict[str, Any]] = []
         self.planned_regressions: List[Dict[str, Any]] = []
+        self.ignored_statuses: List[Dict[str, Any]] = []  # Initiatives with non-Proposed/Planned status
         self.total_checked = 0
         self.total_filtered = 0  # Initiatives excluded by filters
 
@@ -362,6 +363,14 @@ def validate_initiative_status(json_file: Path, min_teams: int = 1) -> Validatio
                     'reason': ", ".join(reason) if reason else "Does not meet criteria"
                 })
 
+        else:
+            # Track initiatives with other statuses (not analyzed)
+            result.ignored_statuses.append({
+                'key': initiative_key,
+                'summary': initiative_summary,
+                'status': initiative_status
+            })
+
     return result
 
 
@@ -396,6 +405,8 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
     print(f"  ✅ Cleared for Planning: {len(result.ready_to_plan)} initiatives")
     if result.planned_regressions:
         print(f"  🔄 Planned Initiatives Requiring Attention: {len(result.planned_regressions)} initiatives")
+    if result.ignored_statuses:
+        print(f"  ⏭️  Not Analyzed (other statuses): {len(result.ignored_statuses)} initiatives")
 
     print(f"\n{'-' * 80}\n")
 
@@ -550,6 +561,19 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
             print(f"{item['key']}: {item['summary']}")
             print(f"   Current Status: {item['status']}")
             print(f"   Issue: {item['reason']}")
+            print()
+
+        print(f"{'-' * 80}\n")
+
+    # Section 5: Not Analyzed (other statuses)
+    if result.ignored_statuses:
+        print(f"⏭️  NOT ANALYZED ({len(result.ignored_statuses)} initiatives)\n")
+        print("These initiatives have statuses other than 'Proposed' or 'Planned'")
+        print("and are not included in the readiness validation:\n")
+
+        for item in result.ignored_statuses:
+            print(f"{item['key']}: {item['summary']}")
+            print(f"   Status: {item['status']}")
             print()
 
         print(f"{'-' * 80}\n")
