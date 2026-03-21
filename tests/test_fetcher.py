@@ -253,11 +253,44 @@ def test_fetch_initiatives_jql_with_quarter_filter():
     assert "project = INIT" in jql
     assert "issuetype = Initiative" in jql
     assert 'status != "Done"' in jql
-    assert 'customfield_12108 = "25 Q1"' in jql
+    # Field ID is quoted in JQL (field name lookup falls back to ID when mocked)
+    assert '"customfield_12108" = "25 Q1"' in jql
 
     # Check JQL is returned in result
     assert result.jql is not None
     assert result.jql == jql
+
+
+def test_fetch_initiatives_jql_uses_field_name():
+    """Test JQL uses field name (not ID) when available from Jira."""
+    from src.fetcher import DataFetcher
+    from unittest.mock import Mock
+
+    mock_client = Mock()
+    mock_client.search_issues.return_value = []
+    mock_client.base_url = "https://test.atlassian.net"
+    # Mock get_custom_fields to return field metadata
+    mock_client.get_custom_fields.return_value = [
+        {"id": "customfield_12108", "name": "Quarter[Dropdown]"},
+        {"id": "customfield_12111", "name": "RAG Status"},
+    ]
+
+    fetcher = DataFetcher(
+        client=mock_client,
+        initiatives_project="INIT",
+        team_projects=["TEAM1"],
+        custom_fields={"quarter": "customfield_12108"},
+        filter_quarter="26 Q2"
+    )
+
+    result = fetcher.fetch_initiatives()
+
+    # Check JQL uses field name (not ID)
+    call_args = mock_client.search_issues.call_args
+    jql = call_args[0][0]
+
+    assert '"Quarter[Dropdown]" = "26 Q2"' in jql
+    assert 'customfield_12108' not in jql  # Should NOT use field ID
 
 
 def test_fetch_result_includes_jql():
