@@ -1,7 +1,7 @@
 ---
 title: Quarterly Snapshot Tracking System
 type: feat
-status: active
+status: completed
 date: 2026-03-15
 origin: docs/brainstorms/2026-03-15-quarterly-plan-snapshot-tracking-brainstorm.md
 ---
@@ -202,10 +202,10 @@ class ComparisonResult:
 #### Phase 1: Snapshot Capture (MVP)
 
 **Deliverables**:
-- [ ] `snapshot` command captures current Jira data with label
-- [ ] Snapshots saved to `data/snapshots/snapshot_{label}_{timestamp}.json`
-- [ ] Metadata includes label, timestamp, config, totals
-- [ ] Reuses existing extract flow (no new Jira API calls)
+- [x] `snapshot` command captures current Jira data with label
+- [x] Snapshots saved to `data/snapshots/snapshot_{label}_{timestamp}.json`
+- [x] Metadata includes label, timestamp, config, totals
+- [x] Reuses existing extract flow (no new Jira API calls)
 
 **Files to modify/create**:
 - Modify: `jira_extract.py` (add `snapshot` command)
@@ -271,9 +271,9 @@ class SnapshotManager:
 #### Phase 2: Snapshot Listing
 
 **Deliverables**:
-- [ ] `snapshots list` command shows available snapshots
-- [ ] Displays: label, timestamp, jira instance, totals
-- [ ] Sorted by timestamp (newest first)
+- [x] `snapshots list` command shows available snapshots
+- [x] Displays: label, timestamp, jira instance, totals
+- [x] Sorted by timestamp (newest first)
 
 **Files to modify/create**:
 - Modify: `jira_extract.py` (add `snapshots` group with `list` command)
@@ -308,10 +308,10 @@ def list_snapshots(self) -> List[SnapshotMetadata]:
 #### Phase 3: Comparison Engine (Core Logic)
 
 **Deliverables**:
-- [ ] Load two snapshots by label
-- [ ] Diff algorithm detects changes
-- [ ] Generate ComparisonResult with all 5 reports
-- [ ] Handle missing ETA field gracefully (skip Reports 4-5)
+- [x] Load two snapshots by label
+- [x] Diff algorithm detects changes
+- [x] Generate ComparisonResult with all 5 reports
+- [x] Handle missing ETA field gracefully (skip Reports 4-5)
 
 **Files to create**:
 - Create: `src/comparator.py` (SnapshotComparator class)
@@ -522,10 +522,10 @@ class SnapshotComparator:
 #### Phase 4: Report Generation
 
 **Deliverables**:
-- [ ] Format ComparisonResult as text report
-- [ ] Format as markdown report (with tables)
-- [ ] Format as CSV export
-- [ ] Output to stdout or file
+- [x] Format ComparisonResult as text report
+- [x] Format as markdown report (with tables)
+- [x] Format as CSV export
+- [x] Output to stdout or file
 
 **Files to create**:
 - Create: `src/reports.py` (ReportGenerator class)
@@ -587,10 +587,10 @@ class ReportGenerator:
 #### Phase 5: Integration & Testing
 
 **Deliverables**:
-- [ ] All CLI commands integrated and working
-- [ ] Comprehensive test coverage
-- [ ] README updated with examples
-- [ ] Error handling for edge cases
+- [x] All CLI commands integrated and working
+- [x] Comprehensive test coverage
+- [x] README updated with examples
+- [x] Error handling for edge cases
 
 **Files to modify/create**:
 - Create: `tests/test_snapshot.py`

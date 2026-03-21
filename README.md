@@ -144,6 +144,160 @@ python jira_extract.py extract --format csv --output ./data/export.csv
 - `--verbose` - Enable verbose output for debugging
 - `--dry-run` - Show what would be fetched without writing output
 
+## Snapshot Tracking
+
+Track plan stability and delivery over time by capturing quarterly snapshots and comparing them. This helps engineering leadership measure plan churn, commitment drift, and delivery predictability.
+
+### Capture Snapshots
+
+Capture a timestamped snapshot with a semantic label:
+
+```bash
+# Capture baseline when plan stabilizes
+python jira_extract.py snapshot --label "2026-Q2-baseline"
+
+# Monthly checkpoints
+python jira_extract.py snapshot --label "2026-Q2-month1"
+python jira_extract.py snapshot --label "2026-Q2-month2"
+python jira_extract.py snapshot --label "2026-Q2-end"
+```
+
+Snapshots are saved to `data/snapshots/` and include:
+- All Jira data (initiatives, epics, orphaned epics)
+- Metadata (timestamp, configuration, totals)
+- Same filtering rules as extract command
+
+### List Available Snapshots
+
+View all captured snapshots:
+
+```bash
+python jira_extract.py snapshots list
+```
+
+Output shows:
+- Label, timestamp, Jira instance
+- Total initiatives, epics, teams
+
+### Compare Snapshots
+
+Generate comparison reports between two snapshots:
+
+```bash
+# Compare baseline vs current month (text output to terminal)
+python jira_extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
+
+# Generate markdown report to file
+python jira_extract.py compare \
+  --from "2026-Q2-baseline" \
+  --to "2026-Q2-end" \
+  --format markdown \
+  --output ./reports/q2-final.md
+
+# Generate CSV export
+python jira_extract.py compare \
+  --from "2026-Q2-baseline" \
+  --to "2026-Q2-end" \
+  --format csv \
+  --output ./reports/q2-comparison.csv
+```
+
+**Report Formats:**
+- `text` - Terminal-friendly plain text (default)
+- `markdown` - GitHub/docs formatted with tables
+- `csv` - Spreadsheet-compatible export
+
+### Comparison Reports
+
+The comparison generates 5 reports (+ orphaned epics tracking):
+
+**Report 1: Commitment Drift**
+- Initiatives that were "Planned" in baseline, now "Proposed" or "Cancelled"
+- Shows which commitments dropped during the quarter
+
+**Report 2: New Work Injection**
+- Initiatives that weren't "Planned" in baseline, now "Planned"
+- Shows what new work was added mid-quarter
+
+**Report 3: Epic Churn**
+- Epics added or removed within each initiative
+- Net change per initiative
+
+**Report 4: Initiative Overruns** *(optional - not yet implemented)*
+- **Planned:** Track initiatives delivered >20% beyond their ETA
+- **Status:** Placeholder implementation - returns empty results for MVP
+- **To enable:** Configure `eta` custom field and implement tracking logic
+- **Note:** All other reports (1-3, 5) work without ETA tracking
+
+**Report 5: Team Stability**
+- Per-team metrics: % of epics unchanged, added, removed
+- Sorted by least stable first
+
+**Orphaned Epics Tracking:**
+- Epics that were orphaned, now assigned
+- Epics newly orphaned
+- Epics still orphaned
+
+### Configuration: ETA Tracking (Optional - Future Feature)
+
+**Note:** ETA tracking is a planned feature for future implementation. The configuration below is documented for when the feature is completed.
+
+To enable delivery predictability tracking (Reports 4-5), configure the ETA field:
+
+```yaml
+custom_fields:
+  initiatives:
+    rag_status: "customfield_12111"
+    quarter: "customfield_12108"
+    eta: "customfield_12204"  # Due Date field for ETA tracking (not yet implemented)
+```
+
+**When implemented:**
+- Report 4 will show initiatives that overran their ETA
+- Report 5 will include delivery rate metrics
+
+**Current behavior:**
+- Report 4 returns empty results (placeholder)
+- Report 5 shows only plan stability (no delivery metrics)
+
+### Typical Workflow
+
+**Quarterly tracking:**
+
+1. Capture baseline when plan stabilizes:
+   ```bash
+   python jira_extract.py snapshot --label "2026-Q2-baseline"
+   ```
+
+2. Capture monthly checkpoints:
+   ```bash
+   python jira_extract.py snapshot --label "2026-Q2-month1"
+   python jira_extract.py snapshot --label "2026-Q2-month2"
+   ```
+
+3. Capture end-of-quarter snapshot:
+   ```bash
+   python jira_extract.py snapshot --label "2026-Q2-end"
+   ```
+
+4. Generate comparison reports:
+   ```bash
+   # Month 1 drift
+   python jira_extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
+
+   # Final quarter report
+   python jira_extract.py compare \
+     --from "2026-Q2-baseline" \
+     --to "2026-Q2-end" \
+     --format markdown \
+     --output ./reports/2026-Q2-final.md
+   ```
+
+**Success Metrics:**
+- Capture snapshot in < 30 seconds
+- Generate comparison in < 10 seconds (for 100 initiatives, 500 epics)
+- Monthly leadership reports prepared in < 15 minutes
+
 ## Output
 
 ### JSON Format
@@ -229,3 +383,44 @@ INIT-1485,Initiative Title,🟢,Proposed,CBPPE,CBPPE-529,Epic Title,🟡,Backlog
 - Check `extraction_status` in output JSON
 - Verify permissions to access all projects
 - Tool continues with partial data but reports issues
+
+## Data Validation
+
+Validate data consistency with the included validation tools.
+
+### Validate Team Dependencies
+
+Check if "Teams Involved" field matches actual teams with epics:
+
+```bash
+# Validate latest extraction
+python validate_dependencies.py
+
+# Validate specific file
+python validate_dependencies.py data/jira_extract_20260319.json
+
+# Validate snapshot
+python validate_dependencies.py data/snapshots/snapshot_baseline_*.json
+```
+
+**What it checks:**
+- "Teams Involved" field count vs actual teams that have epics
+- Identifies missing dependencies (teams in field but no epics)
+- Identifies teams missing from Impacted Teams (have epics but not in field)
+
+**Output:**
+- ✅ Success: All team counts match
+- ❌ Issues: Lists each initiative with mismatched counts
+  - ⚠️  Missing dependencies: Teams listed but have no epics
+  - ⚠️  Missing from Impacted Teams: Teams with epics not listed
+- Recommendations for fixing data in Jira
+
+**Exit codes:**
+- `0` - All validations passed
+- `1` - Validation issues found
+
+**Use in CI/CD:**
+```bash
+# Fail build if data inconsistencies found
+python jira_extract.py extract && python validate_dependencies.py
+```
