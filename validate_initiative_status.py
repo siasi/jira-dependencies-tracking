@@ -381,7 +381,7 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
 
                     print(f"   ⚠️  Epic count mismatch")
                     print(f"       - Has {len(epic_keys)} epics: {', '.join(epic_keys)}")
-                    print(f"       - Teams Involved field lists {teams_count} teams: {', '.join(issue['teams_involved'])}")
+                    print(f"       - Teams Involved: {', '.join(issue['teams_involved'])}")
 
                     if epics_count < teams_count:
                         # Find which teams are missing epics
@@ -398,7 +398,8 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
                                 missing_teams.append(f"{display_name} (unmapped)")
 
                         if missing_teams:
-                            print(f"       - Action: These teams need to create epics: {', '.join(missing_teams)}")
+                            epic_word = "epic" if len(missing_teams) == 1 else "epics"
+                            print(f"       - Action: {', '.join(missing_teams)} to create {epic_word}")
                         else:
                             missing_count = teams_count - epics_count
                             print(f"       - Action: Create {missing_count} missing epic{'s' if missing_count > 1 else ''} or update Teams Involved field")
@@ -418,7 +419,7 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
                                       if key.upper() not in teams_involved_keys]
 
                         if extra_teams:
-                            print(f"       - Action: Add these teams to Teams Involved field: {', '.join(extra_teams)}")
+                            print(f"       - Action: Add {', '.join(extra_teams)} to Teams Involved field")
                         else:
                             print(f"       - Action: Update Teams Involved field to include all {epics_count} teams with epics")
                     print()
