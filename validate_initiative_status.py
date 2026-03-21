@@ -58,7 +58,7 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
     issues = []
 
     # Check epic count vs teams count
-    teams_involved = initiative.get('teams_involved', [])
+    teams_involved = _normalize_teams_involved(initiative.get('teams_involved'))
     teams_with_epics = {
         tc['team_project_key']
         for tc in initiative.get('team_contributions', [])
@@ -157,7 +157,7 @@ def _is_ready_to_plan(initiative: dict) -> bool:
         return False
 
     # Epic count must match teams count
-    teams_involved = initiative.get('teams_involved', [])
+    teams_involved = _normalize_teams_involved(initiative.get('teams_involved'))
     teams_with_epics = {
         tc['team_project_key']
         for tc in initiative.get('team_contributions', [])
@@ -173,6 +173,47 @@ def _is_ready_to_plan(initiative: dict) -> bool:
                 return False
 
     return True
+
+
+def _normalize_teams_involved(teams_involved: Any) -> List[str]:
+    """Normalize teams_involved field to a list.
+
+    Handles multiple formats:
+    - None/null → []
+    - Empty list → []
+    - List of teams → list (unchanged)
+    - Comma-separated string → split into list
+
+    Args:
+        teams_involved: Value from teams_involved field (can be None, list, or string)
+
+    Returns:
+        List of team names
+    """
+    if teams_involved is None:
+        return []
+
+    if isinstance(teams_involved, list):
+        return teams_involved
+
+    if isinstance(teams_involved, str):
+        # Handle comma-separated string (e.g., "Identity, Core Banking, MAP")
+        return [t.strip() for t in teams_involved.split(',') if t.strip()]
+
+    # Fallback for unexpected types
+    return []
+
+
+def _count_teams_involved(teams_involved: Any) -> int:
+    """Count number of teams from teams_involved field.
+
+    Args:
+        teams_involved: Value from teams_involved field (can be None, list, or string)
+
+    Returns:
+        Number of teams
+    """
+    return len(_normalize_teams_involved(teams_involved))
 
 
 def validate_initiative_status(json_file: Path, min_teams: int = 1) -> ValidationResult:
@@ -195,7 +236,7 @@ def validate_initiative_status(json_file: Path, min_teams: int = 1) -> Validatio
     if min_teams > 1:
         initiatives = [
             init for init in all_initiatives
-            if len(init.get('teams_involved', [])) >= min_teams
+            if _count_teams_involved(init.get('teams_involved')) >= min_teams
         ]
         result.total_filtered = len(all_initiatives) - len(initiatives)
     else:

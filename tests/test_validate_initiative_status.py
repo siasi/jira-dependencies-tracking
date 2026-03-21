@@ -605,6 +605,69 @@ def test_find_latest_extract_no_files(tmp_path, monkeypatch):
         find_latest_extract()
 
 
+def test_normalize_teams_involved_handles_none():
+    """Test _normalize_teams_involved handles None/null values."""
+    from validate_initiative_status import _normalize_teams_involved
+
+    assert _normalize_teams_involved(None) == []
+
+
+def test_normalize_teams_involved_handles_string():
+    """Test _normalize_teams_involved handles comma-separated strings."""
+    from validate_initiative_status import _normalize_teams_involved
+
+    # Single team
+    assert _normalize_teams_involved("Identity") == ["Identity"]
+
+    # Multiple teams
+    assert _normalize_teams_involved("Identity, Core Banking, MAP") == [
+        "Identity", "Core Banking", "MAP"
+    ]
+
+    # Teams with extra whitespace
+    assert _normalize_teams_involved(" Team1 ,  Team2  , Team3 ") == [
+        "Team1", "Team2", "Team3"
+    ]
+
+    # Empty string
+    assert _normalize_teams_involved("") == []
+
+    # String with only commas and spaces
+    assert _normalize_teams_involved(" , , ") == []
+
+
+def test_normalize_teams_involved_handles_list():
+    """Test _normalize_teams_involved handles list values."""
+    from validate_initiative_status import _normalize_teams_involved
+
+    # Normal list
+    assert _normalize_teams_involved(["Team1", "Team2"]) == ["Team1", "Team2"]
+
+    # Empty list
+    assert _normalize_teams_involved([]) == []
+
+    # Single item list
+    assert _normalize_teams_involved(["Team1"]) == ["Team1"]
+
+
+def test_count_teams_involved():
+    """Test _count_teams_involved with various formats."""
+    from validate_initiative_status import _count_teams_involved
+
+    # None/null
+    assert _count_teams_involved(None) == 0
+
+    # String formats
+    assert _count_teams_involved("Identity, Core Banking, MAP") == 3
+    assert _count_teams_involved("Single Team") == 1
+    assert _count_teams_involved("") == 0
+
+    # List formats
+    assert _count_teams_involved(["Team1", "Team2", "Team3"]) == 3
+    assert _count_teams_involved([]) == 0
+    assert _count_teams_involved(["Team1"]) == 1
+
+
 def test_validate_initiative_status_min_teams_filter(tmp_path):
     """Test min_teams parameter filters initiatives correctly."""
     # Create test data with varying team counts
@@ -702,3 +765,103 @@ def test_validate_initiative_status_min_teams_filter(tmp_path):
     assert result.total_checked == 0
     assert result.total_filtered == 3
     assert len(result.ready_to_plan) == 0
+
+
+def test_validate_initiative_status_min_teams_with_various_formats(tmp_path):
+    """Test min_teams filter with None, string, and list formats."""
+    test_data = {
+        "initiatives": [
+            {
+                "key": "INIT-1",
+                "summary": "None teams",
+                "status": "Proposed",
+                "assignee": "user1",
+                "teams_involved": None,  # Real data has this!
+                "team_contributions": []
+            },
+            {
+                "key": "INIT-2",
+                "summary": "String single team",
+                "status": "Proposed",
+                "assignee": "user2",
+                "teams_involved": "Identity",
+                "team_contributions": [
+                    {
+                        "team_project_key": "Identity",
+                        "epics": [
+                            {"key": "EPIC-1", "summary": "Epic 1", "rag_status": "🟢"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "INIT-3",
+                "summary": "String multiple teams",
+                "status": "Proposed",
+                "assignee": "user3",
+                "teams_involved": "Identity, Core Banking, MAP",
+                "team_contributions": [
+                    {
+                        "team_project_key": "Identity",
+                        "epics": [
+                            {"key": "EPIC-2", "summary": "Epic 2", "rag_status": "🟢"}
+                        ]
+                    },
+                    {
+                        "team_project_key": "Core Banking",
+                        "epics": [
+                            {"key": "EPIC-3", "summary": "Epic 3", "rag_status": "🟢"}
+                        ]
+                    },
+                    {
+                        "team_project_key": "MAP",
+                        "epics": [
+                            {"key": "EPIC-4", "summary": "Epic 4", "rag_status": "🟢"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "INIT-4",
+                "summary": "List format",
+                "status": "Proposed",
+                "assignee": "user4",
+                "teams_involved": ["Team1", "Team2"],
+                "team_contributions": [
+                    {
+                        "team_project_key": "Team1",
+                        "epics": [
+                            {"key": "EPIC-5", "summary": "Epic 5", "rag_status": "🟢"}
+                        ]
+                    },
+                    {
+                        "team_project_key": "Team2",
+                        "epics": [
+                            {"key": "EPIC-6", "summary": "Epic 6", "rag_status": "🟢"}
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(test_data))
+
+    # Test with min_teams=1 - should include all except None
+    result = validate_initiative_status(json_file, min_teams=1)
+    assert result.total_checked == 4
+    assert result.total_filtered == 0
+
+    # Test with min_teams=2 - should include only string(3 teams) and list(2 teams)
+    result = validate_initiative_status(json_file, min_teams=2)
+    assert result.total_checked == 2
+    assert result.total_filtered == 2
+    # INIT-3 (3 teams) and INIT-4 (2 teams) should be included
+    assert len(result.ready_to_plan) == 2
+
+    # Test with min_teams=3 - should include only string with 3 teams
+    result = validate_initiative_status(json_file, min_teams=3)
+    assert result.total_checked == 1
+    assert result.total_filtered == 3
+    assert len(result.ready_to_plan) == 1
