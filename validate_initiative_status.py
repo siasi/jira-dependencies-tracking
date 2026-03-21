@@ -354,11 +354,20 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
                         for tc in item['contributing_teams']
                         for epic in tc.get('epics', [])
                     ]
+                    teams_count = len(issue['teams_involved'])
+                    epics_count = len(issue['teams_with_epics'])
+
                     print(f"   ⚠️  Epic count mismatch")
                     print(f"       - Has {len(epic_keys)} epics: {', '.join(epic_keys)}")
-                    print(f"       - Epics are from {len(issue['teams_with_epics'])} teams: {', '.join(sorted(issue['teams_with_epics']))}")
-                    print(f"       - Teams Involved field lists {len(issue['teams_involved'])} teams: {', '.join(issue['teams_involved'])}")
-                    print(f"       - Action: Update Teams Involved field to match the {len(issue['teams_with_epics'])} teams with epics")
+                    print(f"       - Epics are from {epics_count} teams: {', '.join(sorted(issue['teams_with_epics']))}")
+                    print(f"       - Teams Involved field lists {teams_count} teams: {', '.join(issue['teams_involved'])}")
+
+                    if epics_count < teams_count:
+                        missing_count = teams_count - epics_count
+                        print(f"       - Action: Create {missing_count} missing epic{'s' if missing_count > 1 else ''} or update Teams Involved field if teams changed")
+                    elif epics_count > teams_count:
+                        extra_count = epics_count - teams_count
+                        print(f"       - Action: Update Teams Involved field to include all {epics_count} teams with epics")
                     print()
 
                 elif issue['type'] == 'missing_rag_status':
