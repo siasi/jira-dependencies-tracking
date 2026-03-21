@@ -6,13 +6,13 @@ and the actual teams that have epics linked to each initiative.
 
 Usage:
     # Validate latest extraction
-    python validate_teams.py
+    python validate_dependencies.py
 
     # Validate specific JSON file
-    python validate_teams.py data/jira_extract_20260316.json
+    python validate_dependencies.py data/jira_extract_20260316.json
 
     # Validate snapshot
-    python validate_teams.py data/snapshots/snapshot_baseline_*.json
+    python validate_dependencies.py data/snapshots/snapshot_baseline_*.json
 """
 
 import json
@@ -89,8 +89,8 @@ def validate_team_epic_counts(json_file: Path) -> ValidationResult:
         if teams_involved_count != actual_team_count:
             # Identify which teams are missing/extra
             teams_involved_set = set(teams_involved)
-            missing_teams = teams_with_epics - teams_involved_set
-            extra_teams = teams_involved_set - teams_with_epics
+            missing_from_impacted = teams_with_epics - teams_involved_set
+            missing_dependencies = teams_involved_set - teams_with_epics
 
             result.add_mismatch({
                 'key': initiative_key,
@@ -101,8 +101,8 @@ def validate_team_epic_counts(json_file: Path) -> ValidationResult:
                 'total_epics': total_epics,
                 'teams_involved': sorted(teams_involved),
                 'teams_with_epics': sorted(teams_with_epics),
-                'missing_from_field': sorted(missing_teams),  # In epics but not in field
-                'extra_in_field': sorted(extra_teams),  # In field but no epics
+                'missing_from_impacted': sorted(missing_from_impacted),  # In epics but not in field
+                'missing_dependencies': sorted(missing_dependencies),  # In field but no epics
             })
         else:
             result.perfect_matches += 1
@@ -147,11 +147,11 @@ def print_validation_report(result: ValidationResult, json_file: Path):
         else:
             print(f"   Teams with epics: (none)")
 
-        if item['missing_from_field']:
-            print(f"   ⚠️  Missing from field: {', '.join(item['missing_from_field'])}")
+        if item['missing_from_impacted']:
+            print(f"   ⚠️  Missing from Impacted Teams: {', '.join(item['missing_from_impacted'])}")
 
-        if item['extra_in_field']:
-            print(f"   ⚠️  Extra in field (no epics): {', '.join(item['extra_in_field'])}")
+        if item['missing_dependencies']:
+            print(f"   ⚠️  Missing dependencies: {', '.join(item['missing_dependencies'])}")
 
         print()
 

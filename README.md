@@ -388,29 +388,31 @@ INIT-1485,Initiative Title,🟢,Proposed,CBPPE,CBPPE-529,Epic Title,🟡,Backlog
 
 Validate data consistency with the included validation tools.
 
-### Validate Team Counts
+### Validate Team Dependencies
 
 Check if "Teams Involved" field matches actual teams with epics:
 
 ```bash
 # Validate latest extraction
-python validate_teams.py
+python validate_dependencies.py
 
 # Validate specific file
-python validate_teams.py data/jira_extract_20260319.json
+python validate_dependencies.py data/jira_extract_20260319.json
 
 # Validate snapshot
-python validate_teams.py data/snapshots/snapshot_baseline_*.json
+python validate_dependencies.py data/snapshots/snapshot_baseline_*.json
 ```
 
 **What it checks:**
 - "Teams Involved" field count vs actual teams that have epics
-- Identifies teams listed in field but with no epics
-- Identifies teams with epics but missing from field
+- Identifies missing dependencies (teams in field but no epics)
+- Identifies teams missing from Impacted Teams (have epics but not in field)
 
 **Output:**
 - ✅ Success: All team counts match
 - ❌ Issues: Lists each initiative with mismatched counts
+  - ⚠️  Missing dependencies: Teams listed but have no epics
+  - ⚠️  Missing from Impacted Teams: Teams with epics not listed
 - Recommendations for fixing data in Jira
 
 **Exit codes:**
@@ -420,5 +422,5 @@ python validate_teams.py data/snapshots/snapshot_baseline_*.json
 **Use in CI/CD:**
 ```bash
 # Fail build if data inconsistencies found
-python jira_extract.py extract && python validate_teams.py
+python jira_extract.py extract && python validate_dependencies.py
 ```
