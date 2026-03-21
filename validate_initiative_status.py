@@ -23,6 +23,7 @@ Usage:
 import argparse
 import json
 import sys
+import yaml
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -175,6 +176,24 @@ def _is_ready_to_plan(initiative: dict) -> bool:
     return True
 
 
+def _load_team_mappings() -> Dict[str, str]:
+    """Load team name mappings from team_mappings.yaml.
+
+    Returns:
+        Dict mapping display names to project keys, or empty dict if file not found
+    """
+    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    if not mappings_file.exists():
+        return {}
+
+    try:
+        with open(mappings_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            return data.get('team_mappings', {})
+    except Exception:
+        return {}
+
+
 def _normalize_teams_involved(teams_involved: Any) -> List[str]:
     """Normalize teams_involved field to a list.
 
@@ -311,6 +330,9 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
         json_file: Path to validated JSON file
         min_teams: Minimum team count filter applied
     """
+    # Load team mappings for detailed action messages
+    team_mappings = _load_team_mappings()
+
     print(f"\n{'=' * 80}")
     print("Initiative Status Validation Report")
     print(f"{'=' * 80}\n")
@@ -359,15 +381,46 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
 
                     print(f"   ⚠️  Epic count mismatch")
                     print(f"       - Has {len(epic_keys)} epics: {', '.join(epic_keys)}")
-                    print(f"       - Epics are from {epics_count} teams: {', '.join(sorted(issue['teams_with_epics']))}")
                     print(f"       - Teams Involved field lists {teams_count} teams: {', '.join(issue['teams_involved'])}")
 
                     if epics_count < teams_count:
-                        missing_count = teams_count - epics_count
-                        print(f"       - Action: Create {missing_count} missing epic{'s' if missing_count > 1 else ''} or update Teams Involved field if teams changed")
+                        # Find which teams are missing epics
+                        teams_with_epics_set = set(issue['teams_with_epics'])
+                        missing_teams = []
+
+                        for display_name in issue['teams_involved']:
+                            # Look up project key from mapping
+                            project_key = team_mappings.get(display_name)
+                            if project_key and project_key not in teams_with_epics_set:
+                                missing_teams.append(f"{display_name} ({project_key})")
+                            elif not project_key and display_name not in teams_with_epics_set:
+                                # No mapping found, show display name only
+                                missing_teams.append(f"{display_name} (unmapped)")
+
+                        if missing_teams:
+                            print(f"       - Action: These teams need to create epics: {', '.join(missing_teams)}")
+                        else:
+                            missing_count = teams_count - epics_count
+                            print(f"       - Action: Create {missing_count} missing epic{'s' if missing_count > 1 else ''} or update Teams Involved field")
                     elif epics_count > teams_count:
-                        extra_count = epics_count - teams_count
-                        print(f"       - Action: Update Teams Involved field to include all {epics_count} teams with epics")
+                        # Find which teams have epics but aren't in Teams Involved
+                        teams_involved_keys = set()
+                        for display_name in issue['teams_involved']:
+                            # Try mapping first, then fall back to display name (case-insensitive)
+                            project_key = team_mappings.get(display_name)
+                            if project_key:
+                                teams_involved_keys.add(project_key.upper())
+                            else:
+                                teams_involved_keys.add(display_name.upper())
+
+                        # Find teams with epics that aren't in the Teams Involved set
+                        extra_teams = [key for key in issue['teams_with_epics']
+                                      if key.upper() not in teams_involved_keys]
+
+                        if extra_teams:
+                            print(f"       - Action: Add these teams to Teams Involved field: {', '.join(extra_teams)}")
+                        else:
+                            print(f"       - Action: Update Teams Involved field to include all {epics_count} teams with epics")
                     print()
 
                 elif issue['type'] == 'missing_rag_status':
