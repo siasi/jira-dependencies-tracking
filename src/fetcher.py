@@ -96,9 +96,10 @@ class DataFetcher:
             # Return single value if only one, otherwise comma-separated
             return values[0] if len(values) == 1 else ", ".join(values)
 
-        # Handle single select fields
+        # Handle single select fields and team objects
         if isinstance(field_data, dict):
-            return field_data.get("value")
+            # Try "value" first (for select fields), then "name" (for team fields)
+            return field_data.get("value") or field_data.get("name")
 
         # Handle plain text fields
         return field_data
