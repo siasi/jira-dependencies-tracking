@@ -383,3 +383,42 @@ INIT-1485,Initiative Title,🟢,Proposed,CBPPE,CBPPE-529,Epic Title,🟡,Backlog
 - Check `extraction_status` in output JSON
 - Verify permissions to access all projects
 - Tool continues with partial data but reports issues
+
+## Data Validation
+
+Validate data consistency with the included validation tools.
+
+### Validate Team Counts
+
+Check if "Teams Involved" field matches actual teams with epics:
+
+```bash
+# Validate latest extraction
+python validate_teams.py
+
+# Validate specific file
+python validate_teams.py data/jira_extract_20260319.json
+
+# Validate snapshot
+python validate_teams.py data/snapshots/snapshot_baseline_*.json
+```
+
+**What it checks:**
+- "Teams Involved" field count vs actual teams that have epics
+- Identifies teams listed in field but with no epics
+- Identifies teams with epics but missing from field
+
+**Output:**
+- ✅ Success: All team counts match
+- ❌ Issues: Lists each initiative with mismatched counts
+- Recommendations for fixing data in Jira
+
+**Exit codes:**
+- `0` - All validations passed
+- `1` - Validation issues found
+
+**Use in CI/CD:**
+```bash
+# Fail build if data inconsistencies found
+python jira_extract.py extract && python validate_teams.py
+```
