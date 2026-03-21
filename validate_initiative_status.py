@@ -378,7 +378,7 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
     team_mappings = _load_team_mappings()
 
     print(f"\n{'=' * 80}")
-    print("Initiative Status Validation Report")
+    print("Initiative Planning Readiness Tracker")
     print(f"{'=' * 80}\n")
 
     print(f"Data source: {json_file}")
@@ -391,17 +391,19 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
         print(f"Total initiatives checked: {result.total_checked}\n")
 
     print("Summary:")
-    print(f"  🔴 Fix Data Quality: {len(result.fix_data_quality)} initiatives (BLOCKS PLANNING)")
-    print(f"  🟡 Address Commitment Blockers: {len(result.address_blockers)} initiatives (NOT READY)")
-    print(f"  ✅ Ready to Move to Planned: {len(result.ready_to_plan)} initiatives")
+    print(f"  📊 Initiative Setup in Progress: {len(result.fix_data_quality)} initiatives")
+    print(f"  🤝 Commitment & Readiness Check: {len(result.address_blockers)} initiatives")
+    print(f"  ✅ Cleared for Planning: {len(result.ready_to_plan)} initiatives")
     if result.planned_regressions:
-        print(f"  ⚠️  Planned Initiatives with Issues: {len(result.planned_regressions)} initiatives (REGRESSIONS)")
+        print(f"  🔄 Planned Initiatives Requiring Attention: {len(result.planned_regressions)} initiatives")
 
     print(f"\n{'-' * 80}\n")
 
-    # Section 1: Fix Data Quality
+    # Section 1: Initiative Setup in Progress
     if result.fix_data_quality:
-        print(f"🔴 FIX DATA QUALITY ({len(result.fix_data_quality)} initiatives - BLOCKS PLANNING)\n")
+        print(f"📊 INITIATIVE SETUP IN PROGRESS ({len(result.fix_data_quality)} initiatives)\n")
+        print("To advance: Complete epic setup and team coordination")
+        print("Help needed: Create missing epics, set initial RAG status\n")
 
         for item in result.fix_data_quality:
             print(f"{item['key']}: {item['summary']}")
@@ -487,9 +489,11 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
 
         print(f"{'-' * 80}\n")
 
-    # Section 2: Address Commitment Blockers
+    # Section 2: Commitment & Readiness Check
     if result.address_blockers:
-        print(f"🟡 ADDRESS COMMITMENT BLOCKERS ({len(result.address_blockers)} initiatives - NOT READY)\n")
+        print(f"🤝 COMMITMENT & READINESS CHECK ({len(result.address_blockers)} initiatives)\n")
+        print("To advance: Confirm all teams are ready with green RAG")
+        print("Help needed: Update RAG status, assign owner\n")
 
         for item in result.address_blockers:
             print(f"{item['key']}: {item['summary']}")
@@ -521,8 +525,8 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
 
         print(f"{'-' * 80}\n")
 
-    # Section 3: Ready to Move to Planned (always show)
-    print(f"✅ READY TO MOVE TO PLANNED ({len(result.ready_to_plan)} initiatives)\n")
+    # Section 3: Cleared for Planning (always show)
+    print(f"✅ CLEARED FOR PLANNING ({len(result.ready_to_plan)} initiatives)\n")
 
     if result.ready_to_plan:
         for item in result.ready_to_plan:
@@ -536,10 +540,11 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
 
     print(f"\n{'-' * 80}\n")
 
-    # Section 4: Planned Initiatives with Issues (regressions)
+    # Section 4: Planned Initiatives Requiring Attention (regressions)
     if result.planned_regressions:
-        print(f"⚠️  PLANNED INITIATIVES WITH ISSUES ({len(result.planned_regressions)} initiatives - REGRESSIONS)\n")
-        print("These initiatives are currently 'Planned' but no longer meet the criteria:\n")
+        print(f"🔄 PLANNED INITIATIVES REQUIRING ATTENTION ({len(result.planned_regressions)} initiatives)\n")
+        print("To maintain quality: Review status changes for these planned initiatives")
+        print("Help needed: Verify RAG status updates, confirm team commitment\n")
 
         for item in result.planned_regressions:
             print(f"{item['key']}: {item['summary']}")
