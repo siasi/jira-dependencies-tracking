@@ -38,7 +38,7 @@ def test_check_data_quality_epic_count_mismatch():
         "status": "Proposed",
         "assignee": "user@example.com",
         "teams_involved": ["TEAM1", "TEAM2"],
-        "team_contributions": [
+        "contributing_teams": [
             {
                 "team_project_key": "TEAM1",
                 "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
@@ -71,7 +71,7 @@ def test_check_data_quality_missing_rag():
         "status": "Proposed",
         "assignee": "user@example.com",
         "teams_involved": ["TEAM1"],
-        "team_contributions": [
+        "contributing_teams": [
             {
                 "team_project_key": "TEAM1",
                 "epics": [
@@ -101,7 +101,7 @@ def test_check_data_quality_no_epics():
         "status": "Proposed",
         "assignee": "user@example.com",
         "teams_involved": [],
-        "team_contributions": []
+        "contributing_teams": []
     }
 
     issues = _check_data_quality(initiative)
@@ -119,7 +119,7 @@ def test_check_data_quality_all_good():
         "status": "Proposed",
         "assignee": "user@example.com",
         "teams_involved": ["TEAM1"],
-        "team_contributions": [
+        "contributing_teams": [
             {
                 "team_project_key": "TEAM1",
                 "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
@@ -140,7 +140,7 @@ def test_check_commitment_blockers_red_epic():
         "status": "Proposed",
         "assignee": "user@example.com",
         "teams_involved": ["TEAM1"],
-        "team_contributions": [
+        "contributing_teams": [
             {
                 "team_project_key": "TEAM1",
                 "epics": [{"key": "TEAM1-1", "summary": "Blocked Epic", "rag_status": "🔴"}]
@@ -166,7 +166,7 @@ def test_check_commitment_blockers_yellow_epic():
         "status": "Proposed",
         "assignee": "user@example.com",
         "teams_involved": ["TEAM1"],
-        "team_contributions": [
+        "contributing_teams": [
             {
                 "team_project_key": "TEAM1",
                 "epics": [{"key": "TEAM1-1", "summary": "At Risk Epic", "rag_status": "⚠️"}]
@@ -191,7 +191,7 @@ def test_check_commitment_blockers_missing_rag_treated_as_red():
         "status": "Proposed",
         "assignee": "user@example.com",
         "teams_involved": ["TEAM1"],
-        "team_contributions": [
+        "contributing_teams": [
             {
                 "team_project_key": "TEAM1",
                 "epics": [{"key": "TEAM1-1", "summary": "Epic No RAG", "rag_status": None}]
@@ -216,7 +216,7 @@ def test_check_commitment_blockers_no_assignee():
         "status": "Proposed",
         "assignee": None,
         "teams_involved": ["TEAM1"],
-        "team_contributions": [
+        "contributing_teams": [
             {
                 "team_project_key": "TEAM1",
                 "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
@@ -239,7 +239,7 @@ def test_check_commitment_blockers_all_good():
         "status": "Proposed",
         "assignee": "user@example.com",
         "teams_involved": ["TEAM1"],
-        "team_contributions": [
+        "contributing_teams": [
             {
                 "team_project_key": "TEAM1",
                 "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
@@ -260,7 +260,7 @@ def test_is_ready_to_plan_all_criteria_met():
         "status": "Proposed",
         "assignee": "user@example.com",
         "teams_involved": ["TEAM1"],
-        "team_contributions": [
+        "contributing_teams": [
             {
                 "team_project_key": "TEAM1",
                 "epics": [{"key": "TEAM1-1", "summary": "Green Epic", "rag_status": "🟢"}]
@@ -279,7 +279,7 @@ def test_is_ready_to_plan_no_epics():
         "status": "Proposed",
         "assignee": "user@example.com",
         "teams_involved": [],
-        "team_contributions": []
+        "contributing_teams": []
     }
 
     assert _is_ready_to_plan(initiative) is False
@@ -293,7 +293,7 @@ def test_is_ready_to_plan_no_assignee():
         "status": "Proposed",
         "assignee": None,
         "teams_involved": ["TEAM1"],
-        "team_contributions": [
+        "contributing_teams": [
             {
                 "team_project_key": "TEAM1",
                 "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
@@ -312,7 +312,7 @@ def test_is_ready_to_plan_epic_count_mismatch():
         "status": "Proposed",
         "assignee": "user@example.com",
         "teams_involved": ["TEAM1"],
-        "team_contributions": [
+        "contributing_teams": [
             {
                 "team_project_key": "TEAM1",
                 "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
@@ -335,7 +335,7 @@ def test_is_ready_to_plan_not_all_green():
         "status": "Proposed",
         "assignee": "user@example.com",
         "teams_involved": ["TEAM1"],
-        "team_contributions": [
+        "contributing_teams": [
             {
                 "team_project_key": "TEAM1",
                 "epics": [
@@ -358,7 +358,7 @@ def test_validate_initiative_status_fix_data_quality(tmp_path):
             "status": "Proposed",
             "assignee": "user@example.com",
             "teams_involved": ["TEAM1", "TEAM2"],
-            "team_contributions": [
+            "contributing_teams": [
                 {
                     "team_project_key": "TEAM1",
                     "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
@@ -396,7 +396,7 @@ def test_validate_initiative_status_address_blockers(tmp_path):
             "status": "Proposed",
             "assignee": "user@example.com",
             "teams_involved": ["TEAM1"],
-            "team_contributions": [
+            "contributing_teams": [
                 {
                     "team_project_key": "TEAM1",
                     "epics": [{"key": "TEAM1-1", "summary": "Blocked Epic", "rag_status": "🔴"}]
@@ -426,7 +426,7 @@ def test_validate_initiative_status_ready_to_plan(tmp_path):
             "status": "Proposed",
             "assignee": "user@example.com",
             "teams_involved": ["TEAM1"],
-            "team_contributions": [
+            "contributing_teams": [
                 {
                     "team_project_key": "TEAM1",
                     "epics": [{"key": "TEAM1-1", "summary": "Green Epic", "rag_status": "🟢"}]
@@ -456,7 +456,7 @@ def test_validate_initiative_status_planned_regression(tmp_path):
             "status": "Planned",
             "assignee": "user@example.com",
             "teams_involved": ["TEAM1"],
-            "team_contributions": [
+            "contributing_teams": [
                 {
                     "team_project_key": "TEAM1",
                     "epics": [{"key": "TEAM1-1", "summary": "Now Red", "rag_status": "🔴"}]
@@ -488,7 +488,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "status": "Proposed",
                 "assignee": "user@example.com",
                 "teams_involved": [],
-                "team_contributions": []
+                "contributing_teams": []
             },
             {
                 "key": "INIT-002",
@@ -496,7 +496,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "status": "Proposed",
                 "assignee": None,
                 "teams_involved": ["TEAM1"],
-                "team_contributions": [
+                "contributing_teams": [
                     {
                         "team_project_key": "TEAM1",
                         "epics": [{"key": "TEAM1-1", "summary": "Epic", "rag_status": "🟢"}]
@@ -509,7 +509,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "status": "Proposed",
                 "assignee": "user@example.com",
                 "teams_involved": ["TEAM1"],
-                "team_contributions": [
+                "contributing_teams": [
                     {
                         "team_project_key": "TEAM1",
                         "epics": [{"key": "TEAM1-1", "summary": "Epic", "rag_status": "🟢"}]
@@ -522,7 +522,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "status": "Planned",
                 "assignee": "user@example.com",
                 "teams_involved": ["TEAM1"],
-                "team_contributions": [
+                "contributing_teams": [
                     {
                         "team_project_key": "TEAM1",
                         "epics": [{"key": "TEAM1-1", "summary": "Epic", "rag_status": "🔴"}]
@@ -679,7 +679,7 @@ def test_validate_initiative_status_min_teams_filter(tmp_path):
                 "status": "Proposed",
                 "assignee": "user1",
                 "teams_involved": ["TEAM1"],
-                "team_contributions": [
+                "contributing_teams": [
                     {
                         "team_project_key": "TEAM1",
                         "epics": [
@@ -694,7 +694,7 @@ def test_validate_initiative_status_min_teams_filter(tmp_path):
                 "status": "Proposed",
                 "assignee": "user2",
                 "teams_involved": ["TEAM1", "TEAM2"],
-                "team_contributions": [
+                "contributing_teams": [
                     {
                         "team_project_key": "TEAM1",
                         "epics": [
@@ -715,7 +715,7 @@ def test_validate_initiative_status_min_teams_filter(tmp_path):
                 "status": "Proposed",
                 "assignee": "user3",
                 "teams_involved": ["TEAM1", "TEAM2", "TEAM3"],
-                "team_contributions": [
+                "contributing_teams": [
                     {
                         "team_project_key": "TEAM1",
                         "epics": [
@@ -777,7 +777,7 @@ def test_validate_initiative_status_min_teams_with_various_formats(tmp_path):
                 "status": "Proposed",
                 "assignee": "user1",
                 "teams_involved": None,  # Real data has this!
-                "team_contributions": []
+                "contributing_teams": []
             },
             {
                 "key": "INIT-2",
@@ -785,7 +785,7 @@ def test_validate_initiative_status_min_teams_with_various_formats(tmp_path):
                 "status": "Proposed",
                 "assignee": "user2",
                 "teams_involved": "Identity",
-                "team_contributions": [
+                "contributing_teams": [
                     {
                         "team_project_key": "Identity",
                         "epics": [
@@ -800,7 +800,7 @@ def test_validate_initiative_status_min_teams_with_various_formats(tmp_path):
                 "status": "Proposed",
                 "assignee": "user3",
                 "teams_involved": "Identity, Core Banking, MAP",
-                "team_contributions": [
+                "contributing_teams": [
                     {
                         "team_project_key": "Identity",
                         "epics": [
@@ -827,7 +827,7 @@ def test_validate_initiative_status_min_teams_with_various_formats(tmp_path):
                 "status": "Proposed",
                 "assignee": "user4",
                 "teams_involved": ["Team1", "Team2"],
-                "team_contributions": [
+                "contributing_teams": [
                     {
                         "team_project_key": "Team1",
                         "epics": [

@@ -61,7 +61,7 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
     teams_involved = _normalize_teams_involved(initiative.get('teams_involved'))
     teams_with_epics = {
         tc['team_project_key']
-        for tc in initiative.get('team_contributions', [])
+        for tc in initiative.get('contributing_teams', [])
         if tc.get('epics')
     }
 
@@ -74,7 +74,7 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
 
     # Check for missing RAG status
     missing_rag_epics = []
-    for tc in initiative.get('team_contributions', []):
+    for tc in initiative.get('contributing_teams', []):
         for epic in tc.get('epics', []):
             if epic.get('rag_status') is None:
                 missing_rag_epics.append({
@@ -89,7 +89,7 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
         })
 
     # Check for zero epics
-    total_epics = sum(len(tc.get('epics', [])) for tc in initiative.get('team_contributions', []))
+    total_epics = sum(len(tc.get('epics', [])) for tc in initiative.get('contributing_teams', []))
     if total_epics == 0:
         issues.append({'type': 'no_epics'})
 
@@ -111,7 +111,7 @@ def _check_commitment_blockers(initiative: dict) -> Optional[List[Dict[str, Any]
     red_epics = []
     yellow_epics = []
 
-    for tc in initiative.get('team_contributions', []):
+    for tc in initiative.get('contributing_teams', []):
         for epic in tc.get('epics', []):
             rag = epic.get('rag_status')
             if rag == '🔴' or rag is None:  # Missing treated as RED
@@ -148,7 +148,7 @@ def _is_ready_to_plan(initiative: dict) -> bool:
         True if ready for Planned status, False otherwise
     """
     # Must have at least one epic
-    total_epics = sum(len(tc.get('epics', [])) for tc in initiative.get('team_contributions', []))
+    total_epics = sum(len(tc.get('epics', [])) for tc in initiative.get('contributing_teams', []))
     if total_epics == 0:
         return False
 
@@ -160,14 +160,14 @@ def _is_ready_to_plan(initiative: dict) -> bool:
     teams_involved = _normalize_teams_involved(initiative.get('teams_involved'))
     teams_with_epics = {
         tc['team_project_key']
-        for tc in initiative.get('team_contributions', [])
+        for tc in initiative.get('contributing_teams', [])
         if tc.get('epics')
     }
     if len(teams_involved) != len(teams_with_epics):
         return False
 
     # All epics must have GREEN RAG status
-    for tc in initiative.get('team_contributions', []):
+    for tc in initiative.get('contributing_teams', []):
         for epic in tc.get('epics', []):
             if epic.get('rag_status') != '🟢':
                 return False
@@ -266,7 +266,7 @@ def validate_initiative_status(json_file: Path, min_teams: int = 1) -> Validatio
                     'summary': initiative_summary,
                     'status': initiative_status,
                     'assignee': initiative_assignee,
-                    'team_contributions': initiative.get('team_contributions', []),
+                    'contributing_teams': initiative.get('contributing_teams', []),
                     'issues': data_quality_issues
                 })
             elif commitment_blocker_issues:
@@ -275,7 +275,7 @@ def validate_initiative_status(json_file: Path, min_teams: int = 1) -> Validatio
                     'summary': initiative_summary,
                     'status': initiative_status,
                     'assignee': initiative_assignee,
-                    'team_contributions': initiative.get('team_contributions', []),
+                    'contributing_teams': initiative.get('contributing_teams', []),
                     'issues': commitment_blocker_issues
                 })
             elif _is_ready_to_plan(initiative):
@@ -351,7 +351,7 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
                     # Show detailed epic count mismatch
                     epic_keys = [
                         epic['key']
-                        for tc in item['team_contributions']
+                        for tc in item['contributing_teams']
                         for epic in tc.get('epics', [])
                     ]
                     print(f"   ⚠️  Epic count mismatch")
@@ -360,9 +360,9 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
                     missing_from_field = set(issue['teams_with_epics']) - set(issue['teams_involved'])
                     extra_in_field = set(issue['teams_involved']) - set(issue['teams_with_epics'])
                     if missing_from_field:
-                        print(f"       - Missing from field: {', '.join(missing_from_field)}")
+                        print(f"       - Unexpected Epics: {', '.join(missing_from_field)}")
                     if extra_in_field:
-                        print(f"       - Extra in field: {', '.join(extra_in_field)}")
+                        print(f"       - Teams with no epic: {', '.join(extra_in_field)}")
                     print()
 
                 elif issue['type'] == 'missing_rag_status':
