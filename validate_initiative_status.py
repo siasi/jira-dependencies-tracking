@@ -322,13 +322,14 @@ def validate_initiative_status(json_file: Path, min_teams: int = 1) -> Validatio
     return result
 
 
-def print_validation_report(result: ValidationResult, json_file: Path, min_teams: int = 1):
+def print_validation_report(result: ValidationResult, json_file: Path, min_teams: int = 1, verbose: bool = False):
     """Print formatted validation report with three sections.
 
     Args:
         result: ValidationResult with findings
         json_file: Path to validated JSON file
         min_teams: Minimum team count filter applied
+        verbose: Show detailed epic and team information
     """
     # Load team mappings for detailed action messages
     team_mappings = _load_team_mappings()
@@ -380,8 +381,9 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
                     epics_count = len(issue['teams_with_epics'])
 
                     print(f"   ⚠️  Epic count mismatch")
-                    print(f"       - Has {len(epic_keys)} epics: {', '.join(epic_keys)}")
-                    print(f"       - Teams Involved: {', '.join(issue['teams_involved'])}")
+                    if verbose:
+                        print(f"       - Has {len(epic_keys)} epics: {', '.join(epic_keys)}")
+                        print(f"       - Teams Involved: {', '.join(issue['teams_involved'])}")
 
                     if epics_count < teams_count:
                         # Find which teams are missing epics
@@ -545,6 +547,11 @@ def main():
         default=1,
         help='Minimum number of teams required (default: 1, all initiatives)'
     )
+    parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Show detailed epic and team information in validation output'
+    )
 
     args = parser.parse_args()
 
@@ -565,7 +572,7 @@ def main():
     # Run validation
     try:
         result = validate_initiative_status(json_file, min_teams=args.min_teams)
-        print_validation_report(result, json_file, min_teams=args.min_teams)
+        print_validation_report(result, json_file, min_teams=args.min_teams, verbose=args.verbose)
 
         # Exit with error code if issues found
         sys.exit(1 if result.has_issues else 0)
