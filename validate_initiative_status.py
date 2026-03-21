@@ -96,15 +96,29 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
                 'teams_with_epics': list(teams_with_epics)
             })
 
-    # Check for missing RAG status
+    # Check for missing RAG status (skip owner team epics)
+    owner_team = initiative.get('owner_team')
+    team_mappings = _load_team_mappings()
+
     missing_rag_epics = []
     for tc in initiative.get('contributing_teams', []):
-        for epic in tc.get('epics', []):
-            if epic.get('rag_status') is None:
-                missing_rag_epics.append({
-                    'key': epic['key'],
-                    'summary': epic['summary']
-                })
+        team_key = tc.get('team_project_key', '')
+
+        # Skip epics from owner team (they don't need to set RAG status)
+        is_owner_team = False
+        if owner_team:
+            # Check if this team matches the owner team
+            owner_project_key = team_mappings.get(owner_team, owner_team)
+            if team_key.upper() == owner_project_key.upper():
+                is_owner_team = True
+
+        if not is_owner_team:
+            for epic in tc.get('epics', []):
+                if epic.get('rag_status') is None:
+                    missing_rag_epics.append({
+                        'key': epic['key'],
+                        'summary': epic['summary']
+                    })
 
     if missing_rag_epics:
         issues.append({
@@ -131,24 +145,37 @@ def _check_commitment_blockers(initiative: dict) -> Optional[List[Dict[str, Any]
     """
     issues = []
 
-    # Check for RED/YELLOW epics (and missing RAG treated as RED)
+    # Check for RED/YELLOW epics (skip owner team epics)
+    owner_team = initiative.get('owner_team')
+    team_mappings = _load_team_mappings()
+
     red_epics = []
     yellow_epics = []
 
     for tc in initiative.get('contributing_teams', []):
-        for epic in tc.get('epics', []):
-            rag = epic.get('rag_status')
-            if rag == '🔴' or rag is None:  # Missing treated as RED
-                red_epics.append({
-                    'key': epic['key'],
-                    'summary': epic['summary'],
-                    'rag_status': rag
-                })
-            elif rag == '⚠️':
-                yellow_epics.append({
-                    'key': epic['key'],
-                    'summary': epic['summary']
-                })
+        team_key = tc.get('team_project_key', '')
+
+        # Skip epics from owner team (they don't need to report RAG status)
+        is_owner_team = False
+        if owner_team:
+            owner_project_key = team_mappings.get(owner_team, owner_team)
+            if team_key.upper() == owner_project_key.upper():
+                is_owner_team = True
+
+        if not is_owner_team:
+            for epic in tc.get('epics', []):
+                rag = epic.get('rag_status')
+                if rag == '🔴' or rag is None:  # Missing treated as RED
+                    red_epics.append({
+                        'key': epic['key'],
+                        'summary': epic['summary'],
+                        'rag_status': rag
+                    })
+                elif rag == '⚠️':
+                    yellow_epics.append({
+                        'key': epic['key'],
+                        'summary': epic['summary']
+                    })
 
     if red_epics:
         issues.append({'type': 'red_epics', 'epics': red_epics})
@@ -171,6 +198,10 @@ def _is_ready_to_plan(initiative: dict) -> bool:
     Returns:
         True if ready for Planned status, False otherwise
     """
+    # Load owner team info upfront (used for multiple checks)
+    owner_team = initiative.get('owner_team')
+    team_mappings = _load_team_mappings()
+
     # Must have at least one epic
     total_epics = sum(len(tc.get('epics', [])) for tc in initiative.get('contributing_teams', []))
     if total_epics == 0:
@@ -190,8 +221,6 @@ def _is_ready_to_plan(initiative: dict) -> bool:
 
     if len(teams_involved) != len(teams_with_epics):
         # Check if the only missing team is the owner team
-        owner_team = initiative.get('owner_team')
-        team_mappings = _load_team_mappings()
 
         # Find which teams are missing epics
         teams_with_epics_set = set(teams_with_epics)
@@ -211,11 +240,21 @@ def _is_ready_to_plan(initiative: dict) -> bool:
         if not is_only_owner_missing:
             return False
 
-    # All epics must have GREEN RAG status
+    # All epics must have GREEN RAG status (skip owner team epics)
     for tc in initiative.get('contributing_teams', []):
-        for epic in tc.get('epics', []):
-            if epic.get('rag_status') != '🟢':
-                return False
+        team_key = tc.get('team_project_key', '')
+
+        # Skip epics from owner team (they don't need to report RAG status)
+        is_owner_team = False
+        if owner_team:
+            owner_project_key = team_mappings.get(owner_team, owner_team)
+            if team_key.upper() == owner_project_key.upper():
+                is_owner_team = True
+
+        if not is_owner_team:
+            for epic in tc.get('epics', []):
+                if epic.get('rag_status') != '🟢':
+                    return False
 
     return True
 
