@@ -1,7 +1,7 @@
 ---
 title: Initiative Status Validation Tool
 type: feat
-status: active
+status: completed
 date: 2026-03-21
 origin: docs/brainstorms/2026-03-21-initiative-status-validation-brainstorm.md
 ---
