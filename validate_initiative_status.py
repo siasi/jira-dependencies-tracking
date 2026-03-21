@@ -445,10 +445,11 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
     print(f"  📊 Initiative Setup in Progress: {len(result.fix_data_quality)} initiatives")
     print(f"  🤝 Commitment & Readiness Check: {len(result.address_blockers)} initiatives")
     print(f"  ✅ Cleared for Planning: {len(result.ready_to_plan)} initiatives")
-    if result.planned_regressions:
-        print(f"  🔄 Planned Initiatives Requiring Attention: {len(result.planned_regressions)} initiatives")
-    if result.ignored_statuses:
-        print(f"  ⏭️  Not Analyzed (other statuses): {len(result.ignored_statuses)} initiatives")
+    if verbose:
+        if result.planned_regressions:
+            print(f"  🔄 Planned Initiatives Requiring Attention: {len(result.planned_regressions)} initiatives")
+        if result.ignored_statuses:
+            print(f"  ⏭️  Not Analyzed (other statuses): {len(result.ignored_statuses)} initiatives")
 
     print(f"\n{'-' * 80}\n")
 
@@ -593,8 +594,8 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
 
     print(f"\n{'-' * 80}\n")
 
-    # Section 4: Planned Initiatives Requiring Attention (regressions)
-    if result.planned_regressions:
+    # Section 4: Planned Initiatives Requiring Attention (regressions) - verbose only
+    if verbose and result.planned_regressions:
         print(f"🔄 PLANNED INITIATIVES REQUIRING ATTENTION ({len(result.planned_regressions)} initiatives)\n")
         print("To maintain quality: Review status changes for these planned initiatives")
         print("Help needed: Verify RAG status updates, confirm team commitment\n")
@@ -702,8 +703,8 @@ def print_validation_report(result: ValidationResult, json_file: Path, min_teams
 
         print(f"{'-' * 80}\n")
 
-    # Section 5: Not Analyzed (other statuses)
-    if result.ignored_statuses:
+    # Section 5: Not Analyzed (other statuses) - verbose only
+    if verbose and result.ignored_statuses:
         print(f"⏭️  NOT ANALYZED ({len(result.ignored_statuses)} initiatives)\n")
         print("These initiatives have statuses other than 'Proposed' or 'Planned'")
         print("and are not included in the readiness validation:\n")
