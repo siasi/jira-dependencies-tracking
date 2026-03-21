@@ -13,10 +13,14 @@ Usage:
     # Validate specific JSON file
     python validate_initiative_status.py data/jira_extract_20260321.json
 
-    # Validate snapshot
-    python validate_initiative_status.py data/snapshots/snapshot_baseline_*.json
+    # Only analyze initiatives with 2+ teams
+    python validate_initiative_status.py --min-teams 2
+
+    # Validate snapshot with team filter
+    python validate_initiative_status.py data/snapshots/snapshot_baseline_*.json --min-teams 2
 """
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -32,6 +36,7 @@ class ValidationResult:
         self.ready_to_plan: List[Dict[str, Any]] = []
         self.planned_regressions: List[Dict[str, Any]] = []
         self.total_checked = 0
+        self.total_filtered = 0  # Initiatives excluded by filters
 
     @property
     def has_issues(self) -> bool:
@@ -170,11 +175,12 @@ def _is_ready_to_plan(initiative: dict) -> bool:
     return True
 
 
-def validate_initiative_status(json_file: Path) -> ValidationResult:
+def validate_initiative_status(json_file: Path, min_teams: int = 1) -> ValidationResult:
     """Validate initiative readiness for Proposed → Planned transition.
 
     Args:
         json_file: Path to JSON file from jira_extract.py or snapshot
+        min_teams: Minimum number of teams required (default: 1, all initiatives)
 
     Returns:
         ValidationResult with categorized findings
@@ -183,7 +189,19 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
         data = json.load(f)
 
     result = ValidationResult()
-    initiatives = data.get('initiatives', [])
+    all_initiatives = data.get('initiatives', [])
+
+    # Apply team count filter
+    if min_teams > 1:
+        initiatives = [
+            init for init in all_initiatives
+            if len(init.get('teams_involved', [])) >= min_teams
+        ]
+        result.total_filtered = len(all_initiatives) - len(initiatives)
+    else:
+        initiatives = all_initiatives
+        result.total_filtered = 0
+
     result.total_checked = len(initiatives)
 
     for initiative in initiatives:
@@ -244,19 +262,26 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
     return result
 
 
-def print_validation_report(result: ValidationResult, json_file: Path):
+def print_validation_report(result: ValidationResult, json_file: Path, min_teams: int = 1):
     """Print formatted validation report with three sections.
 
     Args:
         result: ValidationResult with findings
         json_file: Path to validated JSON file
+        min_teams: Minimum team count filter applied
     """
     print(f"\n{'=' * 80}")
     print("Initiative Status Validation Report")
     print(f"{'=' * 80}\n")
 
     print(f"Data source: {json_file}")
-    print(f"Total initiatives checked: {result.total_checked}\n")
+    if min_teams > 1:
+        print(f"Filter: Teams Involved >= {min_teams}")
+        print(f"Total initiatives in file: {result.total_checked + result.total_filtered}")
+        print(f"Initiatives analyzed: {result.total_checked}")
+        print(f"Initiatives filtered out: {result.total_filtered}\n")
+    else:
+        print(f"Total initiatives checked: {result.total_checked}\n")
 
     print("Summary:")
     print(f"  🔴 Fix Data Quality: {len(result.fix_data_quality)} initiatives (BLOCKS PLANNING)")
@@ -405,9 +430,27 @@ def find_latest_extract() -> Path:
 
 def main():
     """Main validation workflow."""
+    parser = argparse.ArgumentParser(
+        description='Validate initiative readiness for Proposed → Planned status transitions'
+    )
+    parser.add_argument(
+        'json_file',
+        nargs='?',
+        type=Path,
+        help='Path to JSON file from jira_extract.py or snapshot (optional, uses latest if omitted)'
+    )
+    parser.add_argument(
+        '--min-teams',
+        type=int,
+        default=1,
+        help='Minimum number of teams required (default: 1, all initiatives)'
+    )
+
+    args = parser.parse_args()
+
     # Determine which file to validate
-    if len(sys.argv) > 1:
-        json_file = Path(sys.argv[1])
+    if args.json_file:
+        json_file = args.json_file
         if not json_file.exists():
             print(f"Error: File not found: {json_file}", file=sys.stderr)
             sys.exit(1)
@@ -421,8 +464,8 @@ def main():
 
     # Run validation
     try:
-        result = validate_initiative_status(json_file)
-        print_validation_report(result, json_file)
+        result = validate_initiative_status(json_file, min_teams=args.min_teams)
+        print_validation_report(result, json_file, min_teams=args.min_teams)
 
         # Exit with error code if issues found
         sys.exit(1 if result.has_issues else 0)

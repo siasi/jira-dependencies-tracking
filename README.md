@@ -438,7 +438,18 @@ python validate_initiative_status.py data/jira_extract_20260321.json
 
 # Validate snapshot
 python validate_initiative_status.py data/snapshots/snapshot_baseline_*.json
+
+# Only analyze initiatives with 2+ teams
+python validate_initiative_status.py --min-teams 2
+
+# Validate snapshot with team filter
+python validate_initiative_status.py data/snapshots/snapshot_baseline_*.json --min-teams 2
 ```
+
+**Options:**
+- `--min-teams N` - Minimum number of teams required (default: 1, analyzes all initiatives)
+  - Use this to focus on multi-team initiatives only
+  - Report shows total initiatives and how many were filtered out
 
 **What It Checks:**
 

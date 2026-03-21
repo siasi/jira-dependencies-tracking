@@ -603,3 +603,102 @@ def test_find_latest_extract_no_files(tmp_path, monkeypatch):
 
     with pytest.raises(FileNotFoundError, match="No extraction files found"):
         find_latest_extract()
+
+
+def test_validate_initiative_status_min_teams_filter(tmp_path):
+    """Test min_teams parameter filters initiatives correctly."""
+    # Create test data with varying team counts
+    test_data = {
+        "initiatives": [
+            {
+                "key": "INIT-1",
+                "summary": "One team initiative",
+                "status": "Proposed",
+                "assignee": "user1",
+                "teams_involved": ["TEAM1"],
+                "team_contributions": [
+                    {
+                        "team_project_key": "TEAM1",
+                        "epics": [
+                            {"key": "EPIC-1", "summary": "Epic 1", "rag_status": "🟢"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "INIT-2",
+                "summary": "Two team initiative",
+                "status": "Proposed",
+                "assignee": "user2",
+                "teams_involved": ["TEAM1", "TEAM2"],
+                "team_contributions": [
+                    {
+                        "team_project_key": "TEAM1",
+                        "epics": [
+                            {"key": "EPIC-2", "summary": "Epic 2", "rag_status": "🟢"}
+                        ]
+                    },
+                    {
+                        "team_project_key": "TEAM2",
+                        "epics": [
+                            {"key": "EPIC-3", "summary": "Epic 3", "rag_status": "🟢"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "key": "INIT-3",
+                "summary": "Three team initiative",
+                "status": "Proposed",
+                "assignee": "user3",
+                "teams_involved": ["TEAM1", "TEAM2", "TEAM3"],
+                "team_contributions": [
+                    {
+                        "team_project_key": "TEAM1",
+                        "epics": [
+                            {"key": "EPIC-4", "summary": "Epic 4", "rag_status": "🟢"}
+                        ]
+                    },
+                    {
+                        "team_project_key": "TEAM2",
+                        "epics": [
+                            {"key": "EPIC-5", "summary": "Epic 5", "rag_status": "🟢"}
+                        ]
+                    },
+                    {
+                        "team_project_key": "TEAM3",
+                        "epics": [
+                            {"key": "EPIC-6", "summary": "Epic 6", "rag_status": "🟢"}
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(test_data))
+
+    # Test with min_teams=1 (default) - should include all 3 initiatives
+    result = validate_initiative_status(json_file, min_teams=1)
+    assert result.total_checked == 3
+    assert result.total_filtered == 0
+    assert len(result.ready_to_plan) == 3
+
+    # Test with min_teams=2 - should include only 2 initiatives
+    result = validate_initiative_status(json_file, min_teams=2)
+    assert result.total_checked == 2
+    assert result.total_filtered == 1
+    assert len(result.ready_to_plan) == 2
+
+    # Test with min_teams=3 - should include only 1 initiative
+    result = validate_initiative_status(json_file, min_teams=3)
+    assert result.total_checked == 1
+    assert result.total_filtered == 2
+    assert len(result.ready_to_plan) == 1
+
+    # Test with min_teams=4 - should filter out all initiatives
+    result = validate_initiative_status(json_file, min_teams=4)
+    assert result.total_checked == 0
+    assert result.total_filtered == 3
+    assert len(result.ready_to_plan) == 0
