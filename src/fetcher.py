@@ -123,7 +123,7 @@ class DataFetcher:
         # Build fields list - dynamic from config
         # NOTE: Fetches ALL configured custom fields, even if not used for filtering
         # This simplifies the code; Jira API batches field requests efficiently
-        fields = ["summary", "status"] + list(self.custom_fields.values())
+        fields = ["summary", "status", "assignee"] + list(self.custom_fields.values())
 
         try:
             issues = self.client.search_issues(jql, fields=fields)
@@ -134,10 +134,18 @@ class DataFetcher:
                 fields_data = issue.get("fields", {})
 
                 # Build base initiative data
+                # Extract assignee - it's an object with displayName, emailAddress, etc.
+                assignee_obj = fields_data.get("assignee")
+                assignee = None
+                if assignee_obj:
+                    # Prefer displayName, fallback to emailAddress
+                    assignee = assignee_obj.get("displayName") or assignee_obj.get("emailAddress")
+
                 initiative_data = {
                     "key": issue["key"],
                     "summary": fields_data.get("summary", ""),
                     "status": fields_data.get("status", {}).get("name", "Unknown"),
+                    "assignee": assignee,
                     "url": f"{self.client.base_url}/browse/{issue['key']}",
                 }
 

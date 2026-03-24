@@ -14,6 +14,7 @@ def test_fetch_initiatives_success():
             "fields": {
                 "summary": "Test Initiative",
                 "status": {"name": "In Progress"},
+                "assignee": {"displayName": "John Doe", "emailAddress": "john@example.com"},
                 "customfield_10050": {"value": "Green"},
             },
         },
@@ -30,6 +31,7 @@ def test_fetch_initiatives_success():
     assert result.success is True
     assert len(result.items) == 1
     assert result.items[0]["key"] == "INIT-1"
+    assert result.items[0]["assignee"] == "John Doe"
     assert result.items[0]["rag_status"] == "Green"
 
 
@@ -88,6 +90,8 @@ def test_fetch_all_parallel():
 
     assert initiatives_result.success is True
     assert epics_result.success is True
+    # Verify assignee is None when not present in Jira data
+    assert initiatives_result.items[0]["assignee"] is None
     assert len(initiatives_result.items) == 1
     assert len(epics_result.items) == 1
 
