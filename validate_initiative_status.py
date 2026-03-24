@@ -109,9 +109,10 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
     owner_team = initiative.get('owner_team')
     team_mappings = _load_team_mappings()
 
-    missing_rag_epics = []
+    missing_rag_by_team = []
     for tc in initiative.get('contributing_teams', []):
         team_key = tc.get('team_project_key', '')
+        team_name = tc.get('team_project_name', team_key)
 
         # Skip epics from owner team (they don't need to set RAG status)
         is_owner_team = False
@@ -122,17 +123,25 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
                 is_owner_team = True
 
         if not is_owner_team:
+            team_missing_epics = []
             for epic in tc.get('epics', []):
                 if epic.get('rag_status') is None:
-                    missing_rag_epics.append({
+                    team_missing_epics.append({
                         'key': epic['key'],
                         'summary': epic['summary']
                     })
 
-    if missing_rag_epics:
+            if team_missing_epics:
+                missing_rag_by_team.append({
+                    'team_name': team_name,
+                    'team_key': team_key,
+                    'epics': team_missing_epics
+                })
+
+    if missing_rag_by_team:
         issues.append({
             'type': 'missing_rag_status',
-            'epics': missing_rag_epics
+            'teams': missing_rag_by_team
         })
 
     # Check for zero epics
@@ -621,13 +630,18 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                     print()
 
                 elif issue['type'] == 'missing_rag_status':
-                    epic_keys = [epic['key'] for epic in issue['epics']]
                     print(f"   ⚠️  Missing RAG status - Action:")
-                    if verbose:
-                        for epic in issue['epics']:
-                            print(f"       - {epic['key']}: \"{epic['summary']}\"")
-                    for epic_key in epic_keys:
-                        print(f"       [ ] {epic_key} to set RAG status")
+                    for team_data in issue['teams']:
+                        team_name = team_data['team_name']
+                        epic_keys = [epic['key'] for epic in team_data['epics']]
+                        epics_str = ', '.join(epic_keys)
+
+                        if verbose:
+                            print(f"       - {team_name}:")
+                            for epic in team_data['epics']:
+                                print(f"         {epic['key']}: \"{epic['summary']}\"")
+
+                        print(f"       [ ] {team_name} to set RAG status for {epics_str}")
                     print()
 
         print(f"{'-' * 80}\n")
@@ -775,13 +789,18 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                     print()
 
                 elif issue['type'] == 'missing_rag_status':
-                    epic_keys = [epic['key'] for epic in issue['epics']]
                     print(f"   ⚠️  Missing RAG status - Action:")
-                    if verbose:
-                        for epic in issue['epics']:
-                            print(f"       - {epic['key']}: \"{epic['summary']}\"")
-                    for epic_key in epic_keys:
-                        print(f"       [ ] {epic_key} to set RAG status")
+                    for team_data in issue['teams']:
+                        team_name = team_data['team_name']
+                        epic_keys = [epic['key'] for epic in team_data['epics']]
+                        epics_str = ', '.join(epic_keys)
+
+                        if verbose:
+                            print(f"       - {team_name}:")
+                            for epic in team_data['epics']:
+                                print(f"         {epic['key']}: \"{epic['summary']}\"")
+
+                        print(f"       [ ] {team_name} to set RAG status for {epics_str}")
                     print()
 
                 elif issue['type'] == 'no_epics':
@@ -937,11 +956,13 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                     lines.append("")
 
                 elif issue['type'] == 'missing_rag_status':
-                    epic_keys = [epic['key'] for epic in issue['epics']]
                     lines.append("**⚠️ Missing RAG status - Action:**")
                     lines.append("")
-                    for epic_key in epic_keys:
-                        lines.append(f"- [ ] {epic_key} to set RAG status")
+                    for team_data in issue['teams']:
+                        team_name = team_data['team_name']
+                        epic_keys = [epic['key'] for epic in team_data['epics']]
+                        epics_str = ', '.join(epic_keys)
+                        lines.append(f"- [ ] {team_name} to set RAG status for {epics_str}")
                     lines.append("")
 
         lines.append("---")
@@ -1049,11 +1070,13 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                     lines.append("")
                     # Similar logic as Section 1
                 elif issue['type'] == 'missing_rag_status':
-                    epic_keys = [epic['key'] for epic in issue['epics']]
                     lines.append("**⚠️ Missing RAG status - Action:**")
                     lines.append("")
-                    for epic_key in epic_keys:
-                        lines.append(f"- [ ] {epic_key} to set RAG status")
+                    for team_data in issue['teams']:
+                        team_name = team_data['team_name']
+                        epic_keys = [epic['key'] for epic in team_data['epics']]
+                        epics_str = ', '.join(epic_keys)
+                        lines.append(f"- [ ] {team_name} to set RAG status for {epics_str}")
                     lines.append("")
                 elif issue['type'] == 'no_epics':
                     lines.append("**⚠️ No epics found**")

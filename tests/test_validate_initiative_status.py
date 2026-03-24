@@ -79,10 +79,11 @@ def test_check_data_quality_missing_rag():
         "summary": "Test Initiative",
         "status": "Proposed",
         "assignee": "user@example.com",
-        "teams_involved": ["TEAM1"],
+        "teams_involved": ["Team A"],
         "contributing_teams": [
             {
                 "team_project_key": "TEAM1",
+                "team_project_name": "Team One",
                 "epics": [
                     {"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"},
                     {"key": "TEAM1-2", "summary": "Epic 2", "rag_status": None},
@@ -97,9 +98,12 @@ def test_check_data_quality_missing_rag():
     assert issues is not None
     assert len(issues) == 1
     assert issues[0]['type'] == 'missing_rag_status'
-    assert len(issues[0]['epics']) == 2
-    assert issues[0]['epics'][0]['key'] == 'TEAM1-2'
-    assert issues[0]['epics'][1]['key'] == 'TEAM1-3'
+    assert len(issues[0]['teams']) == 1
+    assert issues[0]['teams'][0]['team_name'] == 'Team One'
+    assert issues[0]['teams'][0]['team_key'] == 'TEAM1'
+    assert len(issues[0]['teams'][0]['epics']) == 2
+    assert issues[0]['teams'][0]['epics'][0]['key'] == 'TEAM1-2'
+    assert issues[0]['teams'][0]['epics'][1]['key'] == 'TEAM1-3'
 
 
 def test_check_data_quality_no_epics():
