@@ -128,7 +128,8 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
                 if epic.get('rag_status') is None:
                     team_missing_epics.append({
                         'key': epic['key'],
-                        'summary': epic['summary']
+                        'summary': epic['summary'],
+                        'url': epic.get('url', '')
                     })
 
             if team_missing_epics:
@@ -960,8 +961,9 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                     lines.append("")
                     for team_data in issue['teams']:
                         team_name = team_data['team_name']
-                        epic_keys = [epic['key'] for epic in team_data['epics']]
-                        epics_str = ', '.join(epic_keys)
+                        # Create markdown links for each epic
+                        epic_links = [f"[{epic['key']}]({epic['url']})" for epic in team_data['epics']]
+                        epics_str = ', '.join(epic_links)
                         lines.append(f"- [ ] {team_name} to set RAG status for {epics_str}")
                     lines.append("")
 
@@ -1074,8 +1076,9 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                     lines.append("")
                     for team_data in issue['teams']:
                         team_name = team_data['team_name']
-                        epic_keys = [epic['key'] for epic in team_data['epics']]
-                        epics_str = ', '.join(epic_keys)
+                        # Create markdown links for each epic
+                        epic_links = [f"[{epic['key']}]({epic['url']})" for epic in team_data['epics']]
+                        epics_str = ', '.join(epic_links)
                         lines.append(f"- [ ] {team_name} to set RAG status for {epics_str}")
                     lines.append("")
                 elif issue['type'] == 'no_epics':
