@@ -1,0 +1,23 @@
+# Team name mappings for validation (EXAMPLE)
+# Maps display names (from Teams Involved field) to project keys (from epics)
+#
+# Format:
+#   "Display Name": "PROJECT_KEY"
+#
+# This mapping is used to identify which teams need to create epics
+# when there's a mismatch between Teams Involved and actual epics.
+#
+# SETUP:
+# 1. Copy this file to team_mappings.yaml
+# 2. Replace with your actual team names and project keys
+# 3. The file is optional - script works without it (uses display names as-is)
+
+team_mappings:
+  "Team A": "TEAMA"
+  "Team B": "TEAMB"
+  "Team C": "TEAMC"
+  "Engineering": "ENG"
+  "Product": "PROD"
+
+  # Add more mappings as needed
+  # "Display Name": "PROJECT_KEY"

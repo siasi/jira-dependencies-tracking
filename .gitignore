@@ -1,6 +1,7 @@
 # Environment and credentials
 .env
 config.yaml
+team_mappings.yaml
 
 # Python
 __pycache__/
@@ -45,3 +46,7 @@ Thumbs.db
 extraction.log
 *.log
 Claude.md
+
+# Generated reports (may contain company data)
+/*.md
+!README.md

@@ -40,6 +40,30 @@ class DataFetcher:
         self.team_projects = team_projects
         self.custom_fields = custom_fields
         self.filter_quarter = filter_quarter
+        self._field_name_cache = None  # Cache for field ID -> name mapping
+
+    def _get_field_name(self, field_id: str) -> str:
+        """Get Jira field name from field ID for JQL queries.
+
+        Args:
+            field_id: Custom field ID (e.g., "customfield_12108")
+
+        Returns:
+            Field name for JQL (e.g., "Quarter[Dropdown]") or field ID if name not found
+        """
+        # Build cache on first use
+        if self._field_name_cache is None:
+            self._field_name_cache = {}
+            try:
+                fields = self.client.get_custom_fields()
+                for field in fields:
+                    self._field_name_cache[field.get("id")] = field.get("name", field.get("id"))
+            except Exception:
+                # If we can't get fields, fall back to using IDs
+                pass
+
+        # Return field name from cache, or fall back to ID
+        return self._field_name_cache.get(field_id, field_id)
 
     def _extract_field_value(self, field_data: Any) -> Optional[str]:
         """Extract value from Jira custom field.
@@ -72,9 +96,10 @@ class DataFetcher:
             # Return single value if only one, otherwise comma-separated
             return values[0] if len(values) == 1 else ", ".join(values)
 
-        # Handle single select fields
+        # Handle single select fields and team objects
         if isinstance(field_data, dict):
-            return field_data.get("value")
+            # Try "value" first (for select fields), then "name" (for team fields)
+            return field_data.get("value") or field_data.get("name")
 
         # Handle plain text fields
         return field_data
@@ -91,7 +116,9 @@ class DataFetcher:
         # Add filters if configured
         if self.filter_quarter and "quarter" in self.custom_fields:
             quarter_field_id = self.custom_fields["quarter"]
-            jql += f' AND status != "Done" AND {quarter_field_id} = "{self.filter_quarter}"'
+            # Use field name for JQL (not ID) - some fields like dropdowns require this
+            quarter_field_name = self._get_field_name(quarter_field_id)
+            jql += f' AND status != "Done" AND "{quarter_field_name}" = "{self.filter_quarter}"'
 
         # Build fields list - dynamic from config
         # NOTE: Fetches ALL configured custom fields, even if not used for filtering

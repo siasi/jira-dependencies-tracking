@@ -424,3 +424,86 @@ python validate_dependencies.py data/snapshots/snapshot_baseline_*.json
 # Fail build if data inconsistencies found
 python jira_extract.py extract && python validate_dependencies.py
 ```
+
+### Validate Initiative Status
+
+Validate initiative readiness for Proposed → Planned status transitions based on epic RAG status, team dependencies, and assignee presence.
+
+```bash
+# Validate latest extraction
+python validate_initiative_status.py
+
+# Validate specific file
+python validate_initiative_status.py data/jira_extract_20260321.json
+
+# Validate snapshot
+python validate_initiative_status.py data/snapshots/snapshot_baseline_*.json
+
+# Only analyze initiatives with 2+ teams
+python validate_initiative_status.py --min-teams 2
+
+# Validate snapshot with team filter
+python validate_initiative_status.py data/snapshots/snapshot_baseline_*.json --min-teams 2
+```
+
+**Options:**
+- `--min-teams N` - Minimum number of teams required (default: 1, analyzes all initiatives)
+  - Use this to focus on multi-team initiatives only
+  - Report shows total initiatives and how many were filtered out
+- `--markdown FILENAME` - Export report to markdown format (Notion-compatible)
+- `--verbose` - Include verbose output with additional details
+
+**Optional Configuration:**
+
+Create `team_mappings.yaml` to map friendly team names to project keys:
+
+```bash
+# Copy example and customize with your team names
+cp team_mappings.yaml.example team_mappings.yaml
+```
+
+Example:
+```yaml
+team_mappings:
+  "Engineering": "ENG"
+  "Product": "PROD"
+  "Design": "DESIGN"
+```
+
+**Note:** This file is optional. The script works without it by using display names as-is. The mapping helps identify teams when display names differ from project keys.
+
+**What It Checks:**
+
+**Fix Data Quality (blocks planning):**
+- Epic count matches Teams Involved count
+- All epics have RAG status set
+- Initiative has at least one epic
+
+**Address Commitment Blockers (not ready):**
+- No RED or YELLOW epics (all must be GREEN)
+- Initiative has assignee
+- Missing RAG status treated as RED
+
+**Ready to Move to Planned:**
+- All checks above pass
+- Outputs Jira-ready issue keys for bulk update
+
+**Bidirectional Checking:**
+- Checks Proposed → Planned transitions
+- Flags Planned → Proposed regressions
+
+**Output:**
+
+Terminal report with four sections:
+1. 🔴 **Fix Data Quality** - Initiatives with data issues (epic-level detail)
+2. 🟡 **Address Commitment Blockers** - Initiatives not ready (epic-level detail)
+3. ✅ **Ready to Move to Planned** - Comma-separated keys for bulk Jira update
+4. ⚠️  **Planned Initiatives with Issues** - Regressions to fix
+
+**Exit codes:**
+- `0` - All validations passed, initiatives ready
+- `1` - Validation issues found (data quality or commitment blockers)
+
+**Design Documentation:**
+
+See [brainstorm document](docs/brainstorms/2026-03-21-initiative-status-validation-brainstorm.md) for design decisions and approach rationale.
