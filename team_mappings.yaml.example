@@ -21,3 +21,25 @@ team_mappings:
 
   # Add more mappings as needed
   # "Display Name": "PROJECT_KEY"
+
+# Engineering manager Notion handles for team notifications (OPTIONAL)
+# Maps project keys to manager Notion handles (for @mentions in markdown)
+#
+# Format:
+#   "PROJECT_KEY": "@notion.handle"
+#
+# These handles are used to tag managers in markdown reports for action items.
+# When set, managers will be @mentioned in Notion for their team's action items:
+# - Missing dependencies (team needs to create epics)
+# - Missing RAG status (team needs to set RAG status)
+# - Missing strategic objective (initiative owner team's manager)
+# - No assignee (initiative owner team's manager)
+team_managers:
+  "TEAMA": "@manager.teama"
+  "TEAMB": "@manager.teamb"
+  "TEAMC": "@manager.teamc"
+  "ENG": "@manager.engineering"
+  "PROD": "@manager.product"
+
+  # Add more manager handles as needed
+  # "PROJECT_KEY": "@notion.handle"

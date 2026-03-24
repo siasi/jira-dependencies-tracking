@@ -319,6 +319,24 @@ def _load_team_mappings() -> Dict[str, str]:
         return {}
 
 
+def _load_team_managers() -> Dict[str, str]:
+    """Load team manager Notion handles from team_mappings.yaml.
+
+    Returns:
+        Dict mapping project keys to manager Notion handles, or empty dict if not found
+    """
+    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    if not mappings_file.exists():
+        return {}
+
+    try:
+        with open(mappings_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            return data.get('team_managers', {})
+    except Exception:
+        return {}
+
+
 def _normalize_teams_involved(teams_involved: Any) -> List[str]:
     """Normalize teams_involved field to a list.
 
@@ -462,6 +480,7 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
                             'summary': initiative_summary,
                             'status': initiative_status,
                             'url': initiative_url,
+                            'owner_team': initiative.get('owner_team'),
                             'contributing_teams': initiative.get('contributing_teams', []),
                             'issues': [{
                                 'type': 'no_assignee'
@@ -931,7 +950,16 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                 if issue['type'] == 'missing_strategic_objective':
                     lines.append("**⚠️ Missing Strategic Objective - Action:**")
                     lines.append("")
-                    lines.append("- [ ] Set the Strategic Objective field for this initiative")
+                    # Tag owner team's manager
+                    owner_team = item.get('owner_team')
+                    manager_tag = ''
+                    if owner_team:
+                        team_managers = _load_team_managers()
+                        # Owner team might be a display name, try to get project key
+                        project_key = team_mappings.get(owner_team, owner_team)
+                        manager_tag = team_managers.get(project_key, '')
+                    manager_suffix = f" {manager_tag}" if manager_tag else ""
+                    lines.append(f"- [ ] Set the Strategic Objective field for this initiative{manager_suffix}")
                     lines.append("")
 
                 elif issue['type'] == 'epic_count_mismatch':
@@ -949,6 +977,7 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                     if epics_count < teams_count:
                         teams_with_epics_set = set(issue['teams_with_epics'])
                         owner_team = item.get('owner_team')
+                        team_managers = _load_team_managers()
                         missing_teams = []
                         for display_name in issue['teams_involved']:
                             # Skip owner team - they don't need to create epics
@@ -957,13 +986,15 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
 
                             project_key = team_mappings.get(display_name)
                             if project_key and project_key not in teams_with_epics_set:
-                                missing_teams.append(f"{display_name} ({project_key})")
+                                missing_teams.append((f"{display_name} ({project_key})", project_key))
                             elif not project_key and display_name not in teams_with_epics_set:
-                                missing_teams.append(f"{display_name} (unmapped)")
+                                missing_teams.append((f"{display_name} (unmapped)", None))
 
                         if missing_teams:
-                            for team in missing_teams:
-                                lines.append(f"- [ ] {team} to create epic")
+                            for team_str, project_key in missing_teams:
+                                manager_tag = team_managers.get(project_key, '') if project_key else ''
+                                manager_suffix = f" {manager_tag}" if manager_tag else ""
+                                lines.append(f"- [ ] {team_str} to create epic{manager_suffix}")
                         else:
                             missing_count = teams_count - epics_count
                             lines.append(f"- [ ] **Action**: Create {missing_count} missing epic{'s' if missing_count > 1 else ''} or update Teams Involved field")
@@ -988,12 +1019,17 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                 elif issue['type'] == 'missing_rag_status':
                     lines.append("**⚠️ Missing RAG status - Action:**")
                     lines.append("")
+                    team_managers = _load_team_managers()
                     for team_data in issue['teams']:
                         team_name = team_data['team_name']
+                        team_key = team_data['team_key']
                         # Create markdown links for each epic
                         epic_links = [f"[{epic['key']}]({epic['url']})" for epic in team_data['epics']]
                         epics_str = ', '.join(epic_links)
-                        lines.append(f"- [ ] {team_name} to set RAG status for {epics_str}")
+                        # Add manager tag if available
+                        manager_tag = team_managers.get(team_key, '')
+                        manager_suffix = f" {manager_tag}" if manager_tag else ""
+                        lines.append(f"- [ ] {team_name} to set RAG status for {epics_str}{manager_suffix}")
                     lines.append("")
     else:
         lines.append("*No initiatives currently in dependency mapping phase.*")
@@ -1060,8 +1096,17 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     lines.append("")
 
     if result.awaiting_owner:
+        team_managers = _load_team_managers()
+        team_mappings_dict = _load_team_mappings()
         for item in result.awaiting_owner:
-            lines.append(f"- [{item['key']}]({item.get('url', '#')}): {item['summary']}")
+            # Tag owner team's manager
+            owner_team = item.get('owner_team')
+            manager_tag = ''
+            if owner_team:
+                project_key = team_mappings_dict.get(owner_team, owner_team)
+                manager_tag = team_managers.get(project_key, '')
+            manager_suffix = f" {manager_tag}" if manager_tag else ""
+            lines.append(f"- [{item['key']}]({item.get('url', '#')}): {item['summary']}{manager_suffix}")
     else:
         lines.append("*No initiatives awaiting owner assignment at this time.*")
 
@@ -1111,7 +1156,16 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                 if issue['type'] == 'missing_strategic_objective':
                     lines.append("**⚠️ Missing Strategic Objective - Action:**")
                     lines.append("")
-                    lines.append("- [ ] Set the Strategic Objective field for this initiative")
+                    # Tag owner team's manager
+                    owner_team = item.get('owner_team')
+                    manager_tag = ''
+                    if owner_team:
+                        team_managers = _load_team_managers()
+                        # Owner team might be a display name, try to get project key
+                        project_key = team_mappings.get(owner_team, owner_team)
+                        manager_tag = team_managers.get(project_key, '')
+                    manager_suffix = f" {manager_tag}" if manager_tag else ""
+                    lines.append(f"- [ ] Set the Strategic Objective field for this initiative{manager_suffix}")
                     lines.append("")
 
                 elif issue['type'] == 'epic_count_mismatch':
@@ -1121,12 +1175,17 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                 elif issue['type'] == 'missing_rag_status':
                     lines.append("**⚠️ Missing RAG status - Action:**")
                     lines.append("")
+                    team_managers = _load_team_managers()
                     for team_data in issue['teams']:
                         team_name = team_data['team_name']
+                        team_key = team_data['team_key']
                         # Create markdown links for each epic
                         epic_links = [f"[{epic['key']}]({epic['url']})" for epic in team_data['epics']]
                         epics_str = ', '.join(epic_links)
-                        lines.append(f"- [ ] {team_name} to set RAG status for {epics_str}")
+                        # Add manager tag if available
+                        manager_tag = team_managers.get(team_key, '')
+                        manager_suffix = f" {manager_tag}" if manager_tag else ""
+                        lines.append(f"- [ ] {team_name} to set RAG status for {epics_str}{manager_suffix}")
                     lines.append("")
                 elif issue['type'] == 'no_epics':
                     lines.append("**⚠️ No epics found**")
@@ -1140,7 +1199,17 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                 elif issue['type'] == 'no_assignee':
                     lines.append("**⚠️ No assignee set**")
                     lines.append("")
-                    lines.append("- [ ] **Action**: Initiative needs an owner before moving to Planned")
+                    # Tag owner team's manager
+                    owner_team = item.get('owner_team')
+                    manager_tag = ''
+                    if owner_team:
+                        team_managers = _load_team_managers()
+                        # Owner team might be a display name, try to get project key
+                        team_mappings_dict = _load_team_mappings()
+                        project_key = team_mappings_dict.get(owner_team, owner_team)
+                        manager_tag = team_managers.get(project_key, '')
+                    manager_suffix = f" {manager_tag}" if manager_tag else ""
+                    lines.append(f"- [ ] **Action**: Initiative needs an owner before moving to Planned{manager_suffix}")
                     lines.append("")
 
         lines.append("---")
