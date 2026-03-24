@@ -46,6 +46,7 @@ def test_check_data_quality_epic_count_mismatch():
         "summary": "Test Initiative",
         "status": "Proposed",
         "assignee": "user@example.com",
+        "strategic_objective": "Test Objective",
         "teams_involved": ["TEAM1", "TEAM2"],
         "contributing_teams": [
             {
@@ -79,6 +80,7 @@ def test_check_data_quality_missing_rag():
         "summary": "Test Initiative",
         "status": "Proposed",
         "assignee": "user@example.com",
+        "strategic_objective": "Test Objective",
         "teams_involved": ["Team A"],
         "contributing_teams": [
             {
@@ -113,6 +115,7 @@ def test_check_data_quality_no_epics():
         "summary": "Test Initiative",
         "status": "Proposed",
         "assignee": "user@example.com",
+        "strategic_objective": "Test Objective",
         "teams_involved": [],
         "contributing_teams": []
     }
@@ -124,6 +127,30 @@ def test_check_data_quality_no_epics():
     assert issues[0]['type'] == 'no_epics'
 
 
+def test_check_data_quality_missing_strategic_objective():
+    """Test data quality check with missing strategic objective."""
+    initiative = {
+        "key": "INIT-888",
+        "summary": "Test Initiative",
+        "status": "Proposed",
+        "assignee": "user@example.com",
+        "strategic_objective": None,  # Missing
+        "teams_involved": ["TEAM1"],
+        "contributing_teams": [
+            {
+                "team_project_key": "TEAM1",
+                "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
+            }
+        ]
+    }
+
+    issues = _check_data_quality(initiative)
+
+    assert issues is not None
+    assert len(issues) == 1
+    assert issues[0]['type'] == 'missing_strategic_objective'
+
+
 def test_check_data_quality_all_good():
     """Test data quality check with no issues."""
     initiative = {
@@ -131,6 +158,7 @@ def test_check_data_quality_all_good():
         "summary": "Test Initiative",
         "status": "Proposed",
         "assignee": "user@example.com",
+        "strategic_objective": "Improve customer satisfaction",
         "teams_involved": ["TEAM1"],
         "contributing_teams": [
             {
@@ -152,6 +180,7 @@ def test_has_red_epics_with_red():
         "summary": "Test Initiative",
         "status": "Proposed",
         "assignee": "user@example.com",
+        "strategic_objective": "Test Objective",
         "teams_involved": ["TEAM1"],
         "contributing_teams": [
             {
@@ -206,6 +235,7 @@ def test_has_red_epics_none():
         "summary": "Test Initiative",
         "status": "Proposed",
         "assignee": "user@example.com",
+        "strategic_objective": "Test Objective",
         "teams_involved": ["TEAM1"],
         "contributing_teams": [
             {
@@ -227,6 +257,7 @@ def test_has_yellow_epics_with_yellow():
         "summary": "Test Initiative",
         "status": "Proposed",
         "assignee": "user@example.com",
+        "strategic_objective": "Test Objective",
         "teams_involved": ["TEAM1"],
         "contributing_teams": [
             {
@@ -250,6 +281,7 @@ def test_has_yellow_epics_none():
         "summary": "Test Initiative",
         "status": "Proposed",
         "assignee": None,
+        "strategic_objective": "Test Objective",
         "teams_involved": ["TEAM1"],
         "contributing_teams": [
             {
@@ -271,6 +303,7 @@ def test_is_ready_to_plan_all_criteria_met():
         "summary": "Ready Initiative",
         "status": "Proposed",
         "assignee": "user@example.com",
+        "strategic_objective": "Test Objective",
         "teams_involved": ["TEAM1"],
         "contributing_teams": [
             {
@@ -290,6 +323,7 @@ def test_is_ready_to_plan_no_epics():
         "summary": "No Epics",
         "status": "Proposed",
         "assignee": "user@example.com",
+        "strategic_objective": "Test Objective",
         "teams_involved": [],
         "contributing_teams": []
     }
@@ -304,6 +338,7 @@ def test_is_ready_to_plan_no_assignee():
         "summary": "No Assignee",
         "status": "Proposed",
         "assignee": None,
+        "strategic_objective": "Test Objective",
         "teams_involved": ["TEAM1"],
         "contributing_teams": [
             {
@@ -323,6 +358,7 @@ def test_is_ready_to_plan_epic_count_mismatch():
         "summary": "Count Mismatch",
         "status": "Proposed",
         "assignee": "user@example.com",
+        "strategic_objective": "Test Objective",
         "teams_involved": ["TEAM1"],
         "contributing_teams": [
             {
@@ -346,6 +382,7 @@ def test_is_ready_to_plan_not_all_green():
         "summary": "Not All Green",
         "status": "Proposed",
         "assignee": "user@example.com",
+        "strategic_objective": "Test Objective",
         "teams_involved": ["TEAM1"],
         "contributing_teams": [
             {
@@ -369,6 +406,7 @@ def test_validate_initiative_status_dependency_mapping(tmp_path):
             "summary": "Test Initiative",
             "status": "Proposed",
             "assignee": "user@example.com",
+            "strategic_objective": "Test Objective",
             "teams_involved": ["TEAM1", "TEAM2"],
             "contributing_teams": [
                 {
@@ -409,6 +447,7 @@ def test_validate_initiative_status_cannot_complete(tmp_path):
             "summary": "Test Initiative",
             "status": "Proposed",
             "assignee": "user@example.com",
+            "strategic_objective": "Test Objective",
             "teams_involved": ["TEAM1", "TEAM2"],
             "contributing_teams": [
                 {
@@ -445,6 +484,7 @@ def test_validate_initiative_status_low_confidence(tmp_path):
             "summary": "Test Initiative",
             "status": "Proposed",
             "assignee": "user@example.com",
+            "strategic_objective": "Test Objective",
             "teams_involved": ["TEAM1", "TEAM2"],
             "contributing_teams": [
                 {
@@ -481,6 +521,7 @@ def test_validate_initiative_status_awaiting_owner(tmp_path):
             "summary": "Test Initiative",
             "status": "Proposed",
             "assignee": None,
+            "strategic_objective": "Test Objective",
             "teams_involved": ["TEAM1", "TEAM2"],
             "contributing_teams": [
                 {
@@ -517,6 +558,7 @@ def test_validate_initiative_status_ready_to_plan(tmp_path):
             "summary": "Ready Initiative",
             "status": "Proposed",
             "assignee": "user@example.com",
+            "strategic_objective": "Test Objective",
             "teams_involved": ["TEAM1", "TEAM2"],
             "contributing_teams": [
                 {
@@ -553,6 +595,7 @@ def test_validate_initiative_status_planned_regression(tmp_path):
             "summary": "Regressed Initiative",
             "status": "Planned",
             "assignee": "user@example.com",
+            "strategic_objective": "Test Objective",
             "teams_involved": ["TEAM1", "TEAM2"],
             "contributing_teams": [
                 {
@@ -591,6 +634,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "summary": "Data Quality Issue",
                 "status": "Proposed",
                 "assignee": "user@example.com",
+                "strategic_objective": "Test Objective",
                 "teams_involved": ["TEAM1", "TEAM2"],
                 "contributing_teams": []
             },
@@ -599,6 +643,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "summary": "RED Epic",
                 "status": "Proposed",
                 "assignee": "user@example.com",
+                "strategic_objective": "Test Objective",
                 "teams_involved": ["TEAM1", "TEAM2"],
                 "contributing_teams": [
                     {
@@ -616,6 +661,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "summary": "YELLOW Epic",
                 "status": "Proposed",
                 "assignee": "user@example.com",
+                "strategic_objective": "Test Objective",
                 "teams_involved": ["TEAM1", "TEAM2"],
                 "contributing_teams": [
                     {
@@ -633,6 +679,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "summary": "Awaiting Owner",
                 "status": "Proposed",
                 "assignee": None,
+                "strategic_objective": "Test Objective",
                 "teams_involved": ["TEAM1", "TEAM2"],
                 "contributing_teams": [
                     {
@@ -650,6 +697,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "summary": "Ready",
                 "status": "Proposed",
                 "assignee": "user@example.com",
+                "strategic_objective": "Test Objective",
                 "teams_involved": ["TEAM1", "TEAM2"],
                 "contributing_teams": [
                     {
@@ -667,6 +715,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "summary": "Planned Regression",
                 "status": "Planned",
                 "assignee": "user@example.com",
+                "strategic_objective": "Test Objective",
                 "teams_involved": ["TEAM1", "TEAM2"],
                 "contributing_teams": [
                     {
@@ -830,6 +879,7 @@ def test_validate_initiative_status_teams_filter(tmp_path):
                 "summary": "One team initiative",
                 "status": "Proposed",
                 "assignee": "user1",
+                "strategic_objective": "Test Objective",
                 "teams_involved": ["TEAM1"],
                 "contributing_teams": [
                     {
@@ -845,6 +895,7 @@ def test_validate_initiative_status_teams_filter(tmp_path):
                 "summary": "Two team initiative",
                 "status": "Proposed",
                 "assignee": "user2",
+                "strategic_objective": "Test Objective",
                 "teams_involved": ["TEAM1", "TEAM2"],
                 "contributing_teams": [
                     {
@@ -866,6 +917,7 @@ def test_validate_initiative_status_teams_filter(tmp_path):
                 "summary": "Three team initiative",
                 "status": "Proposed",
                 "assignee": "user3",
+                "strategic_objective": "Test Objective",
                 "teams_involved": ["TEAM1", "TEAM2", "TEAM3"],
                 "contributing_teams": [
                     {
@@ -910,6 +962,7 @@ def test_validate_initiative_status_teams_with_various_formats(tmp_path):
                 "summary": "None teams",
                 "status": "Proposed",
                 "assignee": "user1",
+                "strategic_objective": "Test Objective",
                 "teams_involved": None,  # Real data has this!
                 "contributing_teams": []
             },
@@ -918,6 +971,7 @@ def test_validate_initiative_status_teams_with_various_formats(tmp_path):
                 "summary": "String single team",
                 "status": "Proposed",
                 "assignee": "user2",
+                "strategic_objective": "Test Objective",
                 "teams_involved": "Team A",
                 "contributing_teams": [
                     {
@@ -933,6 +987,7 @@ def test_validate_initiative_status_teams_with_various_formats(tmp_path):
                 "summary": "String multiple teams",
                 "status": "Proposed",
                 "assignee": "user3",
+                "strategic_objective": "Test Objective",
                 "teams_involved": "Team A, Team B, Team C",
                 "contributing_teams": [
                     {
@@ -960,6 +1015,7 @@ def test_validate_initiative_status_teams_with_various_formats(tmp_path):
                 "summary": "List format",
                 "status": "Proposed",
                 "assignee": "user4",
+                "strategic_objective": "Test Objective",
                 "teams_involved": ["Team1", "Team2"],
                 "contributing_teams": [
                     {

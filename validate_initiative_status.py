@@ -68,6 +68,11 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
     """
     issues = []
 
+    # Check for missing strategic objective
+    strategic_objective = initiative.get('strategic_objective')
+    if not strategic_objective or (isinstance(strategic_objective, str) and not strategic_objective.strip()):
+        issues.append({'type': 'missing_strategic_objective'})
+
     # Check epic count vs teams count
     teams_involved = _normalize_teams_involved(initiative.get('teams_involved'))
     teams_with_epics = {
@@ -569,7 +574,12 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
             print()
 
             for issue in item['issues']:
-                if issue['type'] == 'epic_count_mismatch':
+                if issue['type'] == 'missing_strategic_objective':
+                    print(f"   ⚠️  Missing Strategic Objective - Action:")
+                    print(f"       [ ] Set the Strategic Objective field for this initiative")
+                    print()
+
+                elif issue['type'] == 'epic_count_mismatch':
                     # Show detailed epic count mismatch
                     epic_keys = [
                         epic['key']
@@ -736,7 +746,12 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
 
             # Show detailed issues (same format as Sections 1 and 2)
             for issue in item.get('issues', []):
-                if issue['type'] == 'epic_count_mismatch':
+                if issue['type'] == 'missing_strategic_objective':
+                    print(f"   ⚠️  Missing Strategic Objective - Action:")
+                    print(f"       [ ] Set the Strategic Objective field for this initiative")
+                    print()
+
+                elif issue['type'] == 'epic_count_mismatch':
                     # Show detailed epic count mismatch
                     epic_keys = [
                         epic['key']
@@ -913,7 +928,13 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
             lines.append("")
 
             for issue in item['issues']:
-                if issue['type'] == 'epic_count_mismatch':
+                if issue['type'] == 'missing_strategic_objective':
+                    lines.append("**⚠️ Missing Strategic Objective - Action:**")
+                    lines.append("")
+                    lines.append("- [ ] Set the Strategic Objective field for this initiative")
+                    lines.append("")
+
+                elif issue['type'] == 'epic_count_mismatch':
                     epic_keys = [
                         epic['key']
                         for tc in item['contributing_teams']
@@ -1087,7 +1108,13 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
 
             # Show same detailed issues as text output
             for issue in item.get('issues', []):
-                if issue['type'] == 'epic_count_mismatch':
+                if issue['type'] == 'missing_strategic_objective':
+                    lines.append("**⚠️ Missing Strategic Objective - Action:**")
+                    lines.append("")
+                    lines.append("- [ ] Set the Strategic Objective field for this initiative")
+                    lines.append("")
+
+                elif issue['type'] == 'epic_count_mismatch':
                     lines.append("**⚠️ Missing dependencies - Action:**")
                     lines.append("")
                     # Similar logic as Section 1
