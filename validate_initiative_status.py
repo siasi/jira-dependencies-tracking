@@ -569,7 +569,7 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                     teams_count = len(issue['teams_involved'])
                     epics_count = len(issue['teams_with_epics'])
 
-                    print(f"   ⚠️  Missing dependencies")
+                    print(f"   ⚠️  Missing dependencies - Action:")
                     if verbose:
                         print(f"       - Has {len(epic_keys)} epics: {', '.join(epic_keys)}")
                         print(f"       - Teams Involved: {', '.join(issue['teams_involved'])}")
@@ -594,9 +594,8 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                                 missing_teams.append(f"{display_name} (unmapped)")
 
                         if missing_teams:
-                            print(f"       - Action:")
                             for team in missing_teams:
-                                print(f"         [ ] {team} to create epic")
+                                print(f"       [ ] {team} to create epic")
                         else:
                             missing_count = teams_count - epics_count
                             print(f"       - Action: Create {missing_count} missing epic{'s' if missing_count > 1 else ''} or update Teams Involved field")
@@ -623,13 +622,12 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
 
                 elif issue['type'] == 'missing_rag_status':
                     epic_keys = [epic['key'] for epic in issue['epics']]
-                    print(f"   ⚠️  Missing RAG status")
+                    print(f"   ⚠️  Missing RAG status - Action:")
                     if verbose:
                         for epic in issue['epics']:
                             print(f"       - {epic['key']}: \"{epic['summary']}\"")
-                    print(f"       - Action:")
                     for epic_key in epic_keys:
-                        print(f"         [ ] {epic_key} to set RAG status")
+                        print(f"       [ ] {epic_key} to set RAG status")
                     print()
 
         print(f"{'-' * 80}\n")
@@ -725,7 +723,7 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                     teams_count = len(issue['teams_involved'])
                     epics_count = len(issue['teams_with_epics'])
 
-                    print(f"   ⚠️  Missing dependencies")
+                    print(f"   ⚠️  Missing dependencies - Action:")
                     if verbose:
                         print(f"       - Has {len(epic_keys)} epics: {', '.join(epic_keys)}")
                         print(f"       - Teams Involved: {', '.join(issue['teams_involved'])}")
@@ -750,9 +748,8 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                                 missing_teams.append(f"{display_name} (unmapped)")
 
                         if missing_teams:
-                            print(f"       - Action:")
                             for team in missing_teams:
-                                print(f"         [ ] {team} to create epic")
+                                print(f"       [ ] {team} to create epic")
                         else:
                             missing_count = teams_count - epics_count
                             print(f"       - Action: Create {missing_count} missing epic{'s' if missing_count > 1 else ''} or update Teams Involved field")
@@ -779,13 +776,12 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
 
                 elif issue['type'] == 'missing_rag_status':
                     epic_keys = [epic['key'] for epic in issue['epics']]
-                    print(f"   ⚠️  Missing RAG status")
+                    print(f"   ⚠️  Missing RAG status - Action:")
                     if verbose:
                         for epic in issue['epics']:
                             print(f"       - {epic['key']}: \"{epic['summary']}\"")
-                    print(f"       - Action:")
                     for epic_key in epic_keys:
-                        print(f"         [ ] {epic_key} to set RAG status")
+                        print(f"       [ ] {epic_key} to set RAG status")
                     print()
 
                 elif issue['type'] == 'no_epics':
@@ -898,7 +894,7 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                     teams_count = len(issue['teams_involved'])
                     epics_count = len(issue['teams_with_epics'])
 
-                    lines.append("**⚠️ Missing dependencies**")
+                    lines.append("**⚠️ Missing dependencies - Action:**")
                     lines.append("")
 
                     if epics_count < teams_count:
@@ -917,8 +913,6 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                                 missing_teams.append(f"{display_name} (unmapped)")
 
                         if missing_teams:
-                            lines.append("**Action:**")
-                            lines.append("")
                             for team in missing_teams:
                                 lines.append(f"- [ ] {team} to create epic")
                         else:
@@ -944,9 +938,7 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
 
                 elif issue['type'] == 'missing_rag_status':
                     epic_keys = [epic['key'] for epic in issue['epics']]
-                    lines.append("**⚠️ Missing RAG status**")
-                    lines.append("")
-                    lines.append("**Action:**")
+                    lines.append("**⚠️ Missing RAG status - Action:**")
                     lines.append("")
                     for epic_key in epic_keys:
                         lines.append(f"- [ ] {epic_key} to set RAG status")
@@ -1053,14 +1045,12 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
             # Show same detailed issues as text output
             for issue in item.get('issues', []):
                 if issue['type'] == 'epic_count_mismatch':
-                    lines.append("**⚠️ Missing dependencies**")
+                    lines.append("**⚠️ Missing dependencies - Action:**")
                     lines.append("")
                     # Similar logic as Section 1
                 elif issue['type'] == 'missing_rag_status':
                     epic_keys = [epic['key'] for epic in issue['epics']]
-                    lines.append("**⚠️ Missing RAG status**")
-                    lines.append("")
-                    lines.append("**Action:**")
+                    lines.append("**⚠️ Missing RAG status - Action:**")
                     lines.append("")
                     for epic_key in epic_keys:
                         lines.append(f"- [ ] {epic_key} to set RAG status")
