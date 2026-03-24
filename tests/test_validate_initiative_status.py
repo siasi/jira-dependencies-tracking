@@ -7,7 +7,8 @@ from validate_initiative_status import (
     ValidationResult,
     validate_initiative_status,
     _check_data_quality,
-    _check_commitment_blockers,
+    _has_red_epics,
+    _has_yellow_epics,
     _is_ready_to_plan,
     find_latest_extract
 )
@@ -18,16 +19,24 @@ def test_validation_result_has_issues():
     result = ValidationResult()
     assert not result.has_issues
 
-    result.fix_data_quality.append({'key': 'INIT-1'})
+    result.dependency_mapping.append({'key': 'INIT-1'})
     assert result.has_issues
 
     result2 = ValidationResult()
-    result2.address_blockers.append({'key': 'INIT-2'})
+    result2.cannot_complete_quarter.append({'key': 'INIT-2'})
     assert result2.has_issues
 
     result3 = ValidationResult()
-    result3.planned_regressions.append({'key': 'INIT-3'})
+    result3.low_confidence.append({'key': 'INIT-3'})
     assert result3.has_issues
+
+    result4 = ValidationResult()
+    result4.awaiting_owner.append({'key': 'INIT-4'})
+    assert result4.has_issues
+
+    result5 = ValidationResult()
+    result5.planned_regressions.append({'key': 'INIT-5'})
+    assert result5.has_issues
 
 
 def test_check_data_quality_epic_count_mismatch():
@@ -132,8 +141,8 @@ def test_check_data_quality_all_good():
     assert issues is None
 
 
-def test_check_commitment_blockers_red_epic():
-    """Test commitment blockers check with RED epic."""
+def test_has_red_epics_with_red():
+    """Test _has_red_epics with RED epic."""
     initiative = {
         "key": "INIT-200",
         "summary": "Test Initiative",
@@ -148,91 +157,46 @@ def test_check_commitment_blockers_red_epic():
         ]
     }
 
-    issues = _check_commitment_blockers(initiative)
+    red_epics = _has_red_epics(initiative)
 
-    assert issues is not None
-    assert len(issues) == 1
-    assert issues[0]['type'] == 'red_epics'
-    assert len(issues[0]['epics']) == 1
-    assert issues[0]['epics'][0]['key'] == 'TEAM1-1'
-    assert issues[0]['epics'][0]['rag_status'] == '🔴'
+    assert red_epics is not None
+    assert len(red_epics) == 1
+    assert red_epics[0]['key'] == 'TEAM1-1'
+    assert red_epics[0]['rag_status'] == '🔴'
 
 
-def test_check_commitment_blockers_yellow_epic():
-    """Test commitment blockers check with YELLOW epic."""
-    initiative = {
-        "key": "INIT-300",
-        "summary": "Test Initiative",
-        "status": "Proposed",
-        "assignee": "user@example.com",
-        "teams_involved": ["TEAM1"],
-        "contributing_teams": [
-            {
-                "team_project_key": "TEAM1",
-                "epics": [{"key": "TEAM1-1", "summary": "At Risk Epic", "rag_status": "⚠️"}]
-            }
-        ]
-    }
-
-    issues = _check_commitment_blockers(initiative)
-
-    assert issues is not None
-    assert len(issues) == 1
-    assert issues[0]['type'] == 'yellow_epics'
-    assert len(issues[0]['epics']) == 1
-    assert issues[0]['epics'][0]['key'] == 'TEAM1-1'
-
-
-def test_check_commitment_blockers_missing_rag_treated_as_red():
-    """Test commitment blockers check treats missing RAG as RED."""
+def test_has_red_epics_with_owner_team():
+    """Test _has_red_epics skips owner team epics."""
     initiative = {
         "key": "INIT-400",
         "summary": "Test Initiative",
         "status": "Proposed",
         "assignee": "user@example.com",
-        "teams_involved": ["TEAM1"],
+        "owner_team": "TEAM1",
+        "teams_involved": ["TEAM1", "TEAM2"],
         "contributing_teams": [
             {
                 "team_project_key": "TEAM1",
-                "epics": [{"key": "TEAM1-1", "summary": "Epic No RAG", "rag_status": None}]
+                "epics": [{"key": "TEAM1-1", "summary": "Owner Epic RED", "rag_status": "🔴"}]
+            },
+            {
+                "team_project_key": "TEAM2",
+                "epics": [{"key": "TEAM2-1", "summary": "Non-owner Epic RED", "rag_status": "🔴"}]
             }
         ]
     }
 
-    issues = _check_commitment_blockers(initiative)
+    red_epics = _has_red_epics(initiative)
 
-    assert issues is not None
-    assert len(issues) == 1
-    assert issues[0]['type'] == 'red_epics'
-    assert len(issues[0]['epics']) == 1
-    assert issues[0]['epics'][0]['rag_status'] is None
-
-
-def test_check_commitment_blockers_no_assignee():
-    """Test commitment blockers check with missing assignee."""
-    initiative = {
-        "key": "INIT-500",
-        "summary": "Test Initiative",
-        "status": "Proposed",
-        "assignee": None,
-        "teams_involved": ["TEAM1"],
-        "contributing_teams": [
-            {
-                "team_project_key": "TEAM1",
-                "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
-            }
-        ]
-    }
-
-    issues = _check_commitment_blockers(initiative)
-
-    assert issues is not None
-    assert len(issues) == 1
-    assert issues[0]['type'] == 'no_assignee'
+    # Should only return TEAM2's epic (non-owner), not TEAM1's (owner)
+    assert red_epics is not None
+    assert len(red_epics) == 1
+    assert red_epics[0]['key'] == 'TEAM2-1'
+    assert red_epics[0]['rag_status'] == '🔴'
 
 
-def test_check_commitment_blockers_all_good():
-    """Test commitment blockers check with no issues."""
+def test_has_red_epics_none():
+    """Test _has_red_epics with no RED epics."""
     initiative = {
         "key": "INIT-600",
         "summary": "Test Initiative",
@@ -247,9 +211,53 @@ def test_check_commitment_blockers_all_good():
         ]
     }
 
-    issues = _check_commitment_blockers(initiative)
+    red_epics = _has_red_epics(initiative)
 
-    assert issues is None
+    assert red_epics is None
+
+
+def test_has_yellow_epics_with_yellow():
+    """Test _has_yellow_epics with YELLOW epic."""
+    initiative = {
+        "key": "INIT-300",
+        "summary": "Test Initiative",
+        "status": "Proposed",
+        "assignee": "user@example.com",
+        "teams_involved": ["TEAM1"],
+        "contributing_teams": [
+            {
+                "team_project_key": "TEAM1",
+                "epics": [{"key": "TEAM1-1", "summary": "At Risk Epic", "rag_status": "⚠️"}]
+            }
+        ]
+    }
+
+    yellow_epics = _has_yellow_epics(initiative)
+
+    assert yellow_epics is not None
+    assert len(yellow_epics) == 1
+    assert yellow_epics[0]['key'] == 'TEAM1-1'
+
+
+def test_has_yellow_epics_none():
+    """Test _has_yellow_epics with no YELLOW epics."""
+    initiative = {
+        "key": "INIT-500",
+        "summary": "Test Initiative",
+        "status": "Proposed",
+        "assignee": None,
+        "teams_involved": ["TEAM1"],
+        "contributing_teams": [
+            {
+                "team_project_key": "TEAM1",
+                "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
+            }
+        ]
+    }
+
+    yellow_epics = _has_yellow_epics(initiative)
+
+    assert yellow_epics is None
 
 
 def test_is_ready_to_plan_all_criteria_met():
@@ -349,8 +357,8 @@ def test_is_ready_to_plan_not_all_green():
     assert _is_ready_to_plan(initiative) is False
 
 
-def test_validate_initiative_status_fix_data_quality(tmp_path):
-    """Test full validation with data quality issues."""
+def test_validate_initiative_status_dependency_mapping(tmp_path):
+    """Test full validation with data quality issues (Section 1: Dependency Mapping)."""
     data = {
         "initiatives": [{
             "key": "INIT-123",
@@ -381,25 +389,31 @@ def test_validate_initiative_status_fix_data_quality(tmp_path):
     result = validate_initiative_status(json_file)
 
     assert result.total_checked == 1
-    assert len(result.fix_data_quality) == 1
-    assert result.fix_data_quality[0]['key'] == "INIT-123"
-    assert len(result.address_blockers) == 0
+    assert len(result.dependency_mapping) == 1
+    assert result.dependency_mapping[0]['key'] == "INIT-123"
+    assert len(result.cannot_complete_quarter) == 0
+    assert len(result.low_confidence) == 0
+    assert len(result.awaiting_owner) == 0
     assert len(result.ready_to_plan) == 0
 
 
-def test_validate_initiative_status_address_blockers(tmp_path):
-    """Test full validation with commitment blockers."""
+def test_validate_initiative_status_cannot_complete(tmp_path):
+    """Test full validation with RED epics (Section 2: Can't be completed)."""
     data = {
         "initiatives": [{
             "key": "INIT-456",
             "summary": "Test Initiative",
             "status": "Proposed",
             "assignee": "user@example.com",
-            "teams_involved": ["TEAM1"],
+            "teams_involved": ["TEAM1", "TEAM2"],
             "contributing_teams": [
                 {
                     "team_project_key": "TEAM1",
-                    "epics": [{"key": "TEAM1-1", "summary": "Blocked Epic", "rag_status": "🔴"}]
+                    "epics": [{"key": "TEAM1-1", "summary": "Green Epic", "rag_status": "🟢"}]
+                },
+                {
+                    "team_project_key": "TEAM2",
+                    "epics": [{"key": "TEAM2-1", "summary": "Blocked Epic", "rag_status": "🔴"}]
                 }
             ]
         }]
@@ -411,25 +425,103 @@ def test_validate_initiative_status_address_blockers(tmp_path):
     result = validate_initiative_status(json_file)
 
     assert result.total_checked == 1
-    assert len(result.fix_data_quality) == 0
-    assert len(result.address_blockers) == 1
-    assert result.address_blockers[0]['key'] == "INIT-456"
+    assert len(result.dependency_mapping) == 0
+    assert len(result.cannot_complete_quarter) == 1
+    assert result.cannot_complete_quarter[0]['key'] == "INIT-456"
+    assert len(result.low_confidence) == 0
+    assert len(result.awaiting_owner) == 0
+    assert len(result.ready_to_plan) == 0
+
+
+def test_validate_initiative_status_low_confidence(tmp_path):
+    """Test full validation with YELLOW epics (Section 3: Low confidence)."""
+    data = {
+        "initiatives": [{
+            "key": "INIT-457",
+            "summary": "Test Initiative",
+            "status": "Proposed",
+            "assignee": "user@example.com",
+            "teams_involved": ["TEAM1", "TEAM2"],
+            "contributing_teams": [
+                {
+                    "team_project_key": "TEAM1",
+                    "epics": [{"key": "TEAM1-1", "summary": "Green Epic", "rag_status": "🟢"}]
+                },
+                {
+                    "team_project_key": "TEAM2",
+                    "epics": [{"key": "TEAM2-1", "summary": "At Risk Epic", "rag_status": "⚠️"}]
+                }
+            ]
+        }]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(data))
+
+    result = validate_initiative_status(json_file)
+
+    assert result.total_checked == 1
+    assert len(result.dependency_mapping) == 0
+    assert len(result.cannot_complete_quarter) == 0
+    assert len(result.low_confidence) == 1
+    assert result.low_confidence[0]['key'] == "INIT-457"
+    assert len(result.awaiting_owner) == 0
+    assert len(result.ready_to_plan) == 0
+
+
+def test_validate_initiative_status_awaiting_owner(tmp_path):
+    """Test full validation with missing assignee (Section 4: Awaiting owner)."""
+    data = {
+        "initiatives": [{
+            "key": "INIT-458",
+            "summary": "Test Initiative",
+            "status": "Proposed",
+            "assignee": None,
+            "teams_involved": ["TEAM1", "TEAM2"],
+            "contributing_teams": [
+                {
+                    "team_project_key": "TEAM1",
+                    "epics": [{"key": "TEAM1-1", "summary": "Green Epic 1", "rag_status": "🟢"}]
+                },
+                {
+                    "team_project_key": "TEAM2",
+                    "epics": [{"key": "TEAM2-1", "summary": "Green Epic 2", "rag_status": "🟢"}]
+                }
+            ]
+        }]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(data))
+
+    result = validate_initiative_status(json_file)
+
+    assert result.total_checked == 1
+    assert len(result.dependency_mapping) == 0
+    assert len(result.cannot_complete_quarter) == 0
+    assert len(result.low_confidence) == 0
+    assert len(result.awaiting_owner) == 1
+    assert result.awaiting_owner[0]['key'] == "INIT-458"
     assert len(result.ready_to_plan) == 0
 
 
 def test_validate_initiative_status_ready_to_plan(tmp_path):
-    """Test full validation with ready initiative."""
+    """Test full validation with ready initiative (Section 5: Ready to Move to Planned)."""
     data = {
         "initiatives": [{
             "key": "INIT-789",
             "summary": "Ready Initiative",
             "status": "Proposed",
             "assignee": "user@example.com",
-            "teams_involved": ["TEAM1"],
+            "teams_involved": ["TEAM1", "TEAM2"],
             "contributing_teams": [
                 {
                     "team_project_key": "TEAM1",
-                    "epics": [{"key": "TEAM1-1", "summary": "Green Epic", "rag_status": "🟢"}]
+                    "epics": [{"key": "TEAM1-1", "summary": "Green Epic 1", "rag_status": "🟢"}]
+                },
+                {
+                    "team_project_key": "TEAM2",
+                    "epics": [{"key": "TEAM2-1", "summary": "Green Epic 2", "rag_status": "🟢"}]
                 }
             ]
         }]
@@ -441,8 +533,10 @@ def test_validate_initiative_status_ready_to_plan(tmp_path):
     result = validate_initiative_status(json_file)
 
     assert result.total_checked == 1
-    assert len(result.fix_data_quality) == 0
-    assert len(result.address_blockers) == 0
+    assert len(result.dependency_mapping) == 0
+    assert len(result.cannot_complete_quarter) == 0
+    assert len(result.low_confidence) == 0
+    assert len(result.awaiting_owner) == 0
     assert len(result.ready_to_plan) == 1
     assert result.ready_to_plan[0]['key'] == "INIT-789"
 
@@ -455,11 +549,15 @@ def test_validate_initiative_status_planned_regression(tmp_path):
             "summary": "Regressed Initiative",
             "status": "Planned",
             "assignee": "user@example.com",
-            "teams_involved": ["TEAM1"],
+            "teams_involved": ["TEAM1", "TEAM2"],
             "contributing_teams": [
                 {
                     "team_project_key": "TEAM1",
-                    "epics": [{"key": "TEAM1-1", "summary": "Now Red", "rag_status": "🔴"}]
+                    "epics": [{"key": "TEAM1-1", "summary": "Green Epic", "rag_status": "🟢"}]
+                },
+                {
+                    "team_project_key": "TEAM2",
+                    "epics": [{"key": "TEAM2-1", "summary": "Now Red", "rag_status": "🔴"}]
                 }
             ]
         }]
@@ -471,15 +569,17 @@ def test_validate_initiative_status_planned_regression(tmp_path):
     result = validate_initiative_status(json_file)
 
     assert result.total_checked == 1
-    assert len(result.fix_data_quality) == 0
-    assert len(result.address_blockers) == 0
+    assert len(result.dependency_mapping) == 0
+    assert len(result.cannot_complete_quarter) == 0
+    assert len(result.low_confidence) == 0
+    assert len(result.awaiting_owner) == 0
     assert len(result.ready_to_plan) == 0
     assert len(result.planned_regressions) == 1
     assert result.planned_regressions[0]['key'] == "INIT-999"
 
 
 def test_validate_initiative_status_mixed_statuses(tmp_path):
-    """Test full validation with mixed initiative statuses."""
+    """Test full validation with mixed initiative statuses across all 5 sections."""
     data = {
         "initiatives": [
             {
@@ -487,45 +587,91 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "summary": "Data Quality Issue",
                 "status": "Proposed",
                 "assignee": "user@example.com",
-                "teams_involved": [],
+                "teams_involved": ["TEAM1", "TEAM2"],
                 "contributing_teams": []
             },
             {
                 "key": "INIT-002",
-                "summary": "Commitment Blocker",
+                "summary": "RED Epic",
                 "status": "Proposed",
-                "assignee": None,
-                "teams_involved": ["TEAM1"],
+                "assignee": "user@example.com",
+                "teams_involved": ["TEAM1", "TEAM2"],
                 "contributing_teams": [
                     {
                         "team_project_key": "TEAM1",
-                        "epics": [{"key": "TEAM1-1", "summary": "Epic", "rag_status": "🟢"}]
+                        "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    },
+                    {
+                        "team_project_key": "TEAM2",
+                        "epics": [{"key": "TEAM2-1", "summary": "Epic 2", "rag_status": "🔴"}]
                     }
                 ]
             },
             {
                 "key": "INIT-003",
-                "summary": "Ready",
+                "summary": "YELLOW Epic",
                 "status": "Proposed",
                 "assignee": "user@example.com",
-                "teams_involved": ["TEAM1"],
+                "teams_involved": ["TEAM1", "TEAM2"],
                 "contributing_teams": [
                     {
                         "team_project_key": "TEAM1",
-                        "epics": [{"key": "TEAM1-1", "summary": "Epic", "rag_status": "🟢"}]
+                        "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    },
+                    {
+                        "team_project_key": "TEAM2",
+                        "epics": [{"key": "TEAM2-1", "summary": "Epic 2", "rag_status": "⚠️"}]
                     }
                 ]
             },
             {
                 "key": "INIT-004",
-                "summary": "Planned Regression",
-                "status": "Planned",
-                "assignee": "user@example.com",
-                "teams_involved": ["TEAM1"],
+                "summary": "Awaiting Owner",
+                "status": "Proposed",
+                "assignee": None,
+                "teams_involved": ["TEAM1", "TEAM2"],
                 "contributing_teams": [
                     {
                         "team_project_key": "TEAM1",
-                        "epics": [{"key": "TEAM1-1", "summary": "Epic", "rag_status": "🔴"}]
+                        "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    },
+                    {
+                        "team_project_key": "TEAM2",
+                        "epics": [{"key": "TEAM2-1", "summary": "Epic 2", "rag_status": "🟢"}]
+                    }
+                ]
+            },
+            {
+                "key": "INIT-005",
+                "summary": "Ready",
+                "status": "Proposed",
+                "assignee": "user@example.com",
+                "teams_involved": ["TEAM1", "TEAM2"],
+                "contributing_teams": [
+                    {
+                        "team_project_key": "TEAM1",
+                        "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    },
+                    {
+                        "team_project_key": "TEAM2",
+                        "epics": [{"key": "TEAM2-1", "summary": "Epic 2", "rag_status": "🟢"}]
+                    }
+                ]
+            },
+            {
+                "key": "INIT-006",
+                "summary": "Planned Regression",
+                "status": "Planned",
+                "assignee": "user@example.com",
+                "teams_involved": ["TEAM1", "TEAM2"],
+                "contributing_teams": [
+                    {
+                        "team_project_key": "TEAM1",
+                        "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    },
+                    {
+                        "team_project_key": "TEAM2",
+                        "epics": [{"key": "TEAM2-1", "summary": "Epic 2", "rag_status": "🔴"}]
                     }
                 ]
             }
@@ -537,9 +683,11 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
 
     result = validate_initiative_status(json_file)
 
-    assert result.total_checked == 4
-    assert len(result.fix_data_quality) == 1
-    assert len(result.address_blockers) == 1
+    assert result.total_checked == 6
+    assert len(result.dependency_mapping) == 1
+    assert len(result.cannot_complete_quarter) == 1
+    assert len(result.low_confidence) == 1
+    assert len(result.awaiting_owner) == 1
     assert len(result.ready_to_plan) == 1
     assert len(result.planned_regressions) == 1
 
@@ -617,11 +765,11 @@ def test_normalize_teams_involved_handles_string():
     from validate_initiative_status import _normalize_teams_involved
 
     # Single team
-    assert _normalize_teams_involved("Identity") == ["Identity"]
+    assert _normalize_teams_involved("Team A") == ["Team A"]
 
     # Multiple teams
-    assert _normalize_teams_involved("Identity, Core Banking, MAP") == [
-        "Identity", "Core Banking", "MAP"
+    assert _normalize_teams_involved("Team A, Team B, Team C") == [
+        "Team A", "Team B", "Team C"
     ]
 
     # Teams with extra whitespace
@@ -658,7 +806,7 @@ def test_count_teams_involved():
     assert _count_teams_involved(None) == 0
 
     # String formats
-    assert _count_teams_involved("Identity, Core Banking, MAP") == 3
+    assert _count_teams_involved("Team A, Team B, Team C") == 3
     assert _count_teams_involved("Single Team") == 1
     assert _count_teams_involved("") == 0
 
@@ -668,8 +816,8 @@ def test_count_teams_involved():
     assert _count_teams_involved(["Team1"]) == 1
 
 
-def test_validate_initiative_status_min_teams_filter(tmp_path):
-    """Test min_teams parameter filters initiatives correctly."""
+def test_validate_initiative_status_teams_filter(tmp_path):
+    """Test that only multi-team initiatives (teams >= 2) are validated."""
     # Create test data with varying team counts
     test_data = {
         "initiatives": [
@@ -742,33 +890,15 @@ def test_validate_initiative_status_min_teams_filter(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(test_data))
 
-    # Test with min_teams=1 (default) - should include all 3 initiatives
-    result = validate_initiative_status(json_file, min_teams=1)
-    assert result.total_checked == 3
-    assert result.total_filtered == 0
-    assert len(result.ready_to_plan) == 3
-
-    # Test with min_teams=2 - should include only 2 initiatives
-    result = validate_initiative_status(json_file, min_teams=2)
+    # Filter is hardcoded to teams >= 2, so only INIT-2 and INIT-3 are validated
+    result = validate_initiative_status(json_file)
     assert result.total_checked == 2
     assert result.total_filtered == 1
     assert len(result.ready_to_plan) == 2
 
-    # Test with min_teams=3 - should include only 1 initiative
-    result = validate_initiative_status(json_file, min_teams=3)
-    assert result.total_checked == 1
-    assert result.total_filtered == 2
-    assert len(result.ready_to_plan) == 1
 
-    # Test with min_teams=4 - should filter out all initiatives
-    result = validate_initiative_status(json_file, min_teams=4)
-    assert result.total_checked == 0
-    assert result.total_filtered == 3
-    assert len(result.ready_to_plan) == 0
-
-
-def test_validate_initiative_status_min_teams_with_various_formats(tmp_path):
-    """Test min_teams filter with None, string, and list formats."""
+def test_validate_initiative_status_teams_with_various_formats(tmp_path):
+    """Test teams >= 2 filter with None, string, and list formats."""
     test_data = {
         "initiatives": [
             {
@@ -784,10 +914,10 @@ def test_validate_initiative_status_min_teams_with_various_formats(tmp_path):
                 "summary": "String single team",
                 "status": "Proposed",
                 "assignee": "user2",
-                "teams_involved": "Identity",
+                "teams_involved": "Team A",
                 "contributing_teams": [
                     {
-                        "team_project_key": "Identity",
+                        "team_project_key": "Team A",
                         "epics": [
                             {"key": "EPIC-1", "summary": "Epic 1", "rag_status": "🟢"}
                         ]
@@ -799,22 +929,22 @@ def test_validate_initiative_status_min_teams_with_various_formats(tmp_path):
                 "summary": "String multiple teams",
                 "status": "Proposed",
                 "assignee": "user3",
-                "teams_involved": "Identity, Core Banking, MAP",
+                "teams_involved": "Team A, Team B, Team C",
                 "contributing_teams": [
                     {
-                        "team_project_key": "Identity",
+                        "team_project_key": "Team A",
                         "epics": [
                             {"key": "EPIC-2", "summary": "Epic 2", "rag_status": "🟢"}
                         ]
                     },
                     {
-                        "team_project_key": "Core Banking",
+                        "team_project_key": "Team B",
                         "epics": [
                             {"key": "EPIC-3", "summary": "Epic 3", "rag_status": "🟢"}
                         ]
                     },
                     {
-                        "team_project_key": "MAP",
+                        "team_project_key": "Team C",
                         "epics": [
                             {"key": "EPIC-4", "summary": "Epic 4", "rag_status": "🟢"}
                         ]
@@ -848,20 +978,10 @@ def test_validate_initiative_status_min_teams_with_various_formats(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(test_data))
 
-    # Test with min_teams=1 - should include all except None
-    result = validate_initiative_status(json_file, min_teams=1)
-    assert result.total_checked == 4
-    assert result.total_filtered == 0
-
-    # Test with min_teams=2 - should include only string(3 teams) and list(2 teams)
-    result = validate_initiative_status(json_file, min_teams=2)
+    # Filter is hardcoded to teams >= 2
+    # Should include only INIT-3 (3 teams) and INIT-4 (2 teams)
+    result = validate_initiative_status(json_file)
     assert result.total_checked == 2
-    assert result.total_filtered == 2
+    assert result.total_filtered == 2  # INIT-1 (None/0) and INIT-2 (1) filtered out
     # INIT-3 (3 teams) and INIT-4 (2 teams) should be included
     assert len(result.ready_to_plan) == 2
-
-    # Test with min_teams=3 - should include only string with 3 teams
-    result = validate_initiative_status(json_file, min_teams=3)
-    assert result.total_checked == 1
-    assert result.total_filtered == 3
-    assert len(result.ready_to_plan) == 1

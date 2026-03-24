@@ -45,3 +45,7 @@ Thumbs.db
 extraction.log
 *.log
 Claude.md
+
+# Generated reports (may contain company data)
+/*.md
+!README.md

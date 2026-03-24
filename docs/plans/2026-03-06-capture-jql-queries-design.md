@@ -46,7 +46,7 @@ Add `queries` object at top level:
 ```json
 {
   "extracted_at": "2026-03-06T18:54:11Z",
-  "jira_instance": "truelayer.atlassian.net/",
+  "jira_instance": "example.atlassian.net/",
   "queries": {
     "initiatives": "project = INIT AND issuetype = Initiative AND status != \"Done\" AND customfield_12108 = \"25 Q1\"",
     "epics": "(project = RSK OR project = CBNK) AND issuetype = Epic"
