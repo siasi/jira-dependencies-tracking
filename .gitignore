@@ -1,6 +1,7 @@
 # Environment and credentials
 .env
 config.yaml
+team_mappings.yaml
 
 # Python
 __pycache__/

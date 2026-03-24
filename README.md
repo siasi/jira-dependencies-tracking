@@ -450,6 +450,27 @@ python validate_initiative_status.py data/snapshots/snapshot_baseline_*.json --m
 - `--min-teams N` - Minimum number of teams required (default: 1, analyzes all initiatives)
   - Use this to focus on multi-team initiatives only
   - Report shows total initiatives and how many were filtered out
+- `--markdown FILENAME` - Export report to markdown format (Notion-compatible)
+- `--verbose` - Include verbose output with additional details
+
+**Optional Configuration:**
+
+Create `team_mappings.yaml` to map friendly team names to project keys:
+
+```bash
+# Copy example and customize with your team names
+cp team_mappings.yaml.example team_mappings.yaml
+```
+
+Example:
+```yaml
+team_mappings:
+  "Engineering": "ENG"
+  "Product": "PROD"
+  "Design": "DESIGN"
+```
+
+**Note:** This file is optional. The script works without it by using display names as-is. The mapping helps identify teams when display names differ from project keys.
 
 **What It Checks:**
 
