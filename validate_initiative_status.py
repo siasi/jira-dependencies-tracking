@@ -560,10 +560,10 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
     print(f"\n{'-' * 80}\n")
 
     # Section 1: Dependency Mapping in Progress
-    if result.dependency_mapping:
-        print(f"📋 DEPENDENCY MAPPING IN PROGRESS ({len(result.dependency_mapping)} initiatives)\n")
-        print("Action required: Create missing epics and set initial RAG status\n")
+    print(f"📋 DEPENDENCY MAPPING IN PROGRESS ({len(result.dependency_mapping)} initiatives)\n")
+    print("Action required: Create missing epics and set initial RAG status\n")
 
+    if result.dependency_mapping:
         for item in result.dependency_mapping:
             print(f"{item['key']}: {item['summary']}")
             print()
@@ -644,14 +644,16 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
 
                         print(f"       [ ] {team_name} to set RAG status for {epics_str}")
                     print()
+    else:
+        print("No initiatives currently in dependency mapping phase.\n")
 
-        print(f"{'-' * 80}\n")
+    print(f"{'-' * 80}\n")
 
     # Section 2: Can't be completed in the quarter
-    if result.cannot_complete_quarter:
-        print(f"🔴 CAN'T BE COMPLETED IN THE QUARTER ({len(result.cannot_complete_quarter)} initiatives)\n")
-        print("Teams cannot commit - deprioritize other work to proceed\n")
+    print(f"🔴 CAN'T BE COMPLETED IN THE QUARTER ({len(result.cannot_complete_quarter)} initiatives)\n")
+    print("Teams cannot commit - deprioritize other work to proceed\n")
 
+    if result.cannot_complete_quarter:
         for item in result.cannot_complete_quarter:
             print(f"{item['key']}: {item['summary']}")
             print()
@@ -663,14 +665,16 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                         rag_display = "🔴" if epic['rag_status'] == '🔴' else "(missing - treated as RED)"
                         print(f"       - {epic['key']} {rag_display}: \"{epic['summary']}\"")
                     print()
+    else:
+        print("No initiatives blocked by red epics at this time.\n")
 
-        print(f"{'-' * 80}\n")
+    print(f"{'-' * 80}\n")
 
     # Section 3: Low confidence for planning - require discussion
-    if result.low_confidence:
-        print(f"🟡 LOW CONFIDENCE FOR PLANNING - REQUIRE DISCUSSION ({len(result.low_confidence)} initiatives)\n")
-        print("Low confidence - evaluate re-sequencing or reprioritization\n")
+    print(f"🟡 LOW CONFIDENCE FOR PLANNING - REQUIRE DISCUSSION ({len(result.low_confidence)} initiatives)\n")
+    print("Low confidence - evaluate re-sequencing or reprioritization\n")
 
+    if result.low_confidence:
         for item in result.low_confidence:
             print(f"{item['key']}: {item['summary']}")
             print()
@@ -681,19 +685,23 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                     for epic in issue['epics']:
                         print(f"       - {epic['key']} 🟡: \"{epic['summary']}\"")
                     print()
+    else:
+        print("No initiatives with low confidence at this time.\n")
 
-        print(f"{'-' * 80}\n")
+    print(f"{'-' * 80}\n")
 
     # Section 4: Ready - Awaiting Owner
-    if result.awaiting_owner:
-        print(f"👤 READY - AWAITING OWNER ({len(result.awaiting_owner)} initiatives)\n")
-        print("Action required: Assign initiative owner to proceed\n")
+    print(f"👤 READY - AWAITING OWNER ({len(result.awaiting_owner)} initiatives)\n")
+    print("Action required: Assign initiative owner to proceed\n")
 
+    if result.awaiting_owner:
         for item in result.awaiting_owner:
             print(f"{item['key']}: {item['summary']}")
             print()
+    else:
+        print("No initiatives awaiting owner assignment at this time.\n")
 
-        print(f"{'-' * 80}\n")
+    print(f"{'-' * 80}\n")
 
     # Section 5: Ready to Move to Planned (always show)
     print(f"✅ READY TO MOVE TO PLANNED ({len(result.ready_to_plan)} initiatives)\n")
@@ -894,12 +902,12 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     lines.append("")
 
     # Section 1: Dependency Mapping in Progress
-    if result.dependency_mapping:
-        lines.append(f"## 📋 Dependency Mapping in Progress ({len(result.dependency_mapping)} initiatives)")
-        lines.append("")
-        lines.append("**Action required**: Create missing epics and set initial RAG status")
-        lines.append("")
+    lines.append(f"## 📋 Dependency Mapping in Progress ({len(result.dependency_mapping)} initiatives)")
+    lines.append("")
+    lines.append("**Action required**: Create missing epics and set initial RAG status")
+    lines.append("")
 
+    if result.dependency_mapping:
         for item in result.dependency_mapping:
             lines.append(f"### [{item['key']}]({item.get('url', '#')}): {item['summary']}")
             lines.append("")
@@ -966,17 +974,20 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                         epics_str = ', '.join(epic_links)
                         lines.append(f"- [ ] {team_name} to set RAG status for {epics_str}")
                     lines.append("")
-
-        lines.append("---")
+    else:
+        lines.append("*No initiatives currently in dependency mapping phase.*")
         lines.append("")
+
+    lines.append("---")
+    lines.append("")
 
     # Section 2: Can't be completed in the quarter
-    if result.cannot_complete_quarter:
-        lines.append(f"## 🔴 Can't be completed in the quarter ({len(result.cannot_complete_quarter)} initiatives)")
-        lines.append("")
-        lines.append("**Teams cannot commit - deprioritize other work to proceed**")
-        lines.append("")
+    lines.append(f"## 🔴 Can't be completed in the quarter ({len(result.cannot_complete_quarter)} initiatives)")
+    lines.append("")
+    lines.append("**Teams cannot commit - deprioritize other work to proceed**")
+    lines.append("")
 
+    if result.cannot_complete_quarter:
         for item in result.cannot_complete_quarter:
             lines.append(f"### [{item['key']}]({item.get('url', '#')}): {item['summary']}")
             lines.append("")
@@ -989,17 +1000,20 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                         rag_display = "🔴" if epic['rag_status'] == '🔴' else "*(missing - treated as RED)*"
                         lines.append(f"- {epic['key']} {rag_display}: \"{epic['summary']}\"")
                     lines.append("")
-
-        lines.append("---")
+    else:
+        lines.append("*No initiatives blocked by red epics at this time.*")
         lines.append("")
+
+    lines.append("---")
+    lines.append("")
 
     # Section 3: Low confidence for planning - require discussion
-    if result.low_confidence:
-        lines.append(f"## 🟡 Low confidence for planning - require discussion ({len(result.low_confidence)} initiatives)")
-        lines.append("")
-        lines.append("**Low confidence - evaluate re-sequencing or reprioritization**")
-        lines.append("")
+    lines.append(f"## 🟡 Low confidence for planning - require discussion ({len(result.low_confidence)} initiatives)")
+    lines.append("")
+    lines.append("**Low confidence - evaluate re-sequencing or reprioritization**")
+    lines.append("")
 
+    if result.low_confidence:
         for item in result.low_confidence:
             lines.append(f"### [{item['key']}]({item.get('url', '#')}): {item['summary']}")
             lines.append("")
@@ -1011,22 +1025,28 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                     for epic in issue['epics']:
                         lines.append(f"- {epic['key']} 🟡: \"{epic['summary']}\"")
                     lines.append("")
-
-        lines.append("---")
+    else:
+        lines.append("*No initiatives with low confidence at this time.*")
         lines.append("")
+
+    lines.append("---")
+    lines.append("")
 
     # Section 4: Ready - Awaiting Owner
-    if result.awaiting_owner:
-        lines.append(f"## 👤 Ready - Awaiting Owner ({len(result.awaiting_owner)} initiatives)")
-        lines.append("")
-        lines.append("**Action required**: Assign initiative owner to proceed")
-        lines.append("")
+    lines.append(f"## 👤 Ready - Awaiting Owner ({len(result.awaiting_owner)} initiatives)")
+    lines.append("")
+    lines.append("**Action required**: Assign initiative owner to proceed")
+    lines.append("")
 
+    if result.awaiting_owner:
         for item in result.awaiting_owner:
             lines.append(f"- [{item['key']}]({item.get('url', '#')}): {item['summary']}")
+    else:
+        lines.append("*No initiatives awaiting owner assignment at this time.*")
 
-        lines.append("---")
-        lines.append("")
+    lines.append("")
+    lines.append("---")
+    lines.append("")
 
     # Section 5: Ready to Move to Planned
     lines.append(f"## ✅ Ready to Move to Planned ({len(result.ready_to_plan)} initiatives)")
