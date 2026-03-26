@@ -224,10 +224,13 @@ def _has_yellow_epics(initiative: dict) -> Optional[List[Dict[str, Any]]]:
         if not is_owner_team:
             for epic in tc.get('epics', []):
                 rag = epic.get('rag_status')
-                if rag == '⚠️':
+                # Check for yellow/amber status (both emoji types used in data)
+                # Also treat None/missing RAG as yellow (needs attention)
+                if rag in ['⚠️', '🟡', None]:
                     yellow_epics.append({
                         'key': epic['key'],
-                        'summary': epic['summary']
+                        'summary': epic['summary'],
+                        'rag_status': rag  # Include actual status for display
                     })
 
     return yellow_epics if yellow_epics else None
@@ -512,12 +515,18 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
                 # Check for RED epics
                 red_epics = _has_red_epics(initiative)
                 if red_epics:
-                    all_issues.extend(red_epics)
+                    all_issues.append({
+                        'type': 'red_epics',
+                        'epics': red_epics
+                    })
 
                 # Check for YELLOW epics
                 yellow_epics = _has_yellow_epics(initiative)
                 if yellow_epics:
-                    all_issues.extend(yellow_epics)
+                    all_issues.append({
+                        'type': 'yellow_epics',
+                        'epics': yellow_epics
+                    })
 
                 # Check for missing assignee
                 if not initiative_assignee:
@@ -898,9 +907,18 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                     print()
 
                 elif issue['type'] == 'yellow_epics':
-                    print(f"   ⚠️  Epics with YELLOW status ({len(issue['epics'])})")
+                    print(f"   ⚠️  Epics with YELLOW status or missing RAG ({len(issue['epics'])})")
                     for epic in issue['epics']:
-                        print(f"       - {epic['key']} 🟡: \"{epic['summary']}\"")
+                        rag_status = epic.get('rag_status')
+                        if rag_status is None:
+                            rag_display = "(missing RAG - treated as YELLOW)"
+                        elif rag_status == '🟡':
+                            rag_display = "🟡"
+                        elif rag_status == '⚠️':
+                            rag_display = "⚠️"
+                        else:
+                            rag_display = rag_status
+                        print(f"       - {epic['key']} {rag_display}: \"{epic['summary']}\"")
                     print()
 
                 elif issue['type'] == 'no_assignee':
@@ -1266,7 +1284,21 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                     lines.append(f"**⚠️ Epics with RED status ({len(issue['epics'])})**")
                     lines.append("")
                 elif issue['type'] == 'yellow_epics':
-                    lines.append(f"**⚠️ Epics with YELLOW status ({len(issue['epics'])})**")
+                    lines.append(f"**⚠️ Epics with YELLOW status or missing RAG ({len(issue['epics'])})**")
+                    lines.append("")
+                    for epic in issue['epics']:
+                        rag_status = epic.get('rag_status')
+                        if rag_status is None:
+                            rag_display = "(missing RAG)"
+                        elif rag_status == '🟡':
+                            rag_display = "🟡"
+                        elif rag_status == '⚠️':
+                            rag_display = "⚠️"
+                        else:
+                            rag_display = rag_status
+                        epic_key = epic['key']
+                        epic_url = f"https://truelayer.atlassian.net/browse/{epic_key}"  # Default URL
+                        lines.append(f"- {epic_key} {rag_display}: \"{epic['summary']}\"")
                     lines.append("")
                 elif issue['type'] == 'no_assignee':
                     lines.append("**⚠️ No assignee set**")
