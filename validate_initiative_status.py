@@ -4,7 +4,7 @@
 This script analyzes Jira initiatives to determine readiness for status transitions
 based on epic RAG status, team dependencies, and assignee presence. It categorizes
 initiatives into groups: Dependency Mapping in Progress, Low Confidence for Completion,
-Ready - Awaiting Owner, Ready to Move to Planned, and Planned for the Quarter.
+Ready - Awaiting Owner, Ready to Move to Planned, and Planned/In Progress for the Quarter.
 
 Usage:
     # Validate latest extraction
@@ -36,7 +36,7 @@ class ValidationResult:
         self.low_confidence_completion: List[Dict[str, Any]] = []
         # Section 3: Ready to Move to Planned
         self.ready_to_plan: List[Dict[str, Any]] = []
-        # Section 4: Planned for the Quarter (healthy planned initiatives)
+        # Section 4: Planned/In Progress for the Quarter (healthy initiatives)
         self.planned_for_quarter: List[Dict[str, Any]] = []
         # Additional sections (verbose only)
         self.planned_regressions: List[Dict[str, Any]] = []
@@ -539,8 +539,8 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
                         'url': initiative_url
                     })
 
-        elif initiative_status == 'Planned':
-            # Check for regressions (Planned initiatives that no longer meet criteria)
+        elif initiative_status in ['Planned', 'In Progress']:
+            # Check for regressions (Planned/In Progress initiatives that no longer meet criteria)
             if not _is_ready_to_plan(initiative):
                 # Collect all issues for detailed display
                 all_issues = []
@@ -577,7 +577,7 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
                     'issues': all_issues if all_issues else []
                 })
             else:
-                # Section 5: Planned for the Quarter (healthy planned initiatives)
+                # Section 5: Planned/In Progress for the Quarter (healthy initiatives)
                 # Check if has red or yellow epics (no/low confidence)
                 red_epics = _has_red_epics(initiative)
                 yellow_epics = _has_yellow_epics(initiative)
@@ -637,10 +637,10 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
     print(f"  📋 Dependency Mapping in Progress: {len(result.dependency_mapping)} initiatives")
     print(f"  🟡 No/Low confidence for completion - require discussion: {len(result.low_confidence_completion)} initiatives")
     print(f"  ✅ Ready to Move to Planned: {len(result.ready_to_plan)} initiatives")
-    print(f"  🎯 Planned for the Quarter: {len(result.planned_for_quarter)} initiatives")
+    print(f"  🎯 Planned/In Progress for the Quarter: {len(result.planned_for_quarter)} initiatives")
     if verbose:
         if result.planned_regressions:
-            print(f"  🔄 Planned Initiatives with Issues: {len(result.planned_regressions)} initiatives")
+            print(f"  🔄 Planned/In Progress Initiatives with Issues: {len(result.planned_regressions)} initiatives")
         if result.ignored_statuses:
             print(f"  ⏭️  Not Analyzed: {len(result.ignored_statuses)} initiatives")
 
@@ -802,8 +802,8 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
 
     print(f"\n{'-' * 80}\n")
 
-    # Section 4: Planned for the Quarter (always show)
-    print(f"🎯 PLANNED FOR THE QUARTER ({len(result.planned_for_quarter)} initiatives)\n")
+    # Section 4: Planned/In Progress for the Quarter (always show)
+    print(f"🎯 PLANNED/IN PROGRESS FOR THE QUARTER ({len(result.planned_for_quarter)} initiatives)\n")
     print("These initiatives are ready and meet all quality criteria\n")
 
     if result.planned_for_quarter:
@@ -841,10 +841,10 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
 
     print(f"\n{'-' * 80}\n")
 
-    # Section 5: Planned Initiatives Requiring Attention (regressions) - verbose only
+    # Section 5: Planned/In Progress Initiatives Requiring Attention (regressions) - verbose only
     if verbose and result.planned_regressions:
-        print(f"🔄 PLANNED INITIATIVES REQUIRING ATTENTION ({len(result.planned_regressions)} initiatives)\n")
-        print("To maintain quality: Review status changes for these planned initiatives")
+        print(f"🔄 PLANNED/IN PROGRESS INITIATIVES REQUIRING ATTENTION ({len(result.planned_regressions)} initiatives)\n")
+        print("To maintain quality: Review status changes for these planned/in progress initiatives")
         print("Help needed: Verify RAG status updates, confirm team commitment\n")
 
         for item in result.planned_regressions:
@@ -1027,10 +1027,10 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     lines.append(f"- 📋 **Dependency Mapping in Progress**: {len(result.dependency_mapping)} initiatives")
     lines.append(f"- 🟡 **No/Low confidence for completion - require discussion**: {len(result.low_confidence_completion)} initiatives")
     lines.append(f"- ✅ **Ready to Move to Planned**: {len(result.ready_to_plan)} initiatives")
-    lines.append(f"- 🎯 **Planned for the Quarter**: {len(result.planned_for_quarter)} initiatives")
+    lines.append(f"- 🎯 **Planned/In Progress for the Quarter**: {len(result.planned_for_quarter)} initiatives")
     if verbose:
         if result.planned_regressions:
-            lines.append(f"- 🔄 **Planned Initiatives with Issues**: {len(result.planned_regressions)} initiatives")
+            lines.append(f"- 🔄 **Planned/In Progress Initiatives with Issues**: {len(result.planned_regressions)} initiatives")
         if result.ignored_statuses:
             lines.append(f"- ⏭️ **Not Analyzed**: {len(result.ignored_statuses)} initiatives")
     lines.append("")
@@ -1209,8 +1209,8 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     lines.append("---")
     lines.append("")
 
-    # Section 4: Planned for the Quarter
-    lines.append(f"## 🎯 Planned for the Quarter ({len(result.planned_for_quarter)} initiatives)")
+    # Section 4: Planned/In Progress for the Quarter
+    lines.append(f"## 🎯 Planned/In Progress for the Quarter ({len(result.planned_for_quarter)} initiatives)")
     lines.append("")
     lines.append("**These initiatives are ready and meet all quality criteria**")
     lines.append("")
@@ -1256,11 +1256,11 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     lines.append("---")
     lines.append("")
 
-    # Section 5: Planned Initiatives Requiring Attention (verbose only)
+    # Section 5: Planned/In Progress Initiatives Requiring Attention (verbose only)
     if verbose and result.planned_regressions:
-        lines.append(f"## 🔄 Planned Initiatives Requiring Attention ({len(result.planned_regressions)} initiatives)")
+        lines.append(f"## 🔄 Planned/In Progress Initiatives Requiring Attention ({len(result.planned_regressions)} initiatives)")
         lines.append("")
-        lines.append("**To maintain quality**: Review status changes for these planned initiatives")
+        lines.append("**To maintain quality**: Review status changes for these planned/in progress initiatives")
         lines.append("")
         lines.append("**Help needed**: Verify RAG status updates, confirm team commitment")
         lines.append("")

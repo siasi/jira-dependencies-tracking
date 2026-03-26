@@ -1452,3 +1452,74 @@ def test_non_discovery_initiative_normal_validation(tmp_path):
     issues = result.dependency_mapping[0]['issues']
     issue_types = [issue['type'] for issue in issues]
     assert 'epic_count_mismatch' in issue_types
+
+
+def test_in_progress_initiative_treated_as_planned(tmp_path):
+    """Test that In Progress initiatives are treated the same as Planned initiatives."""
+    test_data = {
+        "initiatives": [
+            {
+                "key": "INIT-300",
+                "summary": "In Progress Initiative",
+                "status": "In Progress",
+                "assignee": "test@example.com",
+                "strategic_objective": "Test Objective",
+                "owner_team": "Console",
+                "teams_involved": ["Console", "Payments Risk"],
+                "contributing_teams": [
+                    {
+                        "team_project_key": "CONSOLE",
+                        "epics": [{"key": "CONSOLE-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    },
+                    {
+                        "team_project_key": "RSK",
+                        "epics": [{"key": "RSK-1", "summary": "Epic 2", "rag_status": "🟢"}]
+                    }
+                ]
+            }
+        ]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(test_data))
+
+    result = validate_initiative_status(json_file)
+
+    # Should be in planned_for_quarter (healthy initiatives)
+    assert len(result.planned_for_quarter) == 1
+    assert result.planned_for_quarter[0]['key'] == 'INIT-300'
+    assert result.planned_for_quarter[0]['status'] == 'In Progress'
+
+
+def test_in_progress_initiative_with_issues(tmp_path):
+    """Test that In Progress initiatives with issues go to planned_regressions."""
+    test_data = {
+        "initiatives": [
+            {
+                "key": "INIT-301",
+                "summary": "In Progress Initiative with Issues",
+                "status": "In Progress",
+                "assignee": "test@example.com",
+                "strategic_objective": "Test Objective",
+                "owner_team": "Console",
+                "teams_involved": ["Console", "Payments Risk"],
+                "contributing_teams": [
+                    {
+                        "team_project_key": "CONSOLE",
+                        "epics": [{"key": "CONSOLE-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    }
+                    # Missing RSK epic - should cause regression
+                ]
+            }
+        ]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(test_data))
+
+    result = validate_initiative_status(json_file)
+
+    # Should be in planned_regressions due to missing epic
+    assert len(result.planned_regressions) == 1
+    assert result.planned_regressions[0]['key'] == 'INIT-301'
+    assert result.planned_regressions[0]['status'] == 'In Progress'
