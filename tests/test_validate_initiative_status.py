@@ -10,7 +10,10 @@ from validate_initiative_status import (
     _has_red_epics,
     _has_yellow_epics,
     _is_ready_to_plan,
-    find_latest_extract
+    _is_discovery_initiative,
+    find_latest_extract,
+    print_validation_report,
+    generate_markdown_report
 )
 
 
@@ -1101,3 +1104,351 @@ def test_validate_initiative_status_teams_with_various_formats(tmp_path):
     assert result.total_filtered == 2  # INIT-1 (None/0) and INIT-2 (1) filtered out
     # INIT-3 (3 teams) and INIT-4 (2 teams) should be included
     assert len(result.ready_to_plan) == 2
+
+
+def test_console_output_includes_manager_tags_for_missing_epics(tmp_path, capsys):
+    """Test that console output includes manager tags when teams need to create epics."""
+    test_data = {
+        "initiatives": [
+            {
+                "key": "INIT-100",
+                "summary": "Test Initiative with Missing Epics",
+                "status": "Proposed",
+                "assignee": "test@example.com",
+                "strategic_objective": "Test Objective",
+                "owner_team": "Console",
+                "teams_involved": ["Console", "Payments Risk"],
+                "contributing_teams": [
+                    {
+                        "team_project_key": "CONSOLE",
+                        "epics": [{"key": "CONSOLE-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    }
+                    # Missing RSK epic
+                ]
+            }
+        ]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(test_data))
+
+    result = validate_initiative_status(json_file)
+    assert len(result.dependency_mapping) == 1
+
+    # Print the report and capture output
+    print_validation_report(result, json_file, verbose=False)
+    captured = capsys.readouterr()
+
+    # Verify manager tag appears in console output for RSK team
+    assert "Payments Risk (RSK) to create epic @Kevin Plattret" in captured.out
+
+
+def test_markdown_output_includes_manager_tags_for_missing_epics(tmp_path):
+    """Test that markdown output includes manager tags when teams need to create epics."""
+    test_data = {
+        "initiatives": [
+            {
+                "key": "INIT-101",
+                "summary": "Test Initiative with Multiple Missing Epics",
+                "status": "Proposed",
+                "assignee": "test@example.com",
+                "strategic_objective": "Test Objective",
+                "owner_team": "Core Banking",
+                "teams_involved": ["Core Banking", "Payments Risk", "PAYIN"],
+                "contributing_teams": [
+                    {
+                        "team_project_key": "CBNK",
+                        "epics": [{"key": "CBNK-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    }
+                    # Missing RSK and PAYINS epics
+                ]
+            }
+        ]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(test_data))
+
+    result = validate_initiative_status(json_file)
+    assert len(result.dependency_mapping) == 1
+
+    # Generate markdown report
+    markdown = generate_markdown_report(result, json_file, verbose=False)
+
+    # Verify manager tags appear in markdown for both missing teams
+    assert "Payments Risk (RSK) to create epic @Kevin Plattret" in markdown
+    assert "PAYIN (PAYINS) to create epic @Karina Rangel" in markdown
+
+
+def test_console_output_no_manager_tag_for_unmapped_team(tmp_path, capsys):
+    """Test that console output has no manager tag for unmapped teams."""
+    test_data = {
+        "initiatives": [
+            {
+                "key": "INIT-102",
+                "summary": "Test Initiative with Unmapped Team",
+                "status": "Proposed",
+                "assignee": "test@example.com",
+                "strategic_objective": "Test Objective",
+                "owner_team": "Console",
+                "teams_involved": ["Console", "UnmappedTeam"],
+                "contributing_teams": [
+                    {
+                        "team_project_key": "CONSOLE",
+                        "epics": [{"key": "CONSOLE-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    }
+                    # Missing epic for unmapped team
+                ]
+            }
+        ]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(test_data))
+
+    result = validate_initiative_status(json_file)
+    assert len(result.dependency_mapping) == 1
+
+    # Print the report and capture output
+    print_validation_report(result, json_file, verbose=False)
+    captured = capsys.readouterr()
+
+    # Verify unmapped team shows without manager tag
+    assert "UnmappedTeam (unmapped) to create epic" in captured.out
+    # Should not have any @ mention after unmapped team
+    assert "UnmappedTeam (unmapped) to create epic @" not in captured.out
+
+
+def test_is_discovery_initiative():
+    """Test discovery initiative detection."""
+    # Discovery initiative
+    discovery_init = {"summary": "[Discovery] Test Initiative"}
+    assert _is_discovery_initiative(discovery_init) is True
+
+    # Non-discovery initiative
+    normal_init = {"summary": "Test Initiative"}
+    assert _is_discovery_initiative(normal_init) is False
+
+    # Edge case: discovery text elsewhere
+    other_init = {"summary": "Test [Discovery] Initiative"}
+    assert _is_discovery_initiative(other_init) is False
+
+
+def test_discovery_initiative_skips_epic_count_check():
+    """Test that discovery initiatives skip epic count mismatch check."""
+    initiative = {
+        "key": "INIT-200",
+        "summary": "[Discovery] Test Discovery Initiative",
+        "status": "Proposed",
+        "assignee": "test@example.com",
+        "strategic_objective": "Test Objective",
+        "owner_team": "Console",
+        "teams_involved": ["Console", "Payments Risk"],
+        "contributing_teams": [
+            {
+                "team_project_key": "CONSOLE",
+                "epics": [{"key": "CONSOLE-1", "summary": "Epic 1", "rag_status": "🟢"}]
+            }
+            # Missing RSK epic - but should be ignored for discovery
+        ]
+    }
+
+    issues = _check_data_quality(initiative)
+
+    # Should have no epic_count_mismatch issue
+    if issues:
+        issue_types = [issue['type'] for issue in issues]
+        assert 'epic_count_mismatch' not in issue_types
+
+
+def test_discovery_initiative_skips_missing_rag_check():
+    """Test that discovery initiatives skip missing RAG status check."""
+    initiative = {
+        "key": "INIT-201",
+        "summary": "[Discovery] Test Discovery Initiative",
+        "status": "Proposed",
+        "assignee": "test@example.com",
+        "strategic_objective": "Test Objective",
+        "owner_team": "Console",
+        "teams_involved": ["Console", "Payments Risk"],
+        "contributing_teams": [
+            {
+                "team_project_key": "CONSOLE",
+                "epics": [{"key": "CONSOLE-1", "summary": "Epic 1", "rag_status": "🟢"}]
+            },
+            {
+                "team_project_key": "RSK",
+                "epics": [{"key": "RSK-1", "summary": "Epic 2", "rag_status": None}]
+            }
+        ]
+    }
+
+    issues = _check_data_quality(initiative)
+
+    # Should have no missing_rag_status issue
+    if issues:
+        issue_types = [issue['type'] for issue in issues]
+        assert 'missing_rag_status' not in issue_types
+
+
+def test_discovery_initiative_still_checks_assignee():
+    """Test that discovery initiatives still require assignee."""
+    initiative = {
+        "key": "INIT-202",
+        "summary": "[Discovery] Test Discovery Initiative",
+        "status": "Proposed",
+        "assignee": None,  # Missing assignee
+        "strategic_objective": "Test Objective",
+        "owner_team": "Console",
+        "teams_involved": ["Console"],
+        "contributing_teams": [
+            {
+                "team_project_key": "CONSOLE",
+                "epics": [{"key": "CONSOLE-1", "summary": "Epic 1", "rag_status": "🟢"}]
+            }
+        ]
+    }
+
+    issues = _check_data_quality(initiative)
+
+    # Should still have missing_assignee issue
+    assert issues is not None
+    issue_types = [issue['type'] for issue in issues]
+    assert 'missing_assignee' in issue_types
+
+
+def test_discovery_initiative_still_checks_strategic_objective():
+    """Test that discovery initiatives still require strategic objective."""
+    initiative = {
+        "key": "INIT-203",
+        "summary": "[Discovery] Test Discovery Initiative",
+        "status": "Proposed",
+        "assignee": "test@example.com",
+        "strategic_objective": "",  # Missing strategic objective
+        "owner_team": "Console",
+        "teams_involved": ["Console"],
+        "contributing_teams": [
+            {
+                "team_project_key": "CONSOLE",
+                "epics": [{"key": "CONSOLE-1", "summary": "Epic 1", "rag_status": "🟢"}]
+            }
+        ]
+    }
+
+    issues = _check_data_quality(initiative)
+
+    # Should still have missing_strategic_objective issue
+    assert issues is not None
+    issue_types = [issue['type'] for issue in issues]
+    assert 'missing_strategic_objective' in issue_types
+
+
+def test_planned_discovery_initiative_console_warning(tmp_path, capsys):
+    """Test that console output shows discovery warning for planned discovery initiatives."""
+    test_data = {
+        "initiatives": [
+            {
+                "key": "INIT-204",
+                "summary": "[Discovery] Test Discovery Initiative",
+                "status": "Planned",
+                "assignee": "test@example.com",
+                "strategic_objective": "Test Objective",
+                "owner_team": "Console",
+                "teams_involved": ["Console", "Payments Risk", "Core Banking"],
+                "contributing_teams": [
+                    {
+                        "team_project_key": "CONSOLE",
+                        "epics": [{"key": "CONSOLE-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    }
+                ]
+            }
+        ]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(test_data))
+
+    result = validate_initiative_status(json_file)
+    assert len(result.planned_for_quarter) == 1
+    assert result.planned_for_quarter[0]['is_discovery'] is True
+
+    # Print the report and capture output
+    print_validation_report(result, json_file, verbose=False)
+    captured = capsys.readouterr()
+
+    # Verify discovery warning appears in console output
+    assert "⚠️ Discovery impact for: Console, Payments Risk, Core Banking" in captured.out
+
+
+def test_planned_discovery_initiative_markdown_warning(tmp_path):
+    """Test that markdown output shows discovery warning for planned discovery initiatives."""
+    test_data = {
+        "initiatives": [
+            {
+                "key": "INIT-205",
+                "summary": "[Discovery] Multi-team Discovery",
+                "status": "Planned",
+                "assignee": "test@example.com",
+                "strategic_objective": "Test Objective",
+                "owner_team": "MAP",
+                "teams_involved": ["MAP", "PAYIN", "Console"],
+                "contributing_teams": [
+                    {
+                        "team_project_key": "MAPS",
+                        "epics": [{"key": "MAPS-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    }
+                ]
+            }
+        ]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(test_data))
+
+    result = validate_initiative_status(json_file)
+    assert len(result.planned_for_quarter) == 1
+    assert result.planned_for_quarter[0]['is_discovery'] is True
+
+    # Generate markdown report
+    markdown = generate_markdown_report(result, json_file, verbose=False)
+
+    # Verify discovery warning appears in markdown output
+    assert "⚠️ **Discovery impact for**: MAP, PAYIN, Console" in markdown
+
+
+def test_non_discovery_initiative_normal_validation(tmp_path):
+    """Test that non-discovery initiatives still get normal validation."""
+    test_data = {
+        "initiatives": [
+            {
+                "key": "INIT-206",
+                "summary": "Normal Initiative",
+                "status": "Proposed",
+                "assignee": "test@example.com",
+                "strategic_objective": "Test Objective",
+                "owner_team": "Console",
+                "teams_involved": ["Console", "Payments Risk"],
+                "contributing_teams": [
+                    {
+                        "team_project_key": "CONSOLE",
+                        "epics": [{"key": "CONSOLE-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    }
+                    # Missing RSK epic - should be flagged for non-discovery
+                ]
+            }
+        ]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(test_data))
+
+    result = validate_initiative_status(json_file)
+
+    # Should be in dependency_mapping due to missing epic
+    assert len(result.dependency_mapping) == 1
+    assert result.dependency_mapping[0]['key'] == 'INIT-206'
+
+    # Should have epic_count_mismatch issue
+    issues = result.dependency_mapping[0]['issues']
+    issue_types = [issue['type'] for issue in issues]
+    assert 'epic_count_mismatch' in issue_types

@@ -53,6 +53,19 @@ class ValidationResult:
                 len(self.planned_regressions) > 0)
 
 
+def _is_discovery_initiative(initiative: dict) -> bool:
+    """Check if an initiative is a discovery initiative.
+
+    Args:
+        initiative: Initiative dictionary from JSON
+
+    Returns:
+        True if summary starts with "[Discovery]", False otherwise
+    """
+    summary = initiative.get('summary', '')
+    return summary.startswith('[Discovery]')
+
+
 def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
     """Check for data quality blockers.
 
@@ -63,6 +76,7 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
         List of data quality issues, or None if no issues
     """
     issues = []
+    is_discovery = _is_discovery_initiative(initiative)
 
     # Check for missing assignee
     assignee = initiative.get('assignee')
@@ -73,6 +87,10 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
     strategic_objective = initiative.get('strategic_objective')
     if not strategic_objective or (isinstance(strategic_objective, str) and not strategic_objective.strip()):
         issues.append({'type': 'missing_strategic_objective'})
+
+    # Skip dependency and RAG checks for discovery initiatives
+    if is_discovery:
+        return issues if issues else None
 
     # Check epic count vs teams count (including case where there are no epics)
     teams_involved = _normalize_teams_involved(initiative.get('teams_involved'))
@@ -251,6 +269,16 @@ def _is_ready_to_plan(initiative: dict) -> bool:
     Returns:
         True if ready for Planned status, False otherwise
     """
+    # Must have assignee
+    if not initiative.get('assignee'):
+        return False
+
+    # Discovery initiatives skip epic and RAG checks
+    is_discovery = _is_discovery_initiative(initiative)
+    if is_discovery:
+        # Discovery initiatives only need assignee
+        return True
+
     # Load owner team info upfront (used for multiple checks)
     owner_team = initiative.get('owner_team')
     team_mappings = _load_team_mappings()
@@ -258,10 +286,6 @@ def _is_ready_to_plan(initiative: dict) -> bool:
     # Must have at least one epic
     total_epics = sum(len(tc.get('epics', [])) for tc in initiative.get('contributing_teams', []))
     if total_epics == 0:
-        return False
-
-    # Must have assignee
-    if not initiative.get('assignee'):
         return False
 
     # Epic count must match teams count (excluding owner team)
@@ -557,6 +581,7 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
                 # Check if has red or yellow epics (no/low confidence)
                 red_epics = _has_red_epics(initiative)
                 yellow_epics = _has_yellow_epics(initiative)
+                is_discovery = _is_discovery_initiative(initiative)
 
                 result.planned_for_quarter.append({
                     'key': initiative_key,
@@ -568,7 +593,9 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
                     'has_red_epics': red_epics is not None,
                     'red_epics': red_epics if red_epics else [],
                     'has_yellow_epics': yellow_epics is not None,
-                    'yellow_epics': yellow_epics if yellow_epics else []
+                    'yellow_epics': yellow_epics if yellow_epics else [],
+                    'is_discovery': is_discovery,
+                    'teams_involved': _normalize_teams_involved(initiative.get('teams_involved'))
                 })
 
         else:
@@ -667,6 +694,7 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                         # Find which teams are missing epics (excluding owner team)
                         teams_with_epics_set = set(issue['teams_with_epics'])
                         owner_team = item.get('owner_team')
+                        team_managers = _load_team_managers()
                         missing_teams = []
 
                         for display_name in issue['teams_involved']:
@@ -677,14 +705,16 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                             # Look up project key from mapping
                             project_key = team_mappings.get(display_name)
                             if project_key and project_key not in teams_with_epics_set:
-                                missing_teams.append(f"{display_name} ({project_key})")
+                                missing_teams.append((f"{display_name} ({project_key})", project_key))
                             elif not project_key and display_name not in teams_with_epics_set:
                                 # No mapping found, show display name only
-                                missing_teams.append(f"{display_name} (unmapped)")
+                                missing_teams.append((f"{display_name} (unmapped)", None))
 
                         if missing_teams:
-                            for team in missing_teams:
-                                print(f"       [ ] {team} to create epic")
+                            for team_str, project_key in missing_teams:
+                                manager_tag = team_managers.get(project_key, '') if project_key else ''
+                                manager_suffix = f" {manager_tag}" if manager_tag else ""
+                                print(f"       [ ] {team_str} to create epic{manager_suffix}")
                         else:
                             missing_count = teams_count - epics_count
                             print(f"       - Action: Create {missing_count} missing epic{'s' if missing_count > 1 else ''} or update Teams Involved field")
@@ -798,6 +828,13 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                 if epic_keys:
                     print(f"   Epics: {', '.join(epic_keys)}")
 
+            # Show discovery warning
+            if item.get('is_discovery'):
+                teams_involved = item.get('teams_involved', [])
+                if teams_involved:
+                    teams_str = ', '.join(teams_involved)
+                    print(f"   ⚠️ Discovery impact for: {teams_str}")
+
             print()
     else:
         print("No initiatives are planned for this quarter yet.")
@@ -845,6 +882,7 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                         # Find which teams are missing epics (excluding owner team)
                         teams_with_epics_set = set(issue['teams_with_epics'])
                         owner_team = item.get('owner_team')
+                        team_managers = _load_team_managers()
                         missing_teams = []
 
                         for display_name in issue['teams_involved']:
@@ -855,14 +893,16 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                             # Look up project key from mapping
                             project_key = team_mappings.get(display_name)
                             if project_key and project_key not in teams_with_epics_set:
-                                missing_teams.append(f"{display_name} ({project_key})")
+                                missing_teams.append((f"{display_name} ({project_key})", project_key))
                             elif not project_key and display_name not in teams_with_epics_set:
                                 # No mapping found, show display name only
-                                missing_teams.append(f"{display_name} (unmapped)")
+                                missing_teams.append((f"{display_name} (unmapped)", None))
 
                         if missing_teams:
-                            for team in missing_teams:
-                                print(f"       [ ] {team} to create epic")
+                            for team_str, project_key in missing_teams:
+                                manager_tag = team_managers.get(project_key, '') if project_key else ''
+                                manager_suffix = f" {manager_tag}" if manager_tag else ""
+                                print(f"       [ ] {team_str} to create epic{manager_suffix}")
                         else:
                             missing_count = teams_count - epics_count
                             print(f"       - Action: Create {missing_count} missing epic{'s' if missing_count > 1 else ''} or update Teams Involved field")
@@ -1205,6 +1245,13 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                         epic_details.append(f"[{epic_key}]({epic_url}) ({epic_rag})")
                 if epic_details:
                     lines.append(f"- **Epics**: {', '.join(epic_details)}")
+
+            # Show discovery warning
+            if item.get('is_discovery'):
+                teams_involved = item.get('teams_involved', [])
+                if teams_involved:
+                    teams_str = ', '.join(teams_involved)
+                    lines.append(f"- ⚠️ **Discovery impact for**: {teams_str}")
 
             lines.append("")
     else:
