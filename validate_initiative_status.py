@@ -313,7 +313,9 @@ def _is_ready_to_plan(initiative: dict) -> bool:
 
         if not is_owner_team and not is_exempt_team:
             for epic in tc.get('epics', []):
-                if epic.get('rag_status') != '🟢':
+                rag_status = epic.get('rag_status')
+                # Only RED epics block readiness (yellow = low confidence but acceptable)
+                if rag_status == '🔴':
                     return False
 
     return True
@@ -579,13 +581,18 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
                 })
             else:
                 # Section 6: Planned for the Quarter (healthy planned initiatives)
+                # Check if has yellow epics (low confidence)
+                yellow_epics = _has_yellow_epics(initiative)
+
                 result.planned_for_quarter.append({
                     'key': initiative_key,
                     'summary': initiative_summary,
                     'status': initiative_status,
                     'assignee': initiative_assignee,
                     'url': initiative_url,
-                    'contributing_teams': initiative.get('contributing_teams', [])
+                    'contributing_teams': initiative.get('contributing_teams', []),
+                    'has_yellow_epics': yellow_epics is not None,
+                    'yellow_epics': yellow_epics if yellow_epics else []
                 })
 
         else:
@@ -809,7 +816,11 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
 
     if result.planned_for_quarter:
         for item in result.planned_for_quarter:
-            print(f"{item['key']}: {item['summary']}")
+            # Add warning indicator for low confidence initiatives
+            warning = ""
+            if item.get('has_yellow_epics'):
+                warning = " ⚠️ LOW CONFIDENCE"
+            print(f"{item['key']}: {item['summary']}{warning}")
             if item.get('assignee'):
                 print(f"   Assignee: {item['assignee']}")
 
@@ -822,6 +833,11 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                         epic_keys.append(f"{epic['key']} ({epic.get('rag_status', 'No RAG')})")
                 if epic_keys:
                     print(f"   Epics: {', '.join(epic_keys)}")
+
+            # Show yellow epic warning details
+            if item.get('has_yellow_epics'):
+                yellow_epics = item.get('yellow_epics', [])
+                print(f"   ⚠️  Low confidence: {len(yellow_epics)} epic(s) with YELLOW/missing RAG status")
             print()
     else:
         print("No initiatives are planned for this quarter yet.")
@@ -1233,7 +1249,11 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
 
     if result.planned_for_quarter:
         for item in result.planned_for_quarter:
-            lines.append(f"### [{item['key']}]({item.get('url', '#')}): {item['summary']}")
+            # Add warning indicator for low confidence initiatives
+            warning = ""
+            if item.get('has_yellow_epics'):
+                warning = " ⚠️ LOW CONFIDENCE"
+            lines.append(f"### [{item['key']}]({item.get('url', '#')}): {item['summary']}{warning}")
             lines.append("")
             if item.get('assignee'):
                 lines.append(f"- **Assignee**: {item['assignee']}")
@@ -1250,6 +1270,11 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                         epic_details.append(f"[{epic_key}]({epic_url}) ({epic_rag})")
                 if epic_details:
                     lines.append(f"- **Epics**: {', '.join(epic_details)}")
+
+            # Show yellow epic warning details
+            if item.get('has_yellow_epics'):
+                yellow_epics = item.get('yellow_epics', [])
+                lines.append(f"- **⚠️ Low confidence**: {len(yellow_epics)} epic(s) with YELLOW/missing RAG status - may not complete in quarter")
             lines.append("")
     else:
         lines.append("*No initiatives are planned for this quarter yet.*")

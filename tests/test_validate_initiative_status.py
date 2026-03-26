@@ -376,7 +376,7 @@ def test_is_ready_to_plan_epic_count_mismatch():
 
 
 def test_is_ready_to_plan_not_all_green():
-    """Test _is_ready_to_plan with non-GREEN epic."""
+    """Test _is_ready_to_plan with YELLOW epic (acceptable - low confidence)."""
     initiative = {
         "key": "INIT-1100",
         "summary": "Not All Green",
@@ -395,6 +395,31 @@ def test_is_ready_to_plan_not_all_green():
         ]
     }
 
+    # Yellow epics are now acceptable (low confidence but planned)
+    assert _is_ready_to_plan(initiative) is True
+
+
+def test_is_ready_to_plan_with_red_epic():
+    """Test _is_ready_to_plan with RED epic (blocks planning)."""
+    initiative = {
+        "key": "INIT-1101",
+        "summary": "Has Red Epic",
+        "status": "Proposed",
+        "assignee": "user@example.com",
+        "strategic_objective": "Test Objective",
+        "teams_involved": ["TEAM1"],
+        "contributing_teams": [
+            {
+                "team_project_key": "TEAM1",
+                "epics": [
+                    {"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"},
+                    {"key": "TEAM1-2", "summary": "Epic 2", "rag_status": "🔴"}
+                ]
+            }
+        ]
+    }
+
+    # Red epics block planning
     assert _is_ready_to_plan(initiative) is False
 
 
