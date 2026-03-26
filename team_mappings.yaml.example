@@ -43,3 +43,23 @@ team_managers:
 
   # Add more manager handles as needed
   # "PROJECT_KEY": "@notion.handle"
+
+# Teams exempt from RAG status checking (OPTIONAL)
+# List of project keys for teams that don't need to report RAG status
+#
+# Use cases:
+# - Supporting teams (Integration Ops, DOCS, etc.)
+# - Teams that provide documentation or operational support
+# - Owner teams are automatically exempt (don't add them here)
+#
+# Format:
+#   - "PROJECT_KEY"
+#
+# These teams' epics will not be checked for RED/YELLOW/missing RAG status.
+# They still need to create epics if listed in Teams Involved.
+teams_exempt_from_rag:
+  - "Integration Ops"
+  - "DOCS"
+
+  # Add more exempt teams as needed
+  # - "PROJECT_KEY"

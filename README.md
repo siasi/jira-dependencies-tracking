@@ -468,9 +468,22 @@ team_mappings:
   "Engineering": "ENG"
   "Product": "PROD"
   "Design": "DESIGN"
+
+# Optional: Teams exempt from RAG status checking
+# Supporting teams (Integration Ops, DOCS, etc.) that don't need RAG status
+teams_exempt_from_rag:
+  - "Integration Ops"
+  - "DOCS"
 ```
 
 **Note:** This file is optional. The script works without it by using display names as-is. The mapping helps identify teams when display names differ from project keys.
+
+**Teams Exempt from RAG Checking:**
+
+Some teams (like Integration Ops, DOCS) provide supporting work and don't need to report RAG status. Configure these in `teams_exempt_from_rag`:
+- They still need to create epics if listed in Teams Involved
+- Their epics won't be checked for RED/YELLOW/missing RAG status
+- Owner teams are automatically exempt (don't add them here)
 
 **What It Checks:**
 

@@ -161,7 +161,7 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
 
 
 def _has_red_epics(initiative: dict) -> Optional[List[Dict[str, Any]]]:
-    """Check if initiative has RED epics (skip owner team).
+    """Check if initiative has RED epics (skip owner team and exempt teams).
 
     Args:
         initiative: Initiative dictionary from JSON
@@ -171,6 +171,7 @@ def _has_red_epics(initiative: dict) -> Optional[List[Dict[str, Any]]]:
     """
     owner_team = initiative.get('owner_team')
     team_mappings = _load_team_mappings()
+    exempt_teams = _load_teams_exempt_from_rag()
 
     red_epics = []
 
@@ -184,7 +185,10 @@ def _has_red_epics(initiative: dict) -> Optional[List[Dict[str, Any]]]:
             if team_key.upper() == owner_project_key.upper():
                 is_owner_team = True
 
-        if not is_owner_team:
+        # Skip epics from teams exempt from RAG checking
+        is_exempt_team = team_key in exempt_teams
+
+        if not is_owner_team and not is_exempt_team:
             for epic in tc.get('epics', []):
                 rag = epic.get('rag_status')
                 if rag == '🔴':
@@ -198,7 +202,7 @@ def _has_red_epics(initiative: dict) -> Optional[List[Dict[str, Any]]]:
 
 
 def _has_yellow_epics(initiative: dict) -> Optional[List[Dict[str, Any]]]:
-    """Check if initiative has YELLOW epics (skip owner team).
+    """Check if initiative has YELLOW epics (skip owner team and exempt teams).
 
     Args:
         initiative: Initiative dictionary from JSON
@@ -208,6 +212,7 @@ def _has_yellow_epics(initiative: dict) -> Optional[List[Dict[str, Any]]]:
     """
     owner_team = initiative.get('owner_team')
     team_mappings = _load_team_mappings()
+    exempt_teams = _load_teams_exempt_from_rag()
 
     yellow_epics = []
 
@@ -221,7 +226,10 @@ def _has_yellow_epics(initiative: dict) -> Optional[List[Dict[str, Any]]]:
             if team_key.upper() == owner_project_key.upper():
                 is_owner_team = True
 
-        if not is_owner_team:
+        # Skip epics from teams exempt from RAG checking
+        is_exempt_team = team_key in exempt_teams
+
+        if not is_owner_team and not is_exempt_team:
             for epic in tc.get('epics', []):
                 rag = epic.get('rag_status')
                 # Check for yellow/amber status (both emoji types used in data)
@@ -287,7 +295,9 @@ def _is_ready_to_plan(initiative: dict) -> bool:
         if not is_only_owner_missing:
             return False
 
-    # All epics must have GREEN RAG status (skip owner team epics)
+    # All epics must have GREEN RAG status (skip owner team and exempt teams)
+    exempt_teams = _load_teams_exempt_from_rag()
+
     for tc in initiative.get('contributing_teams', []):
         team_key = tc.get('team_project_key', '')
 
@@ -298,7 +308,10 @@ def _is_ready_to_plan(initiative: dict) -> bool:
             if team_key.upper() == owner_project_key.upper():
                 is_owner_team = True
 
-        if not is_owner_team:
+        # Skip epics from teams exempt from RAG checking
+        is_exempt_team = team_key in exempt_teams
+
+        if not is_owner_team and not is_exempt_team:
             for epic in tc.get('epics', []):
                 if epic.get('rag_status') != '🟢':
                     return False
@@ -340,6 +353,26 @@ def _load_team_managers() -> Dict[str, str]:
             return data.get('team_managers', {})
     except Exception:
         return {}
+
+
+def _load_teams_exempt_from_rag() -> List[str]:
+    """Load list of teams exempt from RAG status checking.
+
+    Returns:
+        List of project keys for teams that don't require RAG status, or empty list if not found
+    """
+    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    if not mappings_file.exists():
+        return []
+
+    try:
+        with open(mappings_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            exempt_teams = data.get('teams_exempt_from_rag', [])
+            # Return as set for O(1) lookups, but as list for type consistency
+            return exempt_teams if exempt_teams else []
+    except Exception:
+        return []
 
 
 def _normalize_teams_involved(teams_involved: Any) -> List[str]:
