@@ -74,48 +74,42 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
     if not strategic_objective or (isinstance(strategic_objective, str) and not strategic_objective.strip()):
         issues.append({'type': 'missing_strategic_objective'})
 
-    # Check for zero epics first
-    total_epics = sum(len(tc.get('epics', [])) for tc in initiative.get('contributing_teams', []))
+    # Check epic count vs teams count (including case where there are no epics)
+    teams_involved = _normalize_teams_involved(initiative.get('teams_involved'))
+    teams_with_epics = {
+        tc['team_project_key']
+        for tc in initiative.get('contributing_teams', [])
+        if tc.get('epics')
+    }
 
-    # Only check epic count mismatch if there are some epics
-    # (if there are no epics, we'll report that separately and it's redundant to also report a mismatch)
-    if total_epics > 0:
-        # Check epic count vs teams count
-        teams_involved = _normalize_teams_involved(initiative.get('teams_involved'))
-        teams_with_epics = {
-            tc['team_project_key']
-            for tc in initiative.get('contributing_teams', [])
-            if tc.get('epics')
-        }
+    if len(teams_involved) != len(teams_with_epics):
+        # Check if the only missing team is the owner team
+        # (Owner team doesn't need an epic since they're leading the initiative)
+        owner_team = initiative.get('owner_team')
+        team_mappings = _load_team_mappings()
 
-        if len(teams_involved) != len(teams_with_epics):
-            # Check if the only missing team is the owner team
-            # (Owner team doesn't need an epic since they're leading the initiative)
-            owner_team = initiative.get('owner_team')
-            team_mappings = _load_team_mappings()
+        # Find which teams are missing epics
+        teams_with_epics_set = set(teams_with_epics)
+        missing_teams = []
+        for display_name in teams_involved:
+            project_key = team_mappings.get(display_name, display_name)
+            if project_key.upper() not in {k.upper() for k in teams_with_epics_set}:
+                missing_teams.append(display_name)
 
-            # Find which teams are missing epics
-            teams_with_epics_set = set(teams_with_epics)
-            missing_teams = []
-            for display_name in teams_involved:
-                project_key = team_mappings.get(display_name, display_name)
-                if project_key.upper() not in {k.upper() for k in teams_with_epics_set}:
-                    missing_teams.append(display_name)
+        # Only report mismatch if there are missing teams other than the owner
+        # or if the only missing team is NOT the owner
+        is_only_owner_missing = (
+            owner_team and
+            len(missing_teams) == 1 and
+            missing_teams[0] == owner_team
+        )
 
-            # Only report mismatch if there are missing teams other than the owner
-            # or if the only missing team is NOT the owner
-            is_only_owner_missing = (
-                owner_team and
-                len(missing_teams) == 1 and
-                missing_teams[0] == owner_team
-            )
-
-            if not is_only_owner_missing:
-                issues.append({
-                    'type': 'epic_count_mismatch',
-                    'teams_involved': teams_involved,
-                    'teams_with_epics': list(teams_with_epics)
-                })
+        if not is_only_owner_missing:
+            issues.append({
+                'type': 'epic_count_mismatch',
+                'teams_involved': teams_involved,
+                'teams_with_epics': list(teams_with_epics)
+            })
 
     # Check for missing RAG status (skip owner team and exempt teams)
     owner_team = initiative.get('owner_team')
@@ -160,10 +154,6 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
             'type': 'missing_rag_status',
             'teams': missing_rag_by_team
         })
-
-    # Report no epics if total is zero (already calculated above)
-    if total_epics == 0:
-        issues.append({'type': 'no_epics'})
 
     return issues if issues else None
 
@@ -912,12 +902,6 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                         print(f"       [ ] {team_name} to set RAG status for {epics_str}")
                     print()
 
-                elif issue['type'] == 'no_epics':
-                    print(f"   ⚠️  No epics found")
-                    print(f"       - Initiative has zero epics linked")
-                    print(f"       - Cannot validate RAG status or team involvement")
-                    print()
-
                 elif issue['type'] == 'red_epics':
                     print(f"   ⚠️  Epics with RED status ({len(issue['epics'])})")
                     for epic in issue['epics']:
@@ -1281,9 +1265,6 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                         manager_tag = team_managers.get(team_key, '')
                         manager_suffix = f" {manager_tag}" if manager_tag else ""
                         lines.append(f"- [ ] {team_name} to set RAG status for {epics_str}{manager_suffix}")
-                    lines.append("")
-                elif issue['type'] == 'no_epics':
-                    lines.append("**⚠️ No epics found**")
                     lines.append("")
                 elif issue['type'] == 'red_epics':
                     lines.append(f"**⚠️ Epics with RED status ({len(issue['epics'])})**")

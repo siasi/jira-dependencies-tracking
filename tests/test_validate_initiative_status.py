@@ -101,14 +101,14 @@ def test_check_data_quality_missing_rag():
 
 
 def test_check_data_quality_no_epics():
-    """Test data quality check with zero epics."""
+    """Test data quality check with zero epics (reported as epic_count_mismatch)."""
     initiative = {
         "key": "INIT-789",
         "summary": "Test Initiative",
         "status": "Proposed",
         "assignee": "user@example.com",
         "strategic_objective": "Test Objective",
-        "teams_involved": [],
+        "teams_involved": ["TEAM1", "TEAM2"],
         "contributing_teams": []
     }
 
@@ -116,7 +116,9 @@ def test_check_data_quality_no_epics():
 
     assert issues is not None
     assert len(issues) == 1
-    assert issues[0]['type'] == 'no_epics'
+    assert issues[0]['type'] == 'epic_count_mismatch'
+    assert issues[0]['teams_involved'] == ["TEAM1", "TEAM2"]
+    assert issues[0]['teams_with_epics'] == []
 
 
 def test_check_data_quality_missing_strategic_objective():
