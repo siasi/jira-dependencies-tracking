@@ -399,6 +399,25 @@ def _load_teams_exempt_from_rag() -> List[str]:
         return []
 
 
+def _load_teams_excluded_from_analysis() -> List[str]:
+    """Load list of teams to exclude from analysis entirely.
+
+    Returns:
+        List of team names for teams whose initiatives should be filtered out, or empty list if not found
+    """
+    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    if not mappings_file.exists():
+        return []
+
+    try:
+        with open(mappings_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            excluded_teams = data.get('teams_excluded_from_analysis', [])
+            return excluded_teams if excluded_teams else []
+    except Exception:
+        return []
+
+
 def _normalize_teams_involved(teams_involved: Any) -> List[str]:
     """Normalize teams_involved field to a list.
 
@@ -458,11 +477,25 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
     result = ValidationResult()
     all_initiatives = data.get('initiatives', [])
 
-    # Filter to multi-team initiatives only (teams >= 2)
+    # Load excluded teams
+    excluded_teams = _load_teams_excluded_from_analysis()
+
+    # Filter to multi-team initiatives only (teams >= 2) and exclude certain teams
     initiatives = []
     for init in all_initiatives:
         team_count = _count_teams_involved(init.get('teams_involved'))
-        if team_count >= 2:
+        owner_team = init.get('owner_team')
+
+        # Check if owner team is excluded
+        if owner_team and owner_team in excluded_teams:
+            # Track excluded team initiatives in ignored_statuses
+            result.ignored_statuses.append({
+                'key': init['key'],
+                'summary': init['summary'],
+                'status': f"{init.get('status', 'Unknown')} (team excluded)",
+                'url': init.get('url', '')
+            })
+        elif team_count >= 2:
             initiatives.append(init)
         else:
             # Track single-team initiatives as ignored
@@ -978,8 +1011,7 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
     # Section 6: Not Analyzed (other statuses) - verbose only
     if verbose and result.ignored_statuses:
         print(f"⏭️  NOT ANALYZED ({len(result.ignored_statuses)} initiatives)\n")
-        print("These initiatives have statuses other than 'Proposed' or 'Planned'")
-        print("and are not included in the readiness validation:\n")
+        print("These initiatives are not included in the analysis:\n")
 
         for item in result.ignored_statuses:
             print(f"{item['key']}: {item['summary']}")
@@ -1348,7 +1380,7 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     if verbose and result.ignored_statuses:
         lines.append(f"## ⏭️ Not Analyzed ({len(result.ignored_statuses)} initiatives)")
         lines.append("")
-        lines.append("*These initiatives have statuses other than 'Proposed' or 'Planned' and are not included in the readiness validation:*")
+        lines.append("*These initiatives are not included in the analysis:*")
         lines.append("")
 
         for item in result.ignored_statuses:

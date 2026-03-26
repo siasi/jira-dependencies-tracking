@@ -11,6 +11,7 @@ from validate_initiative_status import (
     _has_yellow_epics,
     _is_ready_to_plan,
     _is_discovery_initiative,
+    _load_teams_excluded_from_analysis,
     find_latest_extract,
     print_validation_report,
     generate_markdown_report
@@ -1523,3 +1524,148 @@ def test_in_progress_initiative_with_issues(tmp_path):
     assert len(result.planned_regressions) == 1
     assert result.planned_regressions[0]['key'] == 'INIT-301'
     assert result.planned_regressions[0]['status'] == 'In Progress'
+
+
+def test_load_teams_excluded_from_analysis():
+    """Test loading teams excluded from analysis from team_mappings.yaml."""
+    excluded_teams = _load_teams_excluded_from_analysis()
+    # Should include IT team from the configuration
+    assert 'IT' in excluded_teams
+
+
+def test_excluded_team_initiative_filtered_out(tmp_path):
+    """Test that initiatives with excluded owner teams are filtered out."""
+    test_data = {
+        "initiatives": [
+            {
+                "key": "INIT-400",
+                "summary": "IT Integration Initiative",
+                "status": "Proposed",
+                "assignee": "test@example.com",
+                "strategic_objective": "Test Objective",
+                "owner_team": "IT",
+                "teams_involved": ["IT", "Console"],
+                "contributing_teams": [
+                    {
+                        "team_project_key": "IT",
+                        "epics": [{"key": "IT-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    }
+                ]
+            }
+        ]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(test_data))
+
+    result = validate_initiative_status(json_file)
+
+    # Should not appear in any validation category
+    assert len(result.dependency_mapping) == 0
+    assert len(result.low_confidence_completion) == 0
+    assert len(result.ready_to_plan) == 0
+    assert len(result.planned_for_quarter) == 0
+    assert len(result.planned_regressions) == 0
+
+    # Should be in ignored_statuses with team excluded status
+    assert len(result.ignored_statuses) == 1
+    assert result.ignored_statuses[0]['key'] == 'INIT-400'
+    assert result.ignored_statuses[0]['status'] == 'Proposed (team excluded)'
+
+
+def test_non_excluded_team_initiative_processed(tmp_path):
+    """Test that initiatives with non-excluded owner teams are processed normally."""
+    test_data = {
+        "initiatives": [
+            {
+                "key": "INIT-401",
+                "summary": "Normal Initiative",
+                "status": "Proposed",
+                "assignee": "test@example.com",
+                "strategic_objective": "Test Objective",
+                "owner_team": "Console",
+                "teams_involved": ["Console", "Payments Risk"],
+                "contributing_teams": [
+                    {
+                        "team_project_key": "CONSOLE",
+                        "epics": [{"key": "CONSOLE-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    },
+                    {
+                        "team_project_key": "RSK",
+                        "epics": [{"key": "RSK-1", "summary": "Epic 2", "rag_status": "🟢"}]
+                    }
+                ]
+            }
+        ]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(test_data))
+
+    result = validate_initiative_status(json_file)
+
+    # Should be processed normally and appear in ready_to_plan
+    assert len(result.ready_to_plan) == 1
+    assert result.ready_to_plan[0]['key'] == 'INIT-401'
+
+    # Should not be in ignored_statuses
+    ignored_keys = [item['key'] for item in result.ignored_statuses]
+    assert 'INIT-401' not in ignored_keys
+
+
+def test_mixed_excluded_and_non_excluded_teams(tmp_path):
+    """Test filtering with mix of excluded and non-excluded team initiatives."""
+    test_data = {
+        "initiatives": [
+            {
+                "key": "INIT-402",
+                "summary": "IT Initiative",
+                "status": "Proposed",
+                "assignee": "test@example.com",
+                "strategic_objective": "Test Objective",
+                "owner_team": "IT",
+                "teams_involved": ["IT", "Console"],
+                "contributing_teams": [
+                    {
+                        "team_project_key": "IT",
+                        "epics": [{"key": "IT-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    }
+                ]
+            },
+            {
+                "key": "INIT-403",
+                "summary": "Console Initiative",
+                "status": "Proposed",
+                "assignee": "test@example.com",
+                "strategic_objective": "Test Objective",
+                "owner_team": "Console",
+                "teams_involved": ["Console", "Payments Risk"],
+                "contributing_teams": [
+                    {
+                        "team_project_key": "CONSOLE",
+                        "epics": [{"key": "CONSOLE-1", "summary": "Epic 1", "rag_status": "🟢"}]
+                    },
+                    {
+                        "team_project_key": "RSK",
+                        "epics": [{"key": "RSK-1", "summary": "Epic 2", "rag_status": "🟢"}]
+                    }
+                ]
+            }
+        ]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(test_data))
+
+    result = validate_initiative_status(json_file)
+
+    # IT initiative should be in ignored_statuses
+    ignored_keys = [item['key'] for item in result.ignored_statuses]
+    assert 'INIT-402' in ignored_keys
+    # Verify it has the team excluded status
+    it_item = [item for item in result.ignored_statuses if item['key'] == 'INIT-402'][0]
+    assert '(team excluded)' in it_item['status']
+
+    # Console initiative should be processed
+    assert len(result.ready_to_plan) == 1
+    assert result.ready_to_plan[0]['key'] == 'INIT-403'
