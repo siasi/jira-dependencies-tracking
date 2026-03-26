@@ -111,9 +111,10 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
                 'teams_with_epics': list(teams_with_epics)
             })
 
-    # Check for missing RAG status (skip owner team epics)
+    # Check for missing RAG status (skip owner team and exempt teams)
     owner_team = initiative.get('owner_team')
     team_mappings = _load_team_mappings()
+    exempt_teams = _load_teams_exempt_from_rag()
 
     missing_rag_by_team = []
     for tc in initiative.get('contributing_teams', []):
@@ -128,7 +129,10 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
             if team_key.upper() == owner_project_key.upper():
                 is_owner_team = True
 
-        if not is_owner_team:
+        # Skip epics from teams exempt from RAG checking
+        is_exempt_team = team_key in exempt_teams
+
+        if not is_owner_team and not is_exempt_team:
             team_missing_epics = []
             for epic in tc.get('epics', []):
                 if epic.get('rag_status') is None:
