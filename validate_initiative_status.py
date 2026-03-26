@@ -849,11 +849,6 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
 
         for item in result.planned_regressions:
             print(f"{item['key']}: {item['summary']}")
-            print(f"   Current Status: {item['status']}")
-            if item.get('assignee'):
-                print(f"   Assignee: {item['assignee']}")
-            else:
-                print(f"   Assignee: (none)")
             print()
 
             # Show detailed issues (same format as Sections 1 and 2)
@@ -1272,9 +1267,6 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
 
         for item in result.planned_regressions:
             lines.append(f"### [{item['key']}]({item.get('url', '#')}): {item['summary']}")
-            lines.append("")
-            lines.append(f"- **Status**: {item['status']}")
-            lines.append(f"- **Assignee**: {item.get('assignee') or '*(none)*'}")
             lines.append("")
 
             # Show same detailed issues as text output
