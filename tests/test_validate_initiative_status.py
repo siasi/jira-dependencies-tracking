@@ -625,6 +625,45 @@ def test_validate_initiative_status_planned_regression(tmp_path):
     assert result.planned_regressions[0]['key'] == "INIT-999"
 
 
+def test_validate_initiative_status_planned_for_quarter(tmp_path):
+    """Test full validation with healthy Planned initiative (Section 6: Planned for Quarter)."""
+    data = {
+        "initiatives": [{
+            "key": "INIT-1000",
+            "summary": "Healthy Planned Initiative",
+            "status": "Planned",
+            "assignee": "user@example.com",
+            "strategic_objective": "Test Objective",
+            "teams_involved": ["TEAM1", "TEAM2"],
+            "contributing_teams": [
+                {
+                    "team_project_key": "TEAM1",
+                    "epics": [{"key": "TEAM1-1", "summary": "Green Epic", "rag_status": "🟢"}]
+                },
+                {
+                    "team_project_key": "TEAM2",
+                    "epics": [{"key": "TEAM2-1", "summary": "Also Green", "rag_status": "🟢"}]
+                }
+            ]
+        }]
+    }
+
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(data))
+
+    result = validate_initiative_status(json_file)
+
+    assert result.total_checked == 1
+    assert len(result.dependency_mapping) == 0
+    assert len(result.cannot_complete_quarter) == 0
+    assert len(result.low_confidence) == 0
+    assert len(result.awaiting_owner) == 0
+    assert len(result.ready_to_plan) == 0
+    assert len(result.planned_for_quarter) == 1
+    assert result.planned_for_quarter[0]['key'] == "INIT-1000"
+    assert len(result.planned_regressions) == 0
+
+
 def test_validate_initiative_status_mixed_statuses(tmp_path):
     """Test full validation with mixed initiative statuses across all 5 sections."""
     data = {

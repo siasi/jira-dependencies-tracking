@@ -40,6 +40,8 @@ class ValidationResult:
         self.awaiting_owner: List[Dict[str, Any]] = []
         # Section 5: Ready to Move to Planned
         self.ready_to_plan: List[Dict[str, Any]] = []
+        # Section 6: Planned for the Quarter (healthy planned initiatives)
+        self.planned_for_quarter: List[Dict[str, Any]] = []
         # Additional sections (verbose only)
         self.planned_regressions: List[Dict[str, Any]] = []
         self.ignored_statuses: List[Dict[str, Any]] = []
@@ -533,6 +535,16 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
                     'contributing_teams': initiative.get('contributing_teams', []),
                     'issues': all_issues if all_issues else []
                 })
+            else:
+                # Section 6: Planned for the Quarter (healthy planned initiatives)
+                result.planned_for_quarter.append({
+                    'key': initiative_key,
+                    'summary': initiative_summary,
+                    'status': initiative_status,
+                    'assignee': initiative_assignee,
+                    'url': initiative_url,
+                    'contributing_teams': initiative.get('contributing_teams', [])
+                })
 
         else:
             # Track initiatives with other statuses (not analyzed)
@@ -575,6 +587,7 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
     print(f"  🟡 Low confidence for planning - require discussion: {len(result.low_confidence)} initiatives")
     print(f"  👤 Ready - Awaiting Owner: {len(result.awaiting_owner)} initiatives")
     print(f"  ✅ Ready to Move to Planned: {len(result.ready_to_plan)} initiatives")
+    print(f"  🎯 Planned for the Quarter: {len(result.planned_for_quarter)} initiatives")
     if verbose:
         if result.planned_regressions:
             print(f"  🔄 Planned Initiatives with Issues: {len(result.planned_regressions)} initiatives")
@@ -748,7 +761,32 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
 
     print(f"\n{'-' * 80}\n")
 
-    # Section 4: Planned Initiatives Requiring Attention (regressions) - verbose only
+    # Section 6: Planned for the Quarter (always show)
+    print(f"🎯 PLANNED FOR THE QUARTER ({len(result.planned_for_quarter)} initiatives)\n")
+    print("These initiatives are ready and meet all quality criteria\n")
+
+    if result.planned_for_quarter:
+        for item in result.planned_for_quarter:
+            print(f"{item['key']}: {item['summary']}")
+            if item.get('assignee'):
+                print(f"   Assignee: {item['assignee']}")
+
+            # Show epic details
+            contributing_teams = item.get('contributing_teams', [])
+            if contributing_teams:
+                epic_keys = []
+                for tc in contributing_teams:
+                    for epic in tc.get('epics', []):
+                        epic_keys.append(f"{epic['key']} ({epic.get('rag_status', 'No RAG')})")
+                if epic_keys:
+                    print(f"   Epics: {', '.join(epic_keys)}")
+            print()
+    else:
+        print("No initiatives are planned for this quarter yet.")
+
+    print(f"\n{'-' * 80}\n")
+
+    # Section 7: Planned Initiatives Requiring Attention (regressions) - verbose only
     if verbose and result.planned_regressions:
         print(f"🔄 PLANNED INITIATIVES REQUIRING ATTENTION ({len(result.planned_regressions)} initiatives)\n")
         print("To maintain quality: Review status changes for these planned initiatives")
@@ -926,6 +964,7 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     lines.append(f"- 🟡 **Low confidence for planning - require discussion**: {len(result.low_confidence)} initiatives")
     lines.append(f"- 👤 **Ready - Awaiting Owner**: {len(result.awaiting_owner)} initiatives")
     lines.append(f"- ✅ **Ready to Move to Planned**: {len(result.ready_to_plan)} initiatives")
+    lines.append(f"- 🎯 **Planned for the Quarter**: {len(result.planned_for_quarter)} initiatives")
     if verbose:
         if result.planned_regressions:
             lines.append(f"- 🔄 **Planned Initiatives with Issues**: {len(result.planned_regressions)} initiatives")
@@ -1135,7 +1174,40 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     lines.append("---")
     lines.append("")
 
-    # Section 4: Planned Initiatives Requiring Attention (verbose only)
+    # Section 6: Planned for the Quarter
+    lines.append(f"## 🎯 Planned for the Quarter ({len(result.planned_for_quarter)} initiatives)")
+    lines.append("")
+    lines.append("**These initiatives are ready and meet all quality criteria**")
+    lines.append("")
+
+    if result.planned_for_quarter:
+        for item in result.planned_for_quarter:
+            lines.append(f"### [{item['key']}]({item.get('url', '#')}): {item['summary']}")
+            lines.append("")
+            if item.get('assignee'):
+                lines.append(f"- **Assignee**: {item['assignee']}")
+
+            # Show epic details
+            contributing_teams = item.get('contributing_teams', [])
+            if contributing_teams:
+                epic_details = []
+                for tc in contributing_teams:
+                    for epic in tc.get('epics', []):
+                        epic_key = epic['key']
+                        epic_url = epic.get('url', '#')
+                        epic_rag = epic.get('rag_status', 'No RAG')
+                        epic_details.append(f"[{epic_key}]({epic_url}) ({epic_rag})")
+                if epic_details:
+                    lines.append(f"- **Epics**: {', '.join(epic_details)}")
+            lines.append("")
+    else:
+        lines.append("*No initiatives are planned for this quarter yet.*")
+
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+
+    # Section 7: Planned Initiatives Requiring Attention (verbose only)
     if verbose and result.planned_regressions:
         lines.append(f"## 🔄 Planned Initiatives Requiring Attention ({len(result.planned_regressions)} initiatives)")
         lines.append("")
