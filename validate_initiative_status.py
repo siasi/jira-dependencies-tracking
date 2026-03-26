@@ -671,9 +671,9 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
     print(f"  🟡 No/Low confidence for completion - require discussion: {len(result.low_confidence_completion)} initiatives")
     print(f"  ✅ Ready to Move to Planned: {len(result.ready_to_plan)} initiatives")
     print(f"  🎯 Planned/In Progress for the Quarter: {len(result.planned_for_quarter)} initiatives")
+    if result.planned_regressions:
+        print(f"  🔄 Planned/In Progress Initiatives with Issues: {len(result.planned_regressions)} initiatives")
     if verbose:
-        if result.planned_regressions:
-            print(f"  🔄 Planned/In Progress Initiatives with Issues: {len(result.planned_regressions)} initiatives")
         if result.ignored_statuses:
             print(f"  ⏭️  Not Analyzed: {len(result.ignored_statuses)} initiatives")
 
@@ -874,8 +874,8 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
 
     print(f"\n{'-' * 80}\n")
 
-    # Section 5: Planned/In Progress Initiatives Requiring Attention (regressions) - verbose only
-    if verbose and result.planned_regressions:
+    # Section 5: Planned/In Progress Initiatives Requiring Attention (regressions) - always show
+    if result.planned_regressions:
         print(f"🔄 PLANNED/IN PROGRESS INITIATIVES REQUIRING ATTENTION ({len(result.planned_regressions)} initiatives)\n")
         print("To maintain quality: Review status changes for these planned/in progress initiatives")
         print("Help needed: Verify RAG status updates, confirm team commitment\n")
@@ -1060,9 +1060,9 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     lines.append(f"- 🟡 **No/Low confidence for completion - require discussion**: {len(result.low_confidence_completion)} initiatives")
     lines.append(f"- ✅ **Ready to Move to Planned**: {len(result.ready_to_plan)} initiatives")
     lines.append(f"- 🎯 **Planned/In Progress for the Quarter**: {len(result.planned_for_quarter)} initiatives")
+    if result.planned_regressions:
+        lines.append(f"- 🔄 **Planned/In Progress Initiatives with Issues**: {len(result.planned_regressions)} initiatives")
     if verbose:
-        if result.planned_regressions:
-            lines.append(f"- 🔄 **Planned/In Progress Initiatives with Issues**: {len(result.planned_regressions)} initiatives")
         if result.ignored_statuses:
             lines.append(f"- ⏭️ **Not Analyzed**: {len(result.ignored_statuses)} initiatives")
     lines.append("")
@@ -1288,8 +1288,8 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     lines.append("---")
     lines.append("")
 
-    # Section 5: Planned/In Progress Initiatives Requiring Attention (verbose only)
-    if verbose and result.planned_regressions:
+    # Section 5: Planned/In Progress Initiatives Requiring Attention (always show)
+    if result.planned_regressions:
         lines.append(f"## 🔄 Planned/In Progress Initiatives Requiring Attention ({len(result.planned_regressions)} initiatives)")
         lines.append("")
         lines.append("**To maintain quality**: Review status changes for these planned/in progress initiatives")
@@ -1319,9 +1319,61 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                     lines.append("")
 
                 elif issue['type'] == 'epic_count_mismatch':
+                    # Show detailed epic count mismatch (same as Section 1)
+                    epic_keys = [
+                        epic['key']
+                        for tc in item['contributing_teams']
+                        for epic in tc.get('epics', [])
+                    ]
+                    teams_count = len(issue['teams_involved'])
+                    epics_count = len(issue['teams_with_epics'])
+                    team_mappings = _load_team_mappings()
+
                     lines.append("**⚠️ Missing dependencies - Action:**")
                     lines.append("")
-                    # Similar logic as Section 1
+
+                    if epics_count < teams_count:
+                        teams_with_epics_set = set(issue['teams_with_epics'])
+                        owner_team = item.get('owner_team')
+                        team_managers = _load_team_managers()
+                        missing_teams = []
+                        for display_name in issue['teams_involved']:
+                            # Skip owner team - they don't need to create epics
+                            if owner_team and display_name == owner_team:
+                                continue
+
+                            project_key = team_mappings.get(display_name)
+                            if project_key and project_key not in teams_with_epics_set:
+                                missing_teams.append((f"{display_name} ({project_key})", project_key))
+                            elif not project_key and display_name not in teams_with_epics_set:
+                                missing_teams.append((f"{display_name} (unmapped)", None))
+
+                        if missing_teams:
+                            for team_str, project_key in missing_teams:
+                                manager_tag = team_managers.get(project_key, '') if project_key else ''
+                                manager_suffix = f" {manager_tag}" if manager_tag else ""
+                                lines.append(f"- [ ] {team_str} to create epic{manager_suffix}")
+                        else:
+                            missing_count = teams_count - epics_count
+                            lines.append(f"- [ ] **Action**: Create {missing_count} missing epic{'s' if missing_count > 1 else ''} or update Teams Involved field")
+                    elif epics_count > teams_count:
+                        teams_involved_keys = set()
+                        for display_name in issue['teams_involved']:
+                            project_key = team_mappings.get(display_name)
+                            if project_key:
+                                teams_involved_keys.add(project_key.upper())
+                            else:
+                                teams_involved_keys.add(display_name.upper())
+
+                        extra_teams = [key for key in issue['teams_with_epics']
+                                      if key.upper() not in teams_involved_keys]
+
+                        if extra_teams:
+                            lines.append(f"- [ ] **Action**: Add {', '.join(extra_teams)} to Teams Involved field")
+                        else:
+                            lines.append(f"- [ ] **Action**: Update Teams Involved field to include all {epics_count} teams with epics")
+                    lines.append("")
+
                 elif issue['type'] == 'missing_rag_status':
                     lines.append("**⚠️ Missing RAG status - Action:**")
                     lines.append("")
@@ -1339,6 +1391,10 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                     lines.append("")
                 elif issue['type'] == 'red_epics':
                     lines.append(f"**⚠️ Epics with RED status ({len(issue['epics'])})**")
+                    lines.append("")
+                    for epic in issue['epics']:
+                        rag_display = "🔴" if epic['rag_status'] == '🔴' else "*(missing - treated as RED)*"
+                        lines.append(f"- {epic['key']} {rag_display}: \"{epic['summary']}\"")
                     lines.append("")
                 elif issue['type'] == 'yellow_epics':
                     lines.append(f"**⚠️ Epics with YELLOW status or missing RAG ({len(issue['epics'])})**")
