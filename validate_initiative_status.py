@@ -3,8 +3,8 @@
 
 This script analyzes Jira initiatives to determine readiness for status transitions
 based on epic RAG status, team dependencies, and assignee presence. It categorizes
-initiatives into three groups: Fix Data Quality, Address Commitment Blockers, and
-Ready to Move to Planned.
+initiatives into groups: Dependency Mapping in Progress, Low Confidence for Completion,
+Ready - Awaiting Owner, Ready to Move to Planned, and Planned for the Quarter.
 
 Usage:
     # Validate latest extraction
@@ -32,15 +32,11 @@ class ValidationResult:
     def __init__(self):
         # Section 1: Dependency Mapping in Progress
         self.dependency_mapping: List[Dict[str, Any]] = []
-        # Section 2: Can't be completed in the quarter
-        self.cannot_complete_quarter: List[Dict[str, Any]] = []
-        # Section 3: Low confidence for planning
-        self.low_confidence: List[Dict[str, Any]] = []
-        # Section 4: Ready - Awaiting Owner
-        self.awaiting_owner: List[Dict[str, Any]] = []
-        # Section 5: Ready to Move to Planned
+        # Section 2: No/Low confidence for completion - require discussion
+        self.low_confidence_completion: List[Dict[str, Any]] = []
+        # Section 3: Ready to Move to Planned
         self.ready_to_plan: List[Dict[str, Any]] = []
-        # Section 6: Planned for the Quarter (healthy planned initiatives)
+        # Section 4: Planned for the Quarter (healthy planned initiatives)
         self.planned_for_quarter: List[Dict[str, Any]] = []
         # Additional sections (verbose only)
         self.planned_regressions: List[Dict[str, Any]] = []
@@ -53,9 +49,7 @@ class ValidationResult:
     def has_issues(self) -> bool:
         """Whether any issues were found."""
         return (len(self.dependency_mapping) > 0 or
-                len(self.cannot_complete_quarter) > 0 or
-                len(self.low_confidence) > 0 or
-                len(self.awaiting_owner) > 0 or
+                len(self.low_confidence_completion) > 0 or
                 len(self.planned_regressions) > 0)
 
 
@@ -69,6 +63,11 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
         List of data quality issues, or None if no issues
     """
     issues = []
+
+    # Check for missing assignee
+    assignee = initiative.get('assignee')
+    if not assignee:
+        issues.append({'type': 'missing_assignee'})
 
     # Check for missing strategic objective
     strategic_objective = initiative.get('strategic_objective')
@@ -483,58 +482,39 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
                 red_epics = _has_red_epics(initiative)
                 yellow_epics = _has_yellow_epics(initiative)
 
-                if red_epics:
-                    # Section 2: Can't be completed in the quarter
-                    result.cannot_complete_quarter.append({
-                        'key': initiative_key,
-                        'summary': initiative_summary,
-                        'status': initiative_status,
-                        'assignee': initiative_assignee,
-                        'url': initiative_url,
-                        'contributing_teams': initiative.get('contributing_teams', []),
-                        'issues': [{
+                if red_epics or yellow_epics:
+                    # Section 2: Low confidence for completion - require discussion
+                    issues = []
+                    if red_epics:
+                        issues.append({
                             'type': 'red_epics',
                             'epics': red_epics
-                        }]
-                    })
-                elif yellow_epics:
-                    # Section 3: Low confidence for planning
-                    result.low_confidence.append({
+                        })
+                    if yellow_epics:
+                        issues.append({
+                            'type': 'yellow_epics',
+                            'epics': yellow_epics
+                        })
+
+                    result.low_confidence_completion.append({
                         'key': initiative_key,
                         'summary': initiative_summary,
                         'status': initiative_status,
                         'assignee': initiative_assignee,
                         'url': initiative_url,
                         'contributing_teams': initiative.get('contributing_teams', []),
-                        'issues': [{
-                            'type': 'yellow_epics',
-                            'epics': yellow_epics
-                        }]
+                        'issues': issues
                     })
                 else:
-                    # All epics GREEN, check assignee
-                    if not initiative_assignee:
-                        # Section 4: Ready - Awaiting Owner
-                        result.awaiting_owner.append({
-                            'key': initiative_key,
-                            'summary': initiative_summary,
-                            'status': initiative_status,
-                            'url': initiative_url,
-                            'owner_team': initiative.get('owner_team'),
-                            'contributing_teams': initiative.get('contributing_teams', []),
-                            'issues': [{
-                                'type': 'no_assignee'
-                            }]
-                        })
-                    else:
-                        # Section 5: Ready to Move to Planned
-                        result.ready_to_plan.append({
-                            'key': initiative_key,
-                            'summary': initiative_summary,
-                            'status': initiative_status,
-                            'assignee': initiative_assignee,
-                            'url': initiative_url
-                        })
+                    # All epics GREEN - ready to move to Planned
+                    # Section 3: Ready to Move to Planned
+                    result.ready_to_plan.append({
+                        'key': initiative_key,
+                        'summary': initiative_summary,
+                        'status': initiative_status,
+                        'assignee': initiative_assignee,
+                        'url': initiative_url
+                    })
 
         elif initiative_status == 'Planned':
             # Check for regressions (Planned initiatives that no longer meet criteria)
@@ -566,8 +546,7 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
                 # Check for missing assignee
                 if not initiative_assignee:
                     all_issues.append({
-                        'type': 'Missing Assignee',
-                        'details': 'Initiative has no assignee'
+                        'type': 'missing_assignee'
                     })
 
                 result.planned_regressions.append({
@@ -576,12 +555,14 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
                     'status': initiative_status,
                     'assignee': initiative_assignee,
                     'url': initiative_url,
+                    'owner_team': initiative.get('owner_team'),
                     'contributing_teams': initiative.get('contributing_teams', []),
                     'issues': all_issues if all_issues else []
                 })
             else:
-                # Section 6: Planned for the Quarter (healthy planned initiatives)
-                # Check if has yellow epics (low confidence)
+                # Section 5: Planned for the Quarter (healthy planned initiatives)
+                # Check if has red or yellow epics (no/low confidence)
+                red_epics = _has_red_epics(initiative)
                 yellow_epics = _has_yellow_epics(initiative)
 
                 result.planned_for_quarter.append({
@@ -591,6 +572,8 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
                     'assignee': initiative_assignee,
                     'url': initiative_url,
                     'contributing_teams': initiative.get('contributing_teams', []),
+                    'has_red_epics': red_epics is not None,
+                    'red_epics': red_epics if red_epics else [],
                     'has_yellow_epics': yellow_epics is not None,
                     'yellow_epics': yellow_epics if yellow_epics else []
                 })
@@ -608,7 +591,7 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
 
 
 def print_validation_report(result: ValidationResult, json_file: Path, verbose: bool = False):
-    """Print formatted validation report with five sections.
+    """Print formatted validation report.
 
     Args:
         result: ValidationResult with findings
@@ -632,9 +615,7 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
 
     print("Summary:")
     print(f"  📋 Dependency Mapping in Progress: {len(result.dependency_mapping)} initiatives")
-    print(f"  🔴 Can't be completed in the quarter: {len(result.cannot_complete_quarter)} initiatives")
-    print(f"  🟡 Low confidence for planning - require discussion: {len(result.low_confidence)} initiatives")
-    print(f"  👤 Ready - Awaiting Owner: {len(result.awaiting_owner)} initiatives")
+    print(f"  🟡 No/Low confidence for completion - require discussion: {len(result.low_confidence_completion)} initiatives")
     print(f"  ✅ Ready to Move to Planned: {len(result.ready_to_plan)} initiatives")
     print(f"  🎯 Planned for the Quarter: {len(result.planned_for_quarter)} initiatives")
     if verbose:
@@ -655,7 +636,21 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
             print()
 
             for issue in item['issues']:
-                if issue['type'] == 'missing_strategic_objective':
+                if issue['type'] == 'missing_assignee':
+                    print(f"   ⚠️  Missing Assignee - Action:")
+                    # Tag owner team's manager
+                    owner_team = item.get('owner_team')
+                    team_managers = _load_team_managers()
+                    manager_tag = ''
+                    if owner_team:
+                        # Owner team might be a display name, try to get project key
+                        project_key = team_mappings.get(owner_team, owner_team)
+                        manager_tag = team_managers.get(project_key, '')
+                    manager_suffix = f" {manager_tag}" if manager_tag else ""
+                    print(f"       [ ] Set the assignee/owner for the initiative{manager_suffix}")
+                    print()
+
+                elif issue['type'] == 'missing_strategic_objective':
                     print(f"   ⚠️  Missing Strategic Objective - Action:")
                     print(f"       [ ] Set the Strategic Objective field for this initiative")
                     print()
@@ -740,61 +735,35 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
 
     print(f"{'-' * 80}\n")
 
-    # Section 2: Can't be completed in the quarter
-    print(f"🔴 CAN'T BE COMPLETED IN THE QUARTER ({len(result.cannot_complete_quarter)} initiatives)\n")
-    print("Teams cannot commit - deprioritize other work to proceed\n")
+    # Section 2: No/Low confidence for completion - require discussion
+    print(f"🟡 NO/LOW CONFIDENCE FOR COMPLETION - REQUIRE DISCUSSION ({len(result.low_confidence_completion)} initiatives)\n")
+    print("Action required: PM/EM to confirm working on initiative (move to PLANNED) or")
+    print("deprioritise it (move to DEPRIORITISED)\n")
 
-    if result.cannot_complete_quarter:
-        for item in result.cannot_complete_quarter:
+    if result.low_confidence_completion:
+        for item in result.low_confidence_completion:
             print(f"{item['key']}: {item['summary']}")
             print()
 
             for issue in item['issues']:
                 if issue['type'] == 'red_epics':
-                    print(f"   ⚠️  Epics with RED status ({len(issue['epics'])})")
+                    print(f"   🔴 Epics with RED status ({len(issue['epics'])})")
                     for epic in issue['epics']:
                         rag_display = "🔴" if epic['rag_status'] == '🔴' else "(missing - treated as RED)"
                         print(f"       - {epic['key']} {rag_display}: \"{epic['summary']}\"")
                     print()
-    else:
-        print("No initiatives blocked by red epics at this time.\n")
-
-    print(f"{'-' * 80}\n")
-
-    # Section 3: Low confidence for planning - require discussion
-    print(f"🟡 LOW CONFIDENCE FOR PLANNING - REQUIRE DISCUSSION ({len(result.low_confidence)} initiatives)\n")
-    print("Low confidence - evaluate re-sequencing or reprioritization\n")
-
-    if result.low_confidence:
-        for item in result.low_confidence:
-            print(f"{item['key']}: {item['summary']}")
-            print()
-
-            for issue in item['issues']:
-                if issue['type'] == 'yellow_epics':
-                    print(f"   ⚠️  Epics with YELLOW status ({len(issue['epics'])})")
+                elif issue['type'] == 'yellow_epics':
+                    print(f"   🟡 Epics with YELLOW status ({len(issue['epics'])})")
                     for epic in issue['epics']:
-                        print(f"       - {epic['key']} 🟡: \"{epic['summary']}\"")
+                        rag_display = "🟡" if epic.get('rag_status') else "(missing - treated as YELLOW)"
+                        print(f"       - {epic['key']} {rag_display}: \"{epic['summary']}\"")
                     print()
     else:
-        print("No initiatives with low confidence at this time.\n")
+        print("No initiatives with no/low confidence for completion at this time.\n")
 
     print(f"{'-' * 80}\n")
 
-    # Section 4: Ready - Awaiting Owner
-    print(f"👤 READY - AWAITING OWNER ({len(result.awaiting_owner)} initiatives)\n")
-    print("Action required: Assign initiative owner to proceed\n")
-
-    if result.awaiting_owner:
-        for item in result.awaiting_owner:
-            print(f"{item['key']}: {item['summary']}")
-            print()
-    else:
-        print("No initiatives awaiting owner assignment at this time.\n")
-
-    print(f"{'-' * 80}\n")
-
-    # Section 5: Ready to Move to Planned (always show)
+    # Section 3: Ready to Move to Planned (always show)
     print(f"✅ READY TO MOVE TO PLANNED ({len(result.ready_to_plan)} initiatives)\n")
     print("Action required: Update status to Planned in Jira (bulk keys provided below)\n")
 
@@ -810,15 +779,17 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
 
     print(f"\n{'-' * 80}\n")
 
-    # Section 6: Planned for the Quarter (always show)
+    # Section 4: Planned for the Quarter (always show)
     print(f"🎯 PLANNED FOR THE QUARTER ({len(result.planned_for_quarter)} initiatives)\n")
     print("These initiatives are ready and meet all quality criteria\n")
 
     if result.planned_for_quarter:
         for item in result.planned_for_quarter:
-            # Add warning indicator for low confidence initiatives
+            # Add warning indicator based on epic RAG status
             warning = ""
-            if item.get('has_yellow_epics'):
+            if item.get('has_red_epics'):
+                warning = " WON'T COMPLETE"
+            elif item.get('has_yellow_epics'):
                 warning = " ⚠️ LOW CONFIDENCE"
             print(f"{item['key']}: {item['summary']}{warning}")
             if item.get('assignee'):
@@ -834,17 +805,13 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                 if epic_keys:
                     print(f"   Epics: {', '.join(epic_keys)}")
 
-            # Show yellow epic warning details
-            if item.get('has_yellow_epics'):
-                yellow_epics = item.get('yellow_epics', [])
-                print(f"   ⚠️  Low confidence: {len(yellow_epics)} epic(s) with YELLOW/missing RAG status")
             print()
     else:
         print("No initiatives are planned for this quarter yet.")
 
     print(f"\n{'-' * 80}\n")
 
-    # Section 7: Planned Initiatives Requiring Attention (regressions) - verbose only
+    # Section 5: Planned Initiatives Requiring Attention (regressions) - verbose only
     if verbose and result.planned_regressions:
         print(f"🔄 PLANNED INITIATIVES REQUIRING ATTENTION ({len(result.planned_regressions)} initiatives)\n")
         print("To maintain quality: Review status changes for these planned initiatives")
@@ -970,14 +937,23 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                         print(f"       - {epic['key']} {rag_display}: \"{epic['summary']}\"")
                     print()
 
-                elif issue['type'] == 'no_assignee':
-                    print(f"   ⚠️  No assignee set")
-                    print(f"       - Initiative needs an owner before moving to Planned")
+                elif issue['type'] == 'missing_assignee':
+                    print(f"   ⚠️  Missing Assignee - Action:")
+                    # Tag owner team's manager
+                    owner_team = item.get('owner_team')
+                    team_managers = _load_team_managers()
+                    manager_tag = ''
+                    if owner_team:
+                        # Owner team might be a display name, try to get project key
+                        project_key = team_mappings.get(owner_team, owner_team)
+                        manager_tag = team_managers.get(project_key, '')
+                    manager_suffix = f" {manager_tag}" if manager_tag else ""
+                    print(f"       [ ] Set the assignee/owner for the initiative{manager_suffix}")
                     print()
 
         print(f"{'-' * 80}\n")
 
-    # Section 5: Not Analyzed (other statuses) - verbose only
+    # Section 6: Not Analyzed (other statuses) - verbose only
     if verbose and result.ignored_statuses:
         print(f"⏭️  NOT ANALYZED ({len(result.ignored_statuses)} initiatives)\n")
         print("These initiatives have statuses other than 'Proposed' or 'Planned'")
@@ -1027,9 +1003,7 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     lines.append("## Summary")
     lines.append("")
     lines.append(f"- 📋 **Dependency Mapping in Progress**: {len(result.dependency_mapping)} initiatives")
-    lines.append(f"- 🔴 **Can't be completed in the quarter**: {len(result.cannot_complete_quarter)} initiatives")
-    lines.append(f"- 🟡 **Low confidence for planning - require discussion**: {len(result.low_confidence)} initiatives")
-    lines.append(f"- 👤 **Ready - Awaiting Owner**: {len(result.awaiting_owner)} initiatives")
+    lines.append(f"- 🟡 **No/Low confidence for completion - require discussion**: {len(result.low_confidence_completion)} initiatives")
     lines.append(f"- ✅ **Ready to Move to Planned**: {len(result.ready_to_plan)} initiatives")
     lines.append(f"- 🎯 **Planned for the Quarter**: {len(result.planned_for_quarter)} initiatives")
     if verbose:
@@ -1053,7 +1027,22 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
             lines.append("")
 
             for issue in item['issues']:
-                if issue['type'] == 'missing_strategic_objective':
+                if issue['type'] == 'missing_assignee':
+                    lines.append("**⚠️ Missing Assignee - Action:**")
+                    lines.append("")
+                    # Tag owner team's manager
+                    owner_team = item.get('owner_team')
+                    team_managers = _load_team_managers()
+                    manager_tag = ''
+                    if owner_team:
+                        # Owner team might be a display name, try to get project key
+                        project_key = team_mappings.get(owner_team, owner_team)
+                        manager_tag = team_managers.get(project_key, '')
+                    manager_suffix = f" {manager_tag}" if manager_tag else ""
+                    lines.append(f"- [ ] Set the assignee/owner for the initiative{manager_suffix}")
+                    lines.append("")
+
+                elif issue['type'] == 'missing_strategic_objective':
                     lines.append("**⚠️ Missing Strategic Objective - Action:**")
                     lines.append("")
                     # Tag owner team's manager
@@ -1144,83 +1133,40 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     lines.append("---")
     lines.append("")
 
-    # Section 2: Can't be completed in the quarter
-    lines.append(f"## 🔴 Can't be completed in the quarter ({len(result.cannot_complete_quarter)} initiatives)")
+    # Section 2: No/Low confidence for completion - require discussion
+    lines.append(f"## 🟡 No/Low confidence for completion - require discussion ({len(result.low_confidence_completion)} initiatives)")
     lines.append("")
-    lines.append("**Teams cannot commit - deprioritize other work to proceed**")
+    lines.append("**Action required**: PM/EM to confirm working on initiative (move to PLANNED) or deprioritise it (move to DEPRIORITISED)")
     lines.append("")
 
-    if result.cannot_complete_quarter:
-        for item in result.cannot_complete_quarter:
+    if result.low_confidence_completion:
+        for item in result.low_confidence_completion:
             lines.append(f"### [{item['key']}]({item.get('url', '#')}): {item['summary']}")
             lines.append("")
 
             for issue in item['issues']:
                 if issue['type'] == 'red_epics':
-                    lines.append(f"**⚠️ Epics with RED status ({len(issue['epics'])})**")
+                    lines.append(f"**🔴 Epics with RED status ({len(issue['epics'])})**")
                     lines.append("")
                     for epic in issue['epics']:
                         rag_display = "🔴" if epic['rag_status'] == '🔴' else "*(missing - treated as RED)*"
                         lines.append(f"- {epic['key']} {rag_display}: \"{epic['summary']}\"")
                     lines.append("")
-    else:
-        lines.append("*No initiatives blocked by red epics at this time.*")
-        lines.append("")
-
-    lines.append("---")
-    lines.append("")
-
-    # Section 3: Low confidence for planning - require discussion
-    lines.append(f"## 🟡 Low confidence for planning - require discussion ({len(result.low_confidence)} initiatives)")
-    lines.append("")
-    lines.append("**Low confidence - evaluate re-sequencing or reprioritization**")
-    lines.append("")
-
-    if result.low_confidence:
-        for item in result.low_confidence:
-            lines.append(f"### [{item['key']}]({item.get('url', '#')}): {item['summary']}")
-            lines.append("")
-
-            for issue in item['issues']:
-                if issue['type'] == 'yellow_epics':
-                    lines.append(f"**⚠️ Epics with YELLOW status ({len(issue['epics'])})**")
+                elif issue['type'] == 'yellow_epics':
+                    lines.append(f"**🟡 Epics with YELLOW status ({len(issue['epics'])})**")
                     lines.append("")
                     for epic in issue['epics']:
-                        lines.append(f"- {epic['key']} 🟡: \"{epic['summary']}\"")
+                        rag_display = "🟡" if epic.get('rag_status') else "*(missing - treated as YELLOW)*"
+                        lines.append(f"- {epic['key']} {rag_display}: \"{epic['summary']}\"")
                     lines.append("")
     else:
-        lines.append("*No initiatives with low confidence at this time.*")
+        lines.append("*No initiatives with no/low confidence for completion at this time.*")
         lines.append("")
 
     lines.append("---")
     lines.append("")
 
-    # Section 4: Ready - Awaiting Owner
-    lines.append(f"## 👤 Ready - Awaiting Owner ({len(result.awaiting_owner)} initiatives)")
-    lines.append("")
-    lines.append("**Action required**: Assign initiative owner to proceed")
-    lines.append("")
-
-    if result.awaiting_owner:
-        team_managers = _load_team_managers()
-        team_mappings_dict = _load_team_mappings()
-        for item in result.awaiting_owner:
-            # Tag owner team's manager
-            owner_team = item.get('owner_team')
-            manager_tag = ''
-            if owner_team:
-                project_key = team_mappings_dict.get(owner_team, owner_team)
-                manager_tag = team_managers.get(project_key, '')
-            manager_suffix = f" {manager_tag}" if manager_tag else ""
-            lines.append(f"- [{item['key']}]({item.get('url', '#')}): {item['summary']}{manager_suffix}")
-    else:
-        lines.append("*No initiatives awaiting owner assignment at this time.*")
-
-    lines.append("")
-    lines.append("---")
-    lines.append("")
-
-    # Section 5: Ready to Move to Planned
+    # Section 3: Ready to Move to Planned
     lines.append(f"## ✅ Ready to Move to Planned ({len(result.ready_to_plan)} initiatives)")
     lines.append("")
     lines.append("**Action required**: Update status to Planned in Jira (bulk keys provided below)")
@@ -1241,7 +1187,7 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     lines.append("---")
     lines.append("")
 
-    # Section 6: Planned for the Quarter
+    # Section 4: Planned for the Quarter
     lines.append(f"## 🎯 Planned for the Quarter ({len(result.planned_for_quarter)} initiatives)")
     lines.append("")
     lines.append("**These initiatives are ready and meet all quality criteria**")
@@ -1249,9 +1195,11 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
 
     if result.planned_for_quarter:
         for item in result.planned_for_quarter:
-            # Add warning indicator for low confidence initiatives
+            # Add warning indicator based on epic RAG status
             warning = ""
-            if item.get('has_yellow_epics'):
+            if item.get('has_red_epics'):
+                warning = " WON'T COMPLETE"
+            elif item.get('has_yellow_epics'):
                 warning = " ⚠️ LOW CONFIDENCE"
             lines.append(f"### [{item['key']}]({item.get('url', '#')}): {item['summary']}{warning}")
             lines.append("")
@@ -1271,10 +1219,6 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                 if epic_details:
                     lines.append(f"- **Epics**: {', '.join(epic_details)}")
 
-            # Show yellow epic warning details
-            if item.get('has_yellow_epics'):
-                yellow_epics = item.get('yellow_epics', [])
-                lines.append(f"- **⚠️ Low confidence**: {len(yellow_epics)} epic(s) with YELLOW/missing RAG status - may not complete in quarter")
             lines.append("")
     else:
         lines.append("*No initiatives are planned for this quarter yet.*")
@@ -1283,7 +1227,7 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     lines.append("---")
     lines.append("")
 
-    # Section 7: Planned Initiatives Requiring Attention (verbose only)
+    # Section 5: Planned Initiatives Requiring Attention (verbose only)
     if verbose and result.planned_regressions:
         lines.append(f"## 🔄 Planned Initiatives Requiring Attention ({len(result.planned_regressions)} initiatives)")
         lines.append("")
@@ -1358,8 +1302,8 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                         epic_url = f"https://truelayer.atlassian.net/browse/{epic_key}"  # Default URL
                         lines.append(f"- {epic_key} {rag_display}: \"{epic['summary']}\"")
                     lines.append("")
-                elif issue['type'] == 'no_assignee':
-                    lines.append("**⚠️ No assignee set**")
+                elif issue['type'] == 'missing_assignee':
+                    lines.append("**⚠️ Missing Assignee - Action:**")
                     lines.append("")
                     # Tag owner team's manager
                     owner_team = item.get('owner_team')
@@ -1371,13 +1315,13 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                         project_key = team_mappings_dict.get(owner_team, owner_team)
                         manager_tag = team_managers.get(project_key, '')
                     manager_suffix = f" {manager_tag}" if manager_tag else ""
-                    lines.append(f"- [ ] **Action**: Initiative needs an owner before moving to Planned{manager_suffix}")
+                    lines.append(f"- [ ] Set the assignee/owner for the initiative{manager_suffix}")
                     lines.append("")
 
         lines.append("---")
         lines.append("")
 
-    # Section 5: Not Analyzed (verbose only)
+    # Section 6: Not Analyzed (verbose only)
     if verbose and result.ignored_statuses:
         lines.append(f"## ⏭️ Not Analyzed ({len(result.ignored_statuses)} initiatives)")
         lines.append("")

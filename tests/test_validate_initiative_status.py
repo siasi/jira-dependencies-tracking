@@ -23,20 +23,12 @@ def test_validation_result_has_issues():
     assert result.has_issues
 
     result2 = ValidationResult()
-    result2.cannot_complete_quarter.append({'key': 'INIT-2'})
+    result2.low_confidence_completion.append({'key': 'INIT-2'})
     assert result2.has_issues
 
     result3 = ValidationResult()
-    result3.low_confidence.append({'key': 'INIT-3'})
+    result3.planned_regressions.append({'key': 'INIT-3'})
     assert result3.has_issues
-
-    result4 = ValidationResult()
-    result4.awaiting_owner.append({'key': 'INIT-4'})
-    assert result4.has_issues
-
-    result5 = ValidationResult()
-    result5.planned_regressions.append({'key': 'INIT-5'})
-    assert result5.has_issues
 
 
 def test_check_data_quality_epic_count_mismatch():
@@ -458,14 +450,12 @@ def test_validate_initiative_status_dependency_mapping(tmp_path):
     assert result.total_checked == 1
     assert len(result.dependency_mapping) == 1
     assert result.dependency_mapping[0]['key'] == "INIT-123"
-    assert len(result.cannot_complete_quarter) == 0
-    assert len(result.low_confidence) == 0
-    assert len(result.awaiting_owner) == 0
+    assert len(result.low_confidence_completion) == 0
     assert len(result.ready_to_plan) == 0
 
 
 def test_validate_initiative_status_cannot_complete(tmp_path):
-    """Test full validation with RED epics (Section 2: Can't be completed)."""
+    """Test full validation with RED epics (Section 2: Low confidence for completion)."""
     data = {
         "initiatives": [{
             "key": "INIT-456",
@@ -494,15 +484,13 @@ def test_validate_initiative_status_cannot_complete(tmp_path):
 
     assert result.total_checked == 1
     assert len(result.dependency_mapping) == 0
-    assert len(result.cannot_complete_quarter) == 1
-    assert result.cannot_complete_quarter[0]['key'] == "INIT-456"
-    assert len(result.low_confidence) == 0
-    assert len(result.awaiting_owner) == 0
+    assert len(result.low_confidence_completion) == 1
+    assert result.low_confidence_completion[0]['key'] == "INIT-456"
     assert len(result.ready_to_plan) == 0
 
 
 def test_validate_initiative_status_low_confidence(tmp_path):
-    """Test full validation with YELLOW epics (Section 3: Low confidence)."""
+    """Test full validation with YELLOW epics (Section 2: Low confidence for completion)."""
     data = {
         "initiatives": [{
             "key": "INIT-457",
@@ -531,15 +519,13 @@ def test_validate_initiative_status_low_confidence(tmp_path):
 
     assert result.total_checked == 1
     assert len(result.dependency_mapping) == 0
-    assert len(result.cannot_complete_quarter) == 0
-    assert len(result.low_confidence) == 1
-    assert result.low_confidence[0]['key'] == "INIT-457"
-    assert len(result.awaiting_owner) == 0
+    assert len(result.low_confidence_completion) == 1
+    assert result.low_confidence_completion[0]['key'] == "INIT-457"
     assert len(result.ready_to_plan) == 0
 
 
 def test_validate_initiative_status_awaiting_owner(tmp_path):
-    """Test full validation with missing assignee (Section 4: Awaiting owner)."""
+    """Test full validation with missing assignee (Section 1: Dependency Mapping)."""
     data = {
         "initiatives": [{
             "key": "INIT-458",
@@ -567,16 +553,15 @@ def test_validate_initiative_status_awaiting_owner(tmp_path):
     result = validate_initiative_status(json_file)
 
     assert result.total_checked == 1
-    assert len(result.dependency_mapping) == 0
-    assert len(result.cannot_complete_quarter) == 0
-    assert len(result.low_confidence) == 0
-    assert len(result.awaiting_owner) == 1
-    assert result.awaiting_owner[0]['key'] == "INIT-458"
+    # Missing assignee is now a data quality issue
+    assert len(result.dependency_mapping) == 1
+    assert result.dependency_mapping[0]['key'] == "INIT-458"
+    assert len(result.low_confidence_completion) == 0
     assert len(result.ready_to_plan) == 0
 
 
 def test_validate_initiative_status_ready_to_plan(tmp_path):
-    """Test full validation with ready initiative (Section 5: Ready to Move to Planned)."""
+    """Test full validation with ready initiative (Section 3: Ready to Move to Planned)."""
     data = {
         "initiatives": [{
             "key": "INIT-789",
@@ -605,9 +590,7 @@ def test_validate_initiative_status_ready_to_plan(tmp_path):
 
     assert result.total_checked == 1
     assert len(result.dependency_mapping) == 0
-    assert len(result.cannot_complete_quarter) == 0
-    assert len(result.low_confidence) == 0
-    assert len(result.awaiting_owner) == 0
+    assert len(result.low_confidence_completion) == 0
     assert len(result.ready_to_plan) == 1
     assert result.ready_to_plan[0]['key'] == "INIT-789"
 
@@ -642,16 +625,14 @@ def test_validate_initiative_status_planned_regression(tmp_path):
 
     assert result.total_checked == 1
     assert len(result.dependency_mapping) == 0
-    assert len(result.cannot_complete_quarter) == 0
-    assert len(result.low_confidence) == 0
-    assert len(result.awaiting_owner) == 0
+    assert len(result.low_confidence_completion) == 0
     assert len(result.ready_to_plan) == 0
     assert len(result.planned_regressions) == 1
     assert result.planned_regressions[0]['key'] == "INIT-999"
 
 
 def test_validate_initiative_status_planned_for_quarter(tmp_path):
-    """Test full validation with healthy Planned initiative (Section 6: Planned for Quarter)."""
+    """Test full validation with healthy Planned initiative (Section 4: Planned for Quarter)."""
     data = {
         "initiatives": [{
             "key": "INIT-1000",
@@ -680,9 +661,7 @@ def test_validate_initiative_status_planned_for_quarter(tmp_path):
 
     assert result.total_checked == 1
     assert len(result.dependency_mapping) == 0
-    assert len(result.cannot_complete_quarter) == 0
-    assert len(result.low_confidence) == 0
-    assert len(result.awaiting_owner) == 0
+    assert len(result.low_confidence_completion) == 0
     assert len(result.ready_to_plan) == 0
     assert len(result.planned_for_quarter) == 1
     assert result.planned_for_quarter[0]['key'] == "INIT-1000"
@@ -701,7 +680,7 @@ def test_load_teams_exempt_from_rag(tmp_path):
 
 
 def test_validate_initiative_status_mixed_statuses(tmp_path):
-    """Test full validation with mixed initiative statuses across all 5 sections."""
+    """Test full validation with mixed initiative statuses across all sections."""
     data = {
         "initiatives": [
             {
@@ -812,10 +791,10 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
     result = validate_initiative_status(json_file)
 
     assert result.total_checked == 6
-    assert len(result.dependency_mapping) == 1
-    assert len(result.cannot_complete_quarter) == 1
-    assert len(result.low_confidence) == 1
-    assert len(result.awaiting_owner) == 1
+    # INIT-001 (no epics) and INIT-004 (no assignee) both go to dependency_mapping
+    assert len(result.dependency_mapping) == 2
+    # INIT-002 (RED) and INIT-003 (YELLOW) both go to low_confidence_completion
+    assert len(result.low_confidence_completion) == 2
     assert len(result.ready_to_plan) == 1
     assert len(result.planned_regressions) == 1
 
