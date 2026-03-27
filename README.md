@@ -452,6 +452,50 @@ python validate_initiative_status.py data/snapshots/snapshot_baseline_*.json --m
   - Report shows total initiatives and how many were filtered out
 - `--markdown FILENAME` - Export report to markdown format (Notion-compatible)
 - `--verbose` - Include verbose output with additional details
+- `--dust` - Generate Dust bulk messages for manager notifications
+
+### Dust Manager Notifications
+
+Generate copy-paste ready messages for sending bulk Slack DMs via Dust:
+
+```bash
+# Generate Dust messages
+python validate_initiative_status.py --dust
+
+# Output: Console preview + file in extracts/dust_messages_YYYY-MM-DD_HHMMSS.txt
+```
+
+**Message Format:**
+- Grouped by engineering manager
+- Each message includes Slack member ID (Recipient:)
+- Action items organized by initiative (and by team for multi-team managers)
+- Ready to paste into Dust chatbot
+
+**Configuration:**
+
+Update `team_mappings.yaml` with Slack member IDs:
+
+```yaml
+team_managers:
+  "CBPPE":
+    notion_handle: "@Manager B "
+    slack_id: "U01F3QUHP0B"
+  "CONSOLE":
+    notion_handle: "@Manager A"
+    slack_id: "U02ABC456"
+  "PAYINS":
+    notion_handle: "@Manager A"
+    slack_id: "U02ABC456"  # Same Slack ID for all of Manager A's teams
+  # Add other teams
+```
+
+**Important:** If a manager oversees multiple teams, use the **same Slack ID** for all their teams. This ensures they receive one consolidated message with subsections for each team, rather than separate messages per team.
+
+**Action Types Included:**
+1. Missing dependencies - Teams need to create epics
+2. Missing RAG status - Teams need to set RAG on epics
+3. Missing assignee - Initiatives need assignees
+4. Ready to PLANNED - Initiatives ready to move forward
 
 **Optional Configuration:**
 

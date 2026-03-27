@@ -1,0 +1,31 @@
+{# Dust bulk message template for engineering manager notifications #}
+{# Input: messages (list of dicts with manager_name, slack_id, teams) #}
+{% for message in messages -%}
+Recipient: {{ message.slack_id }}
+Message: Hi {{ message.manager_name.split()[0] }}! Here are your action items from the latest initiative validation:
+
+You have {{ message.total_actions }} action item{% if message.total_actions != 1 %}s{% endif %} across {{ message.total_initiatives }} initiative{% if message.total_initiatives != 1 %}s{% endif %}{% if message.teams|length > 1 %} for {{ message.teams|length }} teams{% endif %}.
+
+{% for team in message.teams -%}
+{% if message.teams|length > 1 %}
+**{{ team.team_name }}:**
+{% endif %}
+{% for initiative in team.initiatives -%}
+{{ initiative.key }}: <{{ initiative.url }}>
+{% for action in initiative.actions -%}
+{% if action.action_type == 'missing_dependencies' -%}
+:warning: Missing dependencies - {{ action.description }}
+{% elif action.action_type == 'missing_rag' -%}
+:warning: Missing RAG status - {{ action.description }}{% if action.epic_key %} on <https://truelayer.atlassian.net/browse/{{ action.epic_key }}>{% endif %}
+{% elif action.action_type == 'missing_assignee' -%}
+:raising_hand: Missing assignee - {{ action.description }}
+{% elif action.action_type == 'ready_to_planned' -%}
+:rocket: {{ action.description }}
+{% endif %}
+{% endfor %}
+
+{% endfor -%}
+{% endfor -%}
+---
+
+{% endfor -%}
