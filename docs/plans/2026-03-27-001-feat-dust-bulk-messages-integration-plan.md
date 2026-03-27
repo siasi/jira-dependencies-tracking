@@ -1,7 +1,7 @@
 ---
 title: feat: Add Dust bulk message generation for manager notifications
 type: feat
-status: active
+status: completed
 date: 2026-03-27
 origin: docs/brainstorms/2026-03-27-dust-bulk-messages-brainstorm.md
 ---
