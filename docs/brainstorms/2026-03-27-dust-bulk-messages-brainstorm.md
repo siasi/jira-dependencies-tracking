@@ -52,7 +52,7 @@ Each action item contains:
     'action_type': 'missing_dependencies',
     'priority': 1,  # implicit ordering
     'responsible_team': 'RSK',
-    'responsible_manager': 'Kevin Plattret',
+    'responsible_manager': 'Manager C',
     'slack_member_id': 'U01ABC123',
     'description': 'Create epic',
     'epic_key': None  # or epic key if relevant
@@ -74,10 +74,10 @@ Update `team_managers` section to include both Notion handle and Slack member ID
 ```yaml
 team_managers:
   "CBPPE":
-    notion_handle: "@Ariel Reanho "
+    notion_handle: "@Manager B "
     slack_id: "U01F3QUHP0B"
   "CONSOLE":
-    notion_handle: "@Karina Rangel"
+    notion_handle: "@Manager A"
     slack_id: "U02ABC456"
   # ... other teams
 ```
@@ -275,11 +275,11 @@ python validate_initiative_status.py --verbose --markdown --dust
 ```python
 MOCK_TEAM_MANAGERS = {
     "CBPPE": {
-        "notion_handle": "@Ariel Reanho ",
+        "notion_handle": "@Manager B ",
         "slack_id": "U_MOCK_CBPPE"
     },
     "RSK": {
-        "notion_handle": "@Kevin Plattret",
+        "notion_handle": "@Manager C",
         "slack_id": "U_MOCK_RSK"
     }
 }

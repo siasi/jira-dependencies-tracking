@@ -75,7 +75,7 @@ Extend `team_mappings.yaml` with Slack-specific fields:
 ```yaml
 # Existing structure
 team_managers:
-  "CBPPE": "@Ariel Reanho "
+  "CBPPE": "@Manager B "
   # ... other teams
 
 # New structure to add

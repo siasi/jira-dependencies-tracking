@@ -1145,7 +1145,7 @@ def test_console_output_includes_manager_tags_for_missing_epics(tmp_path, capsys
     captured = capsys.readouterr()
 
     # Verify manager tag appears in console output for RSK team
-    assert "Payments Risk (RSK) to create epic @Kevin Plattret" in captured.out
+    assert "Payments Risk (RSK) to create epic @Manager C" in captured.out
 
 
 def test_markdown_output_includes_manager_tags_for_missing_epics(tmp_path):
@@ -1181,8 +1181,8 @@ def test_markdown_output_includes_manager_tags_for_missing_epics(tmp_path):
     markdown = generate_markdown_report(result, json_file, verbose=False)
 
     # Verify manager tags appear in markdown for both missing teams
-    assert "Payments Risk (RSK) to create epic @Kevin Plattret" in markdown
-    assert "PAYIN (PAYINS) to create epic @Karina Rangel" in markdown
+    assert "Payments Risk (RSK) to create epic @Manager C" in markdown
+    assert "PAYIN (PAYINS) to create epic @Manager A" in markdown
 
 
 def test_console_output_no_manager_tag_for_unmapped_team(tmp_path, capsys):
@@ -1690,7 +1690,7 @@ def test_load_team_managers_dict_format():
         assert isinstance(managers['CBPPE'], dict)
         assert 'notion_handle' in managers['CBPPE']
         assert 'slack_id' in managers['CBPPE']
-        assert managers['CBPPE']['notion_handle'] == "@Ariel Reanho "
+        assert managers['CBPPE']['notion_handle'] == "@Manager B "
         assert managers['CBPPE']['slack_id'] == "U03HN9A9XGA"
 
 
@@ -1846,7 +1846,7 @@ def test_generate_dust_messages_groups_by_manager(tmp_path):
     dust_files = list(tmp_path.glob('dust_messages_*.txt'))
     content = dust_files[0].read_text()
     
-    # Should have one recipient block for Console manager (Karina)
+    # Should have one recipient block for Console manager (Manager A)
     recipient_count = content.count('Recipient: U_MOCK_KARINA')
     assert recipient_count == 1
     
@@ -1892,7 +1892,7 @@ def test_generate_dust_messages_multi_team_manager(tmp_path):
     dust_files = list(tmp_path.glob('dust_messages_*.txt'))
     content = dust_files[0].read_text()
 
-    # Karina manages both Console and Payins, should have ONE recipient block
+    # Manager A manages both Console and Payins, should have ONE recipient block
     recipient_count = content.count('Recipient: U_MOCK_KARINA')
     assert recipient_count == 1, f"Expected 1 recipient block, found {recipient_count}"
 

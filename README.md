@@ -478,14 +478,14 @@ Update `team_mappings.yaml` with Slack member IDs:
 ```yaml
 team_managers:
   "CBPPE":
-    notion_handle: "@Ariel Reanho "
+    notion_handle: "@Manager B "
     slack_id: "U01F3QUHP0B"
   "CONSOLE":
-    notion_handle: "@Karina Rangel"
+    notion_handle: "@Manager A"
     slack_id: "U02ABC456"
   "PAYINS":
-    notion_handle: "@Karina Rangel"
-    slack_id: "U02ABC456"  # Same Slack ID for all of Karina's teams
+    notion_handle: "@Manager A"
+    slack_id: "U02ABC456"  # Same Slack ID for all of Manager A's teams
   # Add other teams
 ```
 

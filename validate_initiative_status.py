@@ -368,7 +368,7 @@ def _load_team_managers() -> Dict[str, Dict[str, Optional[str]]]:
         Dict mapping project keys to manager info:
         {
             "CBPPE": {
-                "notion_handle": "@Ariel Reanho ",
+                "notion_handle": "@Manager B ",
                 "slack_id": "U01F3QUHP0B"
             }
         }
@@ -527,8 +527,8 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
             'priority': 1,  # lower = higher priority
             'responsible_team': 'RSK',
             'responsible_team_key': 'RSK',
-            'responsible_manager_name': 'Kevin Plattret',
-            'responsible_manager_notion': '@Kevin Plattret',
+            'responsible_manager_name': 'Manager C',
+            'responsible_manager_notion': '@Manager C',
             'responsible_manager_slack_id': 'U05MNO345',
             'description': 'Create epic',
             'epic_key': None,  # or epic key if action is about specific epic

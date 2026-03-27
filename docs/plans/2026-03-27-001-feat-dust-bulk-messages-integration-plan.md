@@ -106,42 +106,42 @@ All design decisions are documented in the [origin brainstorm](../brainstorms/20
 **Current Structure:**
 ```yaml
 team_managers:
-  "CBPPE": "@Ariel Reanho "
-  "CONSOLE": "@Karina Rangel"
+  "CBPPE": "@Manager B "
+  "CONSOLE": "@Manager A"
 ```
 
 **New Structure:**
 ```yaml
 team_managers:
   "CBPPE":
-    notion_handle: "@Ariel Reanho "
+    notion_handle: "@Manager B "
     slack_id: "U01F3QUHP0B"
   "CONSOLE":
-    notion_handle: "@Karina Rangel"
+    notion_handle: "@Manager A"
     slack_id: "U02ABC456"
   "CBNK":
-    notion_handle: "@Joel Oughton"
+    notion_handle: "@Manager D"
     slack_id: "U03GHI789"
   "DNTT":
-    notion_handle: "@Michael Steele"
+    notion_handle: "@Manager E"
     slack_id: "U04JKL012"
   "MAPS":
-    notion_handle: "@Kevin Plattret"
+    notion_handle: "@Manager C"
     slack_id: "U05MNO345"
   "PAYINS":
-    notion_handle: "@Karina Rangel"
+    notion_handle: "@Manager A"
     slack_id: "U02ABC456"
   "PX":
-    notion_handle: "@Prabodh Kakodkar"
+    notion_handle: "@Manager F"
     slack_id: "U06PQR678"
   "RSK":
-    notion_handle: "@Kevin Plattret"
+    notion_handle: "@Manager C"
     slack_id: "U05MNO345"
   "DOCS":
-    notion_handle: "@Federico Casali"
+    notion_handle: "@Manager G"
     slack_id: "U07STU901"
   "Analytics":
-    notion_handle: "@Joe Al-Kadhimi"
+    notion_handle: "@Manager H"
     slack_id: "U08VWX234"
 ```
 
@@ -161,7 +161,7 @@ def _load_team_managers() -> Dict[str, Dict[str, Optional[str]]]:
         Dict mapping project keys to manager info:
         {
             "CBPPE": {
-                "notion_handle": "@Ariel Reanho ",
+                "notion_handle": "@Manager B ",
                 "slack_id": "U01F3QUHP0B"
             }
         }
@@ -280,8 +280,8 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
             'priority': 1,  # lower = higher priority
             'responsible_team': 'RSK',
             'responsible_team_key': 'RSK',
-            'responsible_manager_name': 'Kevin Plattret',
-            'responsible_manager_notion': '@Kevin Plattret',
+            'responsible_manager_name': 'Manager C',
+            'responsible_manager_notion': '@Manager C',
             'responsible_manager_slack_id': 'U05MNO345',
             'description': 'Create epic',
             'epic_key': None,  # or epic key if action is about specific epic
@@ -591,7 +591,7 @@ Input structure to template:
 {
     'messages': [
         {
-            'manager_name': 'Kevin Plattret',
+            'manager_name': 'Manager C',
             'slack_id': 'U05MNO345',
             'total_actions': 5,
             'total_initiatives': 3,
@@ -971,7 +971,7 @@ Update `team_mappings.yaml` with Slack member IDs:
 ```yaml
 team_managers:
   "CBPPE":
-    notion_handle: "@Ariel Reanho "
+    notion_handle: "@Manager B "
     slack_id: "U01F3QUHP0B"
 ```
 
@@ -1278,15 +1278,15 @@ def test_old_config_format_still_works_for_console(tmp_path):
 ```python
 MOCK_TEAM_MANAGERS = {
     "CBPPE": {
-        "notion_handle": "@Ariel Reanho ",
+        "notion_handle": "@Manager B ",
         "slack_id": "U_MOCK_CBPPE"
     },
     "RSK": {
-        "notion_handle": "@Kevin Plattret",
+        "notion_handle": "@Manager C",
         "slack_id": "U_MOCK_RSK"
     },
     "CONSOLE": {
-        "notion_handle": "@Karina Rangel",
+        "notion_handle": "@Manager A",
         "slack_id": "U_MOCK_CONSOLE"
     }
 }
@@ -1516,7 +1516,7 @@ After Dust integration is stable and validated:
 - Defer decision until early usage feedback
 
 **Message Personalization:**
-- Add manager's name to greeting: "Hi Kevin!"
+- Add manager's name to greeting: "Hi Manager C!"
 - Customize tone based on action urgency
 - Add context about why action is needed
 
