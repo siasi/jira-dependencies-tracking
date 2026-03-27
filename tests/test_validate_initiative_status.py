@@ -12,6 +12,10 @@ from validate_initiative_status import (
     _is_ready_to_plan,
     _is_discovery_initiative,
     _load_teams_excluded_from_analysis,
+    _load_team_managers,
+    _validate_dust_config,
+    extract_manager_actions,
+    generate_dust_messages,
     find_latest_extract,
     print_validation_report,
     generate_markdown_report
@@ -1669,3 +1673,183 @@ def test_mixed_excluded_and_non_excluded_teams(tmp_path):
     # Console initiative should be processed
     assert len(result.ready_to_plan) == 1
     assert result.ready_to_plan[0]['key'] == 'INIT-403'
+
+# ============================================================================
+# Dust Integration Tests
+# ============================================================================
+
+def test_load_team_managers_dict_format():
+    """Test _load_team_managers() handles new dict format."""
+    managers = _load_team_managers()
+    
+    # Should return dict format
+    assert isinstance(managers, dict)
+    
+    # Check a known team has both fields
+    if 'CBPPE' in managers:
+        assert isinstance(managers['CBPPE'], dict)
+        assert 'notion_handle' in managers['CBPPE']
+        assert 'slack_id' in managers['CBPPE']
+        assert managers['CBPPE']['notion_handle'] == "@Ariel Reanho "
+        assert managers['CBPPE']['slack_id'] == "U_MOCK_CBPPE"
+
+
+def test_validate_dust_config_all_ids_present():
+    """Test _validate_dust_config() passes when all IDs present."""
+    team_managers = {
+        "CBPPE": {
+            "notion_handle": "@Test",
+            "slack_id": "U123"
+        }
+    }
+    
+    # Should not raise
+    _validate_dust_config(team_managers)
+
+
+def test_validate_dust_config_missing_ids():
+    """Test _validate_dust_config() raises when IDs missing."""
+    team_managers = {
+        "CBPPE": {
+            "notion_handle": "@Test",
+            "slack_id": None
+        },
+        "RSK": {
+            "notion_handle": "@Test2",
+            "slack_id": "U456"
+        }
+    }
+    
+    with pytest.raises(ValueError) as exc_info:
+        _validate_dust_config(team_managers)
+    
+    assert "Missing Slack IDs" in str(exc_info.value)
+    assert "CBPPE" in str(exc_info.value)
+
+
+def test_extract_manager_actions_missing_dependencies(tmp_path):
+    """Test extraction of missing dependencies actions."""
+    result = ValidationResult()
+    result.dependency_mapping = [{
+        'key': 'INIT-1234',
+        'summary': 'Test Initiative',
+        'status': 'Proposed',
+        'owner_team': 'Payments Risk',
+        'url': 'https://test.com/INIT-1234',
+        'issues': [{
+            'type': 'epic_count_mismatch',
+            'teams_involved': ['Payments Risk', 'Console'],
+            'teams_with_epics': ['Payments Risk']
+        }]
+    }]
+    
+    actions = extract_manager_actions(result)
+    
+    # Should have action for Console to create epic
+    assert len(actions) > 0
+    console_actions = [a for a in actions if a['action_type'] == 'missing_dependencies']
+    assert len(console_actions) == 1
+    assert console_actions[0]['responsible_team'] == 'Console'
+    assert console_actions[0]['description'] == 'Create epic'
+    assert console_actions[0]['priority'] == 2
+
+
+def test_extract_manager_actions_ready_to_planned(tmp_path):
+    """Test extraction of ready to PLANNED actions."""
+    result = ValidationResult()
+    result.ready_to_plan = [{
+        'key': 'INIT-5678',
+        'summary': 'Ready Initiative',
+        'status': 'Proposed',
+        'owner_team': 'Payments Risk',
+        'url': 'https://test.com/INIT-5678'
+    }]
+    
+    actions = extract_manager_actions(result)
+    
+    # Should have ready_to_planned action
+    assert len(actions) == 1
+    assert actions[0]['action_type'] == 'ready_to_planned'
+    assert actions[0]['priority'] == 4
+    assert 'ready to move to PLANNED' in actions[0]['description']
+
+
+def test_generate_dust_messages_creates_file(tmp_path):
+    """Test Dust messages are saved to timestamped file."""
+    result = ValidationResult()
+    result.dependency_mapping = [{
+        'key': 'INIT-1234',
+        'summary': 'Test',
+        'status': 'Proposed',
+        'owner_team': 'Console',
+        'url': 'https://test.com/INIT-1234',
+        'issues': [{
+            'type': 'missing_assignee'
+        }]
+    }]
+    
+    # Capture output
+    import io
+    import sys
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    
+    try:
+        generate_dust_messages(result, tmp_path)
+        output = sys.stdout.getvalue()
+    finally:
+        sys.stdout = old_stdout
+    
+    # Check file was created
+    dust_files = list(tmp_path.glob('dust_messages_*.txt'))
+    assert len(dust_files) == 1
+    
+    # Check console output
+    assert "DUST BULK MESSAGES" in output
+    assert "Recipient:" in output
+
+
+def test_generate_dust_messages_groups_by_manager(tmp_path):
+    """Test Dust messages group actions by manager correctly."""
+    result = ValidationResult()
+    result.dependency_mapping = [
+        {
+            'key': 'INIT-1',
+            'summary': 'Test 1',
+            'status': 'Proposed',
+            'owner_team': 'Console',
+            'url': 'https://test.com/INIT-1',
+            'issues': [{'type': 'missing_assignee'}]
+        },
+        {
+            'key': 'INIT-2',
+            'summary': 'Test 2',
+            'status': 'Proposed',
+            'owner_team': 'Console',
+            'url': 'https://test.com/INIT-2',
+            'issues': [{'type': 'missing_assignee'}]
+        }
+    ]
+    
+    # Suppress output
+    import io
+    import sys
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    
+    try:
+        generate_dust_messages(result, tmp_path)
+    finally:
+        sys.stdout = old_stdout
+    
+    # Read generated file
+    dust_files = list(tmp_path.glob('dust_messages_*.txt'))
+    content = dust_files[0].read_text()
+    
+    # Should have one recipient block for Console manager
+    recipient_count = content.count('Recipient: U_MOCK_CONSOLE')
+    assert recipient_count == 1
+    
+    # Should mention both initiatives
+    assert 'INIT-1' in content
+    assert 'INIT-2' in content

@@ -452,6 +452,45 @@ python validate_initiative_status.py data/snapshots/snapshot_baseline_*.json --m
   - Report shows total initiatives and how many were filtered out
 - `--markdown FILENAME` - Export report to markdown format (Notion-compatible)
 - `--verbose` - Include verbose output with additional details
+- `--dust` - Generate Dust bulk messages for manager notifications
+
+### Dust Manager Notifications
+
+Generate copy-paste ready messages for sending bulk Slack DMs via Dust:
+
+```bash
+# Generate Dust messages
+python validate_initiative_status.py --dust
+
+# Output: Console preview + file in extracts/dust_messages_YYYY-MM-DD_HHMMSS.txt
+```
+
+**Message Format:**
+- Grouped by engineering manager
+- Each message includes Slack member ID (Recipient:)
+- Action items organized by initiative
+- Ready to paste into Dust chatbot
+
+**Configuration:**
+
+Update `team_mappings.yaml` with Slack member IDs:
+
+```yaml
+team_managers:
+  "CBPPE":
+    notion_handle: "@Ariel Reanho "
+    slack_id: "U01F3QUHP0B"
+  "CONSOLE":
+    notion_handle: "@Karina Rangel"
+    slack_id: "U02ABC456"
+  # Add other teams
+```
+
+**Action Types Included:**
+1. Missing dependencies - Teams need to create epics
+2. Missing RAG status - Teams need to set RAG on epics
+3. Missing assignee - Initiatives need assignees
+4. Ready to PLANNED - Initiatives ready to move forward
 
 **Optional Configuration:**
 
