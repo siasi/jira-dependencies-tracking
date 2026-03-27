@@ -1691,7 +1691,7 @@ def test_load_team_managers_dict_format():
         assert 'notion_handle' in managers['CBPPE']
         assert 'slack_id' in managers['CBPPE']
         assert managers['CBPPE']['notion_handle'] == "@Ariel Reanho "
-        assert managers['CBPPE']['slack_id'] == "U_MOCK_CBPPE"
+        assert managers['CBPPE']['slack_id'] == "U03HN9A9XGA"
 
 
 def test_validate_dust_config_all_ids_present():
@@ -1846,10 +1846,69 @@ def test_generate_dust_messages_groups_by_manager(tmp_path):
     dust_files = list(tmp_path.glob('dust_messages_*.txt'))
     content = dust_files[0].read_text()
     
-    # Should have one recipient block for Console manager
-    recipient_count = content.count('Recipient: U_MOCK_CONSOLE')
+    # Should have one recipient block for Console manager (Karina)
+    recipient_count = content.count('Recipient: U_MOCK_KARINA')
     assert recipient_count == 1
     
     # Should mention both initiatives
     assert 'INIT-1' in content
     assert 'INIT-2' in content
+
+
+def test_generate_dust_messages_multi_team_manager(tmp_path):
+    """Test manager with multiple teams gets one message with team subsections."""
+    result = ValidationResult()
+    result.dependency_mapping = [
+        {
+            'key': 'INIT-1',
+            'summary': 'Console Initiative',
+            'status': 'Proposed',
+            'owner_team': 'Console',
+            'url': 'https://test.com/INIT-1',
+            'issues': [{'type': 'missing_assignee'}]
+        },
+        {
+            'key': 'INIT-2',
+            'summary': 'Payins Initiative',
+            'status': 'Proposed',
+            'owner_team': 'Payments Payins',
+            'url': 'https://test.com/INIT-2',
+            'issues': [{'type': 'missing_assignee'}]
+        }
+    ]
+
+    # Suppress output
+    import io
+    import sys
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+
+    try:
+        generate_dust_messages(result, tmp_path)
+    finally:
+        sys.stdout = old_stdout
+
+    # Read generated file
+    dust_files = list(tmp_path.glob('dust_messages_*.txt'))
+    content = dust_files[0].read_text()
+
+    # Karina manages both Console and Payins, should have ONE recipient block
+    recipient_count = content.count('Recipient: U_MOCK_KARINA')
+    assert recipient_count == 1, f"Expected 1 recipient block, found {recipient_count}"
+
+    # Should have team subsections
+    assert '**Console:**' in content, "Should show Console team subsection"
+    assert '**Payments Payins:**' in content, "Should show Payins team subsection"
+
+    # Both initiatives should be present
+    assert 'INIT-1' in content
+    assert 'INIT-2' in content
+
+    # Verify Console initiative appears after Console team header
+    console_idx = content.find('**Console:**')
+    init1_idx = content.find('INIT-1')
+    payins_idx = content.find('**Payments Payins:**')
+    init2_idx = content.find('INIT-2')
+
+    assert console_idx < init1_idx < payins_idx < init2_idx, \
+        "Initiatives should appear under their respective team headers"

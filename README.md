@@ -468,7 +468,7 @@ python validate_initiative_status.py --dust
 **Message Format:**
 - Grouped by engineering manager
 - Each message includes Slack member ID (Recipient:)
-- Action items organized by initiative
+- Action items organized by initiative (and by team for multi-team managers)
 - Ready to paste into Dust chatbot
 
 **Configuration:**
@@ -483,8 +483,13 @@ team_managers:
   "CONSOLE":
     notion_handle: "@Karina Rangel"
     slack_id: "U02ABC456"
+  "PAYINS":
+    notion_handle: "@Karina Rangel"
+    slack_id: "U02ABC456"  # Same Slack ID for all of Karina's teams
   # Add other teams
 ```
+
+**Important:** If a manager oversees multiple teams, use the **same Slack ID** for all their teams. This ensures they receive one consolidated message with subsections for each team, rather than separate messages per team.
 
 **Action Types Included:**
 1. Missing dependencies - Teams need to create epics

@@ -765,15 +765,19 @@ def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
     # Extract actions
     actions = extract_manager_actions(result)
 
-    # Group by manager Slack ID
+    # Group by manager Slack ID → teams → initiatives
     manager_groups = defaultdict(lambda: {
         'manager_name': None,
         'slack_id': None,
-        'initiatives': defaultdict(lambda: {
-            'key': None,
-            'title': None,
-            'url': None,
-            'actions': []
+        'teams': defaultdict(lambda: {
+            'team_name': None,
+            'team_key': None,
+            'initiatives': defaultdict(lambda: {
+                'key': None,
+                'title': None,
+                'url': None,
+                'actions': []
+            })
         })
     })
 
@@ -784,6 +788,8 @@ def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
             continue
 
         manager_name = action['responsible_manager_name']
+        team_key = action['responsible_team_key']
+        team_name = action['responsible_team']
         initiative_key = action['initiative_key']
 
         # Initialize manager entry
@@ -791,14 +797,20 @@ def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
             manager_groups[slack_id]['manager_name'] = manager_name
             manager_groups[slack_id]['slack_id'] = slack_id
 
+        # Initialize team entry
+        if manager_groups[slack_id]['teams'][team_key]['team_key'] is None:
+            manager_groups[slack_id]['teams'][team_key]['team_name'] = team_name
+            manager_groups[slack_id]['teams'][team_key]['team_key'] = team_key
+
         # Initialize initiative entry
-        if manager_groups[slack_id]['initiatives'][initiative_key]['key'] is None:
-            manager_groups[slack_id]['initiatives'][initiative_key]['key'] = initiative_key
-            manager_groups[slack_id]['initiatives'][initiative_key]['title'] = action['initiative_title']
-            manager_groups[slack_id]['initiatives'][initiative_key]['url'] = action['initiative_url']
+        team_initiatives = manager_groups[slack_id]['teams'][team_key]['initiatives']
+        if team_initiatives[initiative_key]['key'] is None:
+            team_initiatives[initiative_key]['key'] = initiative_key
+            team_initiatives[initiative_key]['title'] = action['initiative_title']
+            team_initiatives[initiative_key]['url'] = action['initiative_url']
 
         # Add action to initiative
-        manager_groups[slack_id]['initiatives'][initiative_key]['actions'].append({
+        team_initiatives[initiative_key]['actions'].append({
             'action_type': action['action_type'],
             'description': action['description'],
             'epic_key': action.get('epic_key'),
@@ -809,33 +821,47 @@ def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
     # Convert to template-friendly structure
     messages = []
     for slack_id, manager_data in manager_groups.items():
-        initiatives = []
+        teams = []
         total_actions = 0
+        total_initiatives = 0
 
-        for initiative_key, initiative_data in manager_data['initiatives'].items():
-            # Sort actions by priority within initiative
-            sorted_actions = sorted(
-                initiative_data['actions'],
-                key=lambda a: a['priority']
-            )
-            total_actions += len(sorted_actions)
+        for team_key, team_data in manager_data['teams'].items():
+            initiatives = []
 
-            initiatives.append({
-                'key': initiative_data['key'],
-                'title': initiative_data['title'],
-                'url': initiative_data['url'],
-                'actions': sorted_actions
+            for initiative_key, initiative_data in team_data['initiatives'].items():
+                # Sort actions by priority within initiative
+                sorted_actions = sorted(
+                    initiative_data['actions'],
+                    key=lambda a: a['priority']
+                )
+                total_actions += len(sorted_actions)
+                total_initiatives += 1
+
+                initiatives.append({
+                    'key': initiative_data['key'],
+                    'title': initiative_data['title'],
+                    'url': initiative_data['url'],
+                    'actions': sorted_actions
+                })
+
+            # Sort initiatives by key
+            initiatives.sort(key=lambda i: i['key'])
+
+            teams.append({
+                'team_name': team_data['team_name'],
+                'team_key': team_data['team_key'],
+                'initiatives': initiatives
             })
 
-        # Sort initiatives by key
-        initiatives.sort(key=lambda i: i['key'])
+        # Sort teams by team name
+        teams.sort(key=lambda t: t['team_name'])
 
         messages.append({
             'manager_name': manager_data['manager_name'],
             'slack_id': slack_id,
             'total_actions': total_actions,
-            'total_initiatives': len(initiatives),
-            'initiatives': initiatives
+            'total_initiatives': total_initiatives,
+            'teams': teams
         })
 
     # Sort messages by manager name for consistent output
