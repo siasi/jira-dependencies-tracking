@@ -361,11 +361,19 @@ def _load_team_mappings() -> Dict[str, str]:
         return {}
 
 
-def _load_team_managers() -> Dict[str, str]:
-    """Load team manager Notion handles from team_mappings.yaml.
+def _load_team_managers() -> Dict[str, Dict[str, Optional[str]]]:
+    """Load team managers with Notion handles and Slack IDs.
 
     Returns:
-        Dict mapping project keys to manager Notion handles, or empty dict if not found
+        Dict mapping project keys to manager info:
+        {
+            "CBPPE": {
+                "notion_handle": "@Ariel Reanho ",
+                "slack_id": "U01F3QUHP0B"
+            }
+        }
+
+        Handles legacy string format for backward compatibility.
     """
     mappings_file = Path(__file__).parent / 'team_mappings.yaml'
     if not mappings_file.exists():
@@ -374,9 +382,47 @@ def _load_team_managers() -> Dict[str, str]:
     try:
         with open(mappings_file, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
-            return data.get('team_managers', {})
+            raw_managers = data.get('team_managers', {})
+
+            # Normalize to dict format
+            normalized = {}
+            for project_key, value in raw_managers.items():
+                if isinstance(value, str):
+                    # Legacy format: just Notion handle
+                    normalized[project_key] = {
+                        'notion_handle': value,
+                        'slack_id': None
+                    }
+                elif isinstance(value, dict):
+                    # New format: structured data
+                    normalized[project_key] = {
+                        'notion_handle': value.get('notion_handle', ''),
+                        'slack_id': value.get('slack_id')
+                    }
+
+            return normalized
     except Exception:
         return {}
+
+
+def _validate_dust_config(team_managers: Dict[str, Dict]) -> None:
+    """Validate all teams have Slack IDs for Dust messaging.
+
+    Args:
+        team_managers: Dict of team manager info from _load_team_managers()
+
+    Raises:
+        ValueError: If any team is missing slack_id
+    """
+    missing = [
+        key for key, info in team_managers.items()
+        if not info.get('slack_id')
+    ]
+    if missing:
+        raise ValueError(
+            f"Missing Slack IDs for teams: {', '.join(missing)}\n"
+            f"Update team_mappings.yaml with slack_id for each team"
+        )
 
 
 def _load_teams_exempt_from_rag() -> List[str]:
@@ -457,6 +503,375 @@ def _count_teams_involved(teams_involved: Any) -> int:
         Number of teams
     """
     return len(_normalize_teams_involved(teams_involved))
+
+
+def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
+    """Extract action items from ValidationResult into flat, annotated list.
+
+    This function flattens the hierarchical ValidationResult into a list of
+    individual action items, each annotated with all metadata needed for
+    any output format (console, markdown, Dust, etc.).
+
+    Args:
+        result: Validation result containing categorized initiatives
+
+    Returns:
+        List of action item dictionaries with structure:
+        {
+            'initiative_key': 'INIT-1234',
+            'initiative_title': 'Project Alpha',
+            'initiative_status': 'Planned',
+            'initiative_url': 'https://truelayer.atlassian.net/browse/INIT-1234',
+            'section': 'planned_regressions',  # which report section
+            'action_type': 'missing_dependencies',
+            'priority': 1,  # lower = higher priority
+            'responsible_team': 'RSK',
+            'responsible_team_key': 'RSK',
+            'responsible_manager_name': 'Kevin Plattret',
+            'responsible_manager_notion': '@Kevin Plattret',
+            'responsible_manager_slack_id': 'U05MNO345',
+            'description': 'Create epic',
+            'epic_key': None,  # or epic key if action is about specific epic
+            'epic_title': None,
+            'epic_rag': None
+        }
+
+    Action types included:
+    - 'missing_dependencies': Team needs to create epic
+    - 'missing_rag': Team needs to set RAG status on epic
+    - 'missing_assignee': Initiative needs assignee
+    - 'ready_to_planned': Initiative ready to move to PLANNED status
+
+    Priority ordering (1=highest):
+    1. missing_assignee (blocks planning)
+    2. missing_dependencies (blocks execution)
+    3. missing_rag (blocks visibility)
+    4. ready_to_planned (informational)
+    """
+    actions = []
+    team_mappings = _load_team_mappings()
+    team_managers = _load_team_managers()
+
+    # Priority mapping
+    PRIORITY = {
+        'missing_assignee': 1,
+        'missing_dependencies': 2,
+        'missing_rag': 3,
+        'ready_to_planned': 4
+    }
+
+    # Helper to build base initiative context
+    def _base_context(initiative: Dict, section: str) -> Dict:
+        return {
+            'initiative_key': initiative['key'],
+            'initiative_title': initiative['summary'],
+            'initiative_status': initiative.get('status', 'Unknown'),
+            'initiative_url': f"https://truelayer.atlassian.net/browse/{initiative['key']}",
+            'section': section
+        }
+
+    # Helper to add manager info
+    def _add_manager_info(action: Dict, team_key: str, team_display: str) -> Dict:
+        manager_info = team_managers.get(team_key, {})
+        action['responsible_team'] = team_display
+        action['responsible_team_key'] = team_key
+        action['responsible_manager_name'] = manager_info.get('notion_handle', '').strip('@').strip()
+        action['responsible_manager_notion'] = manager_info.get('notion_handle', '')
+        action['responsible_manager_slack_id'] = manager_info.get('slack_id')
+        return action
+
+    # Process each section of ValidationResult
+
+    # Section 1: dependency_mapping (Proposed initiatives with issues)
+    for initiative in result.dependency_mapping:
+        base = _base_context(initiative, 'dependency_mapping')
+        owner_team = initiative.get('owner_team')
+
+        for issue in initiative.get('issues', []):
+            if issue['type'] == 'missing_assignee':
+                # Owner team responsible for assignee
+                if owner_team:
+                    owner_key = team_mappings.get(owner_team, owner_team)
+                    action = {
+                        **base,
+                        'action_type': 'missing_assignee',
+                        'priority': PRIORITY['missing_assignee'],
+                        'description': 'Set assignee',
+                        'epic_key': None,
+                        'epic_title': None,
+                        'epic_rag': None
+                    }
+                    _add_manager_info(action, owner_key, owner_team)
+                    actions.append(action)
+
+            elif issue['type'] == 'epic_count_mismatch':
+                # Missing dependencies - teams need to create epics
+                teams_involved = issue.get('teams_involved', [])
+                teams_with_epics = set(issue.get('teams_with_epics', []))
+
+                for team_display in teams_involved:
+                    # Skip owner team
+                    if owner_team and team_display == owner_team:
+                        continue
+
+                    team_key = team_mappings.get(team_display, team_display)
+                    if team_key not in teams_with_epics:
+                        action = {
+                            **base,
+                            'action_type': 'missing_dependencies',
+                            'priority': PRIORITY['missing_dependencies'],
+                            'description': 'Create epic',
+                            'epic_key': None,
+                            'epic_title': None,
+                            'epic_rag': None
+                        }
+                        _add_manager_info(action, team_key, team_display)
+                        actions.append(action)
+
+            elif issue['type'] == 'missing_rag':
+                # Missing RAG status - team needs to set it
+                for epic_info in issue.get('epics', []):
+                    epic_key = epic_info.get('key', '')
+                    team_key = epic_key.split('-')[0] if '-' in epic_key else None
+
+                    if team_key:
+                        # Find team display name
+                        team_display = next(
+                            (k for k, v in team_mappings.items() if v == team_key),
+                            team_key
+                        )
+
+                        action = {
+                            **base,
+                            'action_type': 'missing_rag',
+                            'priority': PRIORITY['missing_rag'],
+                            'description': 'Set RAG status',
+                            'epic_key': epic_info.get('key'),
+                            'epic_title': epic_info.get('summary'),
+                            'epic_rag': None
+                        }
+                        _add_manager_info(action, team_key, team_display)
+                        actions.append(action)
+
+    # Section 2: ready_to_plan (Proposed initiatives ready to move)
+    for initiative in result.ready_to_plan:
+        base = _base_context(initiative, 'ready_to_plan')
+        owner_team = initiative.get('owner_team')
+
+        if owner_team:
+            owner_key = team_mappings.get(owner_team, owner_team)
+            action = {
+                **base,
+                'action_type': 'ready_to_planned',
+                'priority': PRIORITY['ready_to_planned'],
+                'description': 'All criteria met - ready to move to PLANNED',
+                'epic_key': None,
+                'epic_title': None,
+                'epic_rag': None
+            }
+            _add_manager_info(action, owner_key, owner_team)
+            actions.append(action)
+
+    # Section 3: planned_regressions (Planned/In Progress with issues)
+    for initiative in result.planned_regressions:
+        base = _base_context(initiative, 'planned_regressions')
+        owner_team = initiative.get('owner_team')
+
+        for issue in initiative.get('issues', []):
+            if issue['type'] == 'missing_assignee':
+                if owner_team:
+                    owner_key = team_mappings.get(owner_team, owner_team)
+                    action = {
+                        **base,
+                        'action_type': 'missing_assignee',
+                        'priority': PRIORITY['missing_assignee'],
+                        'description': 'Set assignee',
+                        'epic_key': None,
+                        'epic_title': None,
+                        'epic_rag': None
+                    }
+                    _add_manager_info(action, owner_key, owner_team)
+                    actions.append(action)
+
+            elif issue['type'] == 'epic_count_mismatch':
+                teams_involved = issue.get('teams_involved', [])
+                teams_with_epics = set(issue.get('teams_with_epics', []))
+
+                for team_display in teams_involved:
+                    if owner_team and team_display == owner_team:
+                        continue
+
+                    team_key = team_mappings.get(team_display, team_display)
+                    if team_key not in teams_with_epics:
+                        action = {
+                            **base,
+                            'action_type': 'missing_dependencies',
+                            'priority': PRIORITY['missing_dependencies'],
+                            'description': 'Create epic',
+                            'epic_key': None,
+                            'epic_title': None,
+                            'epic_rag': None
+                        }
+                        _add_manager_info(action, team_key, team_display)
+                        actions.append(action)
+
+            elif issue['type'] == 'missing_rag':
+                for epic_info in issue.get('epics', []):
+                    epic_key = epic_info.get('key', '')
+                    team_key = epic_key.split('-')[0] if '-' in epic_key else None
+
+                    if team_key:
+                        team_display = next(
+                            (k for k, v in team_mappings.items() if v == team_key),
+                            team_key
+                        )
+
+                        action = {
+                            **base,
+                            'action_type': 'missing_rag',
+                            'priority': PRIORITY['missing_rag'],
+                            'description': 'Set RAG status',
+                            'epic_key': epic_info.get('key'),
+                            'epic_title': epic_info.get('summary'),
+                            'epic_rag': None
+                        }
+                        _add_manager_info(action, team_key, team_display)
+                        actions.append(action)
+
+    return actions
+
+
+def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
+    """Generate Dust-compatible bulk messages for engineering managers.
+
+    Extracts action items from validation result, groups by manager,
+    and renders using Jinja2 template. Outputs to console and file.
+
+    Args:
+        result: Validation result containing initiatives and issues
+        output_dir: Directory to save output file (typically extracts/)
+
+    Raises:
+        ValueError: If team_managers config is missing Slack IDs
+    """
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+    from collections import defaultdict
+    from datetime import datetime
+
+    # Validate configuration
+    team_managers = _load_team_managers()
+    _validate_dust_config(team_managers)
+
+    # Extract actions
+    actions = extract_manager_actions(result)
+
+    # Group by manager Slack ID
+    manager_groups = defaultdict(lambda: {
+        'manager_name': None,
+        'slack_id': None,
+        'initiatives': defaultdict(lambda: {
+            'key': None,
+            'title': None,
+            'url': None,
+            'actions': []
+        })
+    })
+
+    for action in actions:
+        slack_id = action['responsible_manager_slack_id']
+        if not slack_id:
+            # Skip actions for managers without Slack ID
+            continue
+
+        manager_name = action['responsible_manager_name']
+        initiative_key = action['initiative_key']
+
+        # Initialize manager entry
+        if manager_groups[slack_id]['slack_id'] is None:
+            manager_groups[slack_id]['manager_name'] = manager_name
+            manager_groups[slack_id]['slack_id'] = slack_id
+
+        # Initialize initiative entry
+        if manager_groups[slack_id]['initiatives'][initiative_key]['key'] is None:
+            manager_groups[slack_id]['initiatives'][initiative_key]['key'] = initiative_key
+            manager_groups[slack_id]['initiatives'][initiative_key]['title'] = action['initiative_title']
+            manager_groups[slack_id]['initiatives'][initiative_key]['url'] = action['initiative_url']
+
+        # Add action to initiative
+        manager_groups[slack_id]['initiatives'][initiative_key]['actions'].append({
+            'action_type': action['action_type'],
+            'description': action['description'],
+            'epic_key': action.get('epic_key'),
+            'epic_title': action.get('epic_title'),
+            'priority': action['priority']
+        })
+
+    # Convert to template-friendly structure
+    messages = []
+    for slack_id, manager_data in manager_groups.items():
+        initiatives = []
+        total_actions = 0
+
+        for initiative_key, initiative_data in manager_data['initiatives'].items():
+            # Sort actions by priority within initiative
+            sorted_actions = sorted(
+                initiative_data['actions'],
+                key=lambda a: a['priority']
+            )
+            total_actions += len(sorted_actions)
+
+            initiatives.append({
+                'key': initiative_data['key'],
+                'title': initiative_data['title'],
+                'url': initiative_data['url'],
+                'actions': sorted_actions
+            })
+
+        # Sort initiatives by key
+        initiatives.sort(key=lambda i: i['key'])
+
+        messages.append({
+            'manager_name': manager_data['manager_name'],
+            'slack_id': slack_id,
+            'total_actions': total_actions,
+            'total_initiatives': len(initiatives),
+            'initiatives': initiatives
+        })
+
+    # Sort messages by manager name for consistent output
+    messages.sort(key=lambda m: m['manager_name'])
+
+    # Setup Jinja2 environment
+    template_dir = Path(__file__).parent / 'templates'
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(['html', 'xml']),
+        trim_blocks=True,
+        lstrip_blocks=True
+    )
+
+    # Render template
+    template = env.get_template('dust.j2')
+    output = template.render(messages=messages)
+
+    # Print to console
+    print("\n" + "="*60)
+    print("DUST BULK MESSAGES")
+    print("="*60)
+    print("\nCopy the text below and paste into Dust chatbot:\n")
+    print(output)
+    print("="*60)
+
+    # Save to file
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+    output_file = output_dir / f'dust_messages_{timestamp}.txt'
+
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(output)
+
+    print(f"\nDust messages saved to: {output_file}")
+    print(f"Total managers: {len(messages)}")
+    print(f"Total action items: {sum(m['total_actions'] for m in messages)}")
 
 
 def validate_initiative_status(json_file: Path) -> ValidationResult:
@@ -698,7 +1113,8 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                     if owner_team:
                         # Owner team might be a display name, try to get project key
                         project_key = team_mappings.get(owner_team, owner_team)
-                        manager_tag = team_managers.get(project_key, '')
+                        manager_info = team_managers.get(project_key, {})
+                        manager_tag = manager_info.get('notion_handle', '')
                     manager_suffix = f" {manager_tag}" if manager_tag else ""
                     print(f"       [ ] Set the assignee/owner for the initiative{manager_suffix}")
                     print()
@@ -745,7 +1161,8 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
 
                         if missing_teams:
                             for team_str, project_key in missing_teams:
-                                manager_tag = team_managers.get(project_key, '') if project_key else ''
+                                manager_info = team_managers.get(project_key, {}) if project_key else {}
+                                manager_tag = manager_info.get('notion_handle', '')
                                 manager_suffix = f" {manager_tag}" if manager_tag else ""
                                 print(f"       [ ] {team_str} to create epic{manager_suffix}")
                         else:
@@ -928,7 +1345,8 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
 
                         if missing_teams:
                             for team_str, project_key in missing_teams:
-                                manager_tag = team_managers.get(project_key, '') if project_key else ''
+                                manager_info = team_managers.get(project_key, {}) if project_key else {}
+                                manager_tag = manager_info.get('notion_handle', '')
                                 manager_suffix = f" {manager_tag}" if manager_tag else ""
                                 print(f"       [ ] {team_str} to create epic{manager_suffix}")
                         else:
@@ -1001,7 +1419,8 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
                     if owner_team:
                         # Owner team might be a display name, try to get project key
                         project_key = team_mappings.get(owner_team, owner_team)
-                        manager_tag = team_managers.get(project_key, '')
+                        manager_info = team_managers.get(project_key, {})
+                        manager_tag = manager_info.get('notion_handle', '')
                     manager_suffix = f" {manager_tag}" if manager_tag else ""
                     print(f"       [ ] Set the assignee/owner for the initiative{manager_suffix}")
                     print()
@@ -1091,7 +1510,8 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                     if owner_team:
                         # Owner team might be a display name, try to get project key
                         project_key = team_mappings.get(owner_team, owner_team)
-                        manager_tag = team_managers.get(project_key, '')
+                        manager_info = team_managers.get(project_key, {})
+                        manager_tag = manager_info.get('notion_handle', '')
                     manager_suffix = f" {manager_tag}" if manager_tag else ""
                     lines.append(f"- [ ] Set the assignee/owner for the initiative{manager_suffix}")
                     lines.append("")
@@ -1106,7 +1526,8 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                         team_managers = _load_team_managers()
                         # Owner team might be a display name, try to get project key
                         project_key = team_mappings.get(owner_team, owner_team)
-                        manager_tag = team_managers.get(project_key, '')
+                        manager_info = team_managers.get(project_key, {})
+                        manager_tag = manager_info.get('notion_handle', '')
                     manager_suffix = f" {manager_tag}" if manager_tag else ""
                     lines.append(f"- [ ] Set the Strategic Objective field for this initiative{manager_suffix}")
                     lines.append("")
@@ -1141,7 +1562,8 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
 
                         if missing_teams:
                             for team_str, project_key in missing_teams:
-                                manager_tag = team_managers.get(project_key, '') if project_key else ''
+                                manager_info = team_managers.get(project_key, {}) if project_key else {}
+                                manager_tag = manager_info.get('notion_handle', '')
                                 manager_suffix = f" {manager_tag}" if manager_tag else ""
                                 lines.append(f"- [ ] {team_str} to create epic{manager_suffix}")
                         else:
@@ -1176,7 +1598,8 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                         epic_links = [f"[{epic['key']}]({epic['url']})" for epic in team_data['epics']]
                         epics_str = ', '.join(epic_links)
                         # Add manager tag if available
-                        manager_tag = team_managers.get(team_key, '')
+                        manager_info = team_managers.get(team_key, {})
+                        manager_tag = manager_info.get('notion_handle', '')
                         manager_suffix = f" {manager_tag}" if manager_tag else ""
                         lines.append(f"- [ ] {team_name} to set RAG status for {epics_str}{manager_suffix}")
                     lines.append("")
@@ -1313,7 +1736,8 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                         team_managers = _load_team_managers()
                         # Owner team might be a display name, try to get project key
                         project_key = team_mappings.get(owner_team, owner_team)
-                        manager_tag = team_managers.get(project_key, '')
+                        manager_info = team_managers.get(project_key, {})
+                        manager_tag = manager_info.get('notion_handle', '')
                     manager_suffix = f" {manager_tag}" if manager_tag else ""
                     lines.append(f"- [ ] Set the Strategic Objective field for this initiative{manager_suffix}")
                     lines.append("")
@@ -1350,7 +1774,8 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
 
                         if missing_teams:
                             for team_str, project_key in missing_teams:
-                                manager_tag = team_managers.get(project_key, '') if project_key else ''
+                                manager_info = team_managers.get(project_key, {}) if project_key else {}
+                                manager_tag = manager_info.get('notion_handle', '')
                                 manager_suffix = f" {manager_tag}" if manager_tag else ""
                                 lines.append(f"- [ ] {team_str} to create epic{manager_suffix}")
                         else:
@@ -1385,7 +1810,8 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                         epic_links = [f"[{epic['key']}]({epic['url']})" for epic in team_data['epics']]
                         epics_str = ', '.join(epic_links)
                         # Add manager tag if available
-                        manager_tag = team_managers.get(team_key, '')
+                        manager_info = team_managers.get(team_key, {})
+                        manager_tag = manager_info.get('notion_handle', '')
                         manager_suffix = f" {manager_tag}" if manager_tag else ""
                         lines.append(f"- [ ] {team_name} to set RAG status for {epics_str}{manager_suffix}")
                     lines.append("")
@@ -1424,7 +1850,8 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
                         # Owner team might be a display name, try to get project key
                         team_mappings_dict = _load_team_mappings()
                         project_key = team_mappings_dict.get(owner_team, owner_team)
-                        manager_tag = team_managers.get(project_key, '')
+                        manager_info = team_managers.get(project_key, {})
+                        manager_tag = manager_info.get('notion_handle', '')
                     manager_suffix = f" {manager_tag}" if manager_tag else ""
                     lines.append(f"- [ ] Set the assignee/owner for the initiative{manager_suffix}")
                     lines.append("")
@@ -1501,6 +1928,11 @@ def main():
         help='Export report as markdown file (Notion-friendly format). '
              'Optionally specify filename, otherwise auto-generates with timestamp.'
     )
+    parser.add_argument(
+        '--dust',
+        action='store_true',
+        help='Generate Dust bulk messages for manager notifications'
+    )
 
     args = parser.parse_args()
 
@@ -1544,6 +1976,11 @@ def main():
                 f.write(markdown_content)
 
             print(f"\n✅ Markdown report exported to: {markdown_file}")
+
+        # Generate Dust messages if requested
+        if args.dust:
+            output_dir = json_file.parent
+            generate_dust_messages(result, output_dir)
 
         # Always exit successfully (validation issues are informational, not failures)
         sys.exit(0)
