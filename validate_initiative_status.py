@@ -1085,385 +1085,40 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
 
 
 def print_validation_report(result: ValidationResult, json_file: Path, verbose: bool = False):
-    """Print formatted validation report.
+    """Print formatted validation report using template.
 
     Args:
         result: ValidationResult with findings
         json_file: Path to validated JSON file
         verbose: Show detailed epic and team information
     """
-    # Load team mappings for detailed action messages
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+    # Load config for template
     team_mappings = _load_team_mappings()
+    team_managers = _load_team_managers()
 
-    print(f"\n{'=' * 80}")
-    print("Initiative Planning Readiness Tracker")
-    print(f"{'=' * 80}\n")
+    # Setup Jinja2 environment
+    template_dir = Path(__file__).parent / 'templates'
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(['html', 'xml']),
+        trim_blocks=True,
+        lstrip_blocks=True
+    )
 
-    print(f"Data source: {json_file}")
-    print(f"Filter: Multi-team initiatives only (teams >= 2)")
-    print(f"Total initiatives in file: {result.total_checked + result.total_filtered}")
-    print(f"Multi-team initiatives analyzed: {result.total_checked}")
-    if result.total_filtered > 0:
-        print(f"Single-team initiatives skipped: {result.total_filtered}")
-    print()
+    # Render template
+    template = env.get_template('console.j2')
+    output = template.render(
+        result=result,
+        json_file=json_file,
+        verbose=verbose,
+        team_mappings=team_mappings,
+        team_managers=team_managers
+    )
 
-    print("Summary:")
-    print(f"  📋 Dependency Mapping in Progress: {len(result.dependency_mapping)} initiatives")
-    print(f"  🟡 No/Low confidence for completion - require discussion: {len(result.low_confidence_completion)} initiatives")
-    print(f"  ✅ Ready to Move to Planned: {len(result.ready_to_plan)} initiatives")
-    print(f"  🎯 Planned/In Progress for the Quarter: {len(result.planned_for_quarter)} initiatives")
-    if result.planned_regressions:
-        print(f"  🔄 Planned/In Progress Initiatives with Issues: {len(result.planned_regressions)} initiatives")
-    if verbose:
-        if result.ignored_statuses:
-            print(f"  ⏭️  Not Analyzed: {len(result.ignored_statuses)} initiatives")
-
-    print(f"\n{'-' * 80}\n")
-
-    # Section 1: Dependency Mapping in Progress
-    print(f"📋 DEPENDENCY MAPPING IN PROGRESS ({len(result.dependency_mapping)} initiatives)\n")
-    print("Action required: Create missing epics and set initial RAG status\n")
-
-    if result.dependency_mapping:
-        for item in result.dependency_mapping:
-            print(f"{item['key']}: {item['summary']}")
-            print()
-
-            for issue in item['issues']:
-                if issue['type'] == 'missing_assignee':
-                    print(f"   ⚠️  Missing Assignee - Action:")
-                    # Tag owner team's manager
-                    owner_team = item.get('owner_team')
-                    team_managers = _load_team_managers()
-                    manager_tag = ''
-                    if owner_team:
-                        # Owner team might be a display name, try to get project key
-                        project_key = team_mappings.get(owner_team, owner_team)
-                        manager_info = team_managers.get(project_key, {})
-                        manager_tag = manager_info.get('notion_handle', '')
-                    manager_suffix = f" {manager_tag}" if manager_tag else ""
-                    print(f"       [ ] Set the assignee/owner for the initiative{manager_suffix}")
-                    print()
-
-                elif issue['type'] == 'missing_strategic_objective':
-                    print(f"   ⚠️  Missing Strategic Objective - Action:")
-                    print(f"       [ ] Set the Strategic Objective field for this initiative")
-                    print()
-
-                elif issue['type'] == 'epic_count_mismatch':
-                    # Show detailed epic count mismatch
-                    epic_keys = [
-                        epic['key']
-                        for tc in item['contributing_teams']
-                        for epic in tc.get('epics', [])
-                    ]
-                    teams_count = len(issue['teams_involved'])
-                    epics_count = len(issue['teams_with_epics'])
-
-                    print(f"   ⚠️  Missing dependencies - Action:")
-                    if verbose:
-                        print(f"       - Has {len(epic_keys)} epics: {', '.join(epic_keys)}")
-                        print(f"       - Teams Involved: {', '.join(issue['teams_involved'])}")
-
-                    if epics_count < teams_count:
-                        # Find which teams are missing epics (excluding owner team)
-                        teams_with_epics_set = set(issue['teams_with_epics'])
-                        owner_team = item.get('owner_team')
-                        team_managers = _load_team_managers()
-                        missing_teams = []
-
-                        for display_name in issue['teams_involved']:
-                            # Skip owner team - they don't need to create epics
-                            if owner_team and display_name == owner_team:
-                                continue
-
-                            # Look up project key from mapping
-                            project_key = team_mappings.get(display_name)
-                            if project_key and project_key not in teams_with_epics_set:
-                                missing_teams.append((f"{display_name} ({project_key})", project_key))
-                            elif not project_key and display_name not in teams_with_epics_set:
-                                # No mapping found, show display name only
-                                missing_teams.append((f"{display_name} (unmapped)", None))
-
-                        if missing_teams:
-                            for team_str, project_key in missing_teams:
-                                manager_info = team_managers.get(project_key, {}) if project_key else {}
-                                manager_tag = manager_info.get('notion_handle', '')
-                                manager_suffix = f" {manager_tag}" if manager_tag else ""
-                                print(f"       [ ] {team_str} to create epic{manager_suffix}")
-                        else:
-                            missing_count = teams_count - epics_count
-                            print(f"       - Action: Create {missing_count} missing epic{'s' if missing_count > 1 else ''} or update Teams Involved field")
-                    elif epics_count > teams_count:
-                        # Find which teams have epics but aren't in Teams Involved
-                        teams_involved_keys = set()
-                        for display_name in issue['teams_involved']:
-                            # Try mapping first, then fall back to display name (case-insensitive)
-                            project_key = team_mappings.get(display_name)
-                            if project_key:
-                                teams_involved_keys.add(project_key.upper())
-                            else:
-                                teams_involved_keys.add(display_name.upper())
-
-                        # Find teams with epics that aren't in the Teams Involved set
-                        extra_teams = [key for key in issue['teams_with_epics']
-                                      if key.upper() not in teams_involved_keys]
-
-                        if extra_teams:
-                            print(f"       - Action: Add {', '.join(extra_teams)} to Teams Involved field")
-                        else:
-                            print(f"       - Action: Update Teams Involved field to include all {epics_count} teams with epics")
-                    print()
-
-                elif issue['type'] == 'missing_rag_status':
-                    print(f"   ⚠️  Missing RAG status - Action:")
-                    for team_data in issue['teams']:
-                        team_name = team_data['team_name']
-                        epic_keys = [epic['key'] for epic in team_data['epics']]
-                        epics_str = ', '.join(epic_keys)
-
-                        if verbose:
-                            print(f"       - {team_name}:")
-                            for epic in team_data['epics']:
-                                print(f"         {epic['key']}: \"{epic['summary']}\"")
-
-                        print(f"       [ ] {team_name} to set RAG status for {epics_str}")
-                    print()
-    else:
-        print("No initiatives currently in dependency mapping phase.\n")
-
-    print(f"{'-' * 80}\n")
-
-    # Section 2: No/Low confidence for completion - require discussion
-    print(f"🟡 NO/LOW CONFIDENCE FOR COMPLETION - REQUIRE DISCUSSION ({len(result.low_confidence_completion)} initiatives)\n")
-    print("Action required: PM/EM to confirm working on initiative (move to PLANNED) or")
-    print("deprioritise it (move to DEPRIORITISED)\n")
-
-    if result.low_confidence_completion:
-        for item in result.low_confidence_completion:
-            print(f"{item['key']}: {item['summary']}")
-            print()
-
-            for issue in item['issues']:
-                if issue['type'] == 'red_epics':
-                    print(f"   🔴 Epics with RED status ({len(issue['epics'])})")
-                    for epic in issue['epics']:
-                        rag_display = "🔴" if epic['rag_status'] == '🔴' else "(missing - treated as RED)"
-                        print(f"       - {epic['key']} {rag_display}: \"{epic['summary']}\"")
-                    print()
-                elif issue['type'] == 'yellow_epics':
-                    print(f"   🟡 Epics with YELLOW status ({len(issue['epics'])})")
-                    for epic in issue['epics']:
-                        rag_display = "🟡" if epic.get('rag_status') else "(missing - treated as YELLOW)"
-                        print(f"       - {epic['key']} {rag_display}: \"{epic['summary']}\"")
-                    print()
-    else:
-        print("No initiatives with no/low confidence for completion at this time.\n")
-
-    print(f"{'-' * 80}\n")
-
-    # Section 3: Ready to Move to Planned (always show)
-    print(f"✅ READY TO MOVE TO PLANNED ({len(result.ready_to_plan)} initiatives)\n")
-    print("Action required: Update status to Planned in Jira (bulk keys provided below)\n")
-
-    if result.ready_to_plan:
-        for item in result.ready_to_plan:
-            print(f"{item['key']}: {item['summary']}")
-
-        print(f"\nBulk update - Copy these issue keys for Jira:")
-        keys = [item['key'] for item in result.ready_to_plan]
-        print(','.join(keys))
-    else:
-        print("No initiatives are ready to move to Planned status at this time.")
-
-    print(f"\n{'-' * 80}\n")
-
-    # Section 4: Planned/In Progress for the Quarter (always show)
-    print(f"🎯 PLANNED/IN PROGRESS FOR THE QUARTER ({len(result.planned_for_quarter)} initiatives)\n")
-    print("These initiatives are ready and meet all quality criteria\n")
-
-    if result.planned_for_quarter:
-        for item in result.planned_for_quarter:
-            # Add warning indicator based on epic RAG status
-            warning = ""
-            if item.get('has_red_epics'):
-                warning = " WON'T COMPLETE"
-            elif item.get('has_yellow_epics'):
-                warning = " ⚠️ LOW CONFIDENCE"
-            print(f"{item['key']}: {item['summary']}{warning}")
-            if item.get('assignee'):
-                print(f"   Assignee: {item['assignee']}")
-
-            # Show epic details
-            contributing_teams = item.get('contributing_teams', [])
-            if contributing_teams:
-                epic_keys = []
-                for tc in contributing_teams:
-                    for epic in tc.get('epics', []):
-                        epic_keys.append(f"{epic['key']} ({epic.get('rag_status', 'No RAG')})")
-                if epic_keys:
-                    print(f"   Epics: {', '.join(epic_keys)}")
-
-            # Show discovery warning
-            if item.get('is_discovery'):
-                teams_involved = item.get('teams_involved', [])
-                if teams_involved:
-                    teams_str = ', '.join(teams_involved)
-                    print(f"   ⚠️ Discovery impact for: {teams_str}")
-
-            print()
-    else:
-        print("No initiatives are planned for this quarter yet.")
-
-    print(f"\n{'-' * 80}\n")
-
-    # Section 5: Planned/In Progress Initiatives Requiring Attention (regressions) - always show
-    if result.planned_regressions:
-        print(f"🔄 PLANNED/IN PROGRESS INITIATIVES REQUIRING ATTENTION ({len(result.planned_regressions)} initiatives)\n")
-        print("To maintain quality: Review status changes for these planned/in progress initiatives")
-        print("Help needed: Verify RAG status updates, confirm team commitment\n")
-
-        for item in result.planned_regressions:
-            print(f"{item['key']}: {item['summary']}")
-            print()
-
-            # Show detailed issues (same format as Sections 1 and 2)
-            for issue in item.get('issues', []):
-                if issue['type'] == 'missing_strategic_objective':
-                    print(f"   ⚠️  Missing Strategic Objective - Action:")
-                    print(f"       [ ] Set the Strategic Objective field for this initiative")
-                    print()
-
-                elif issue['type'] == 'epic_count_mismatch':
-                    # Show detailed epic count mismatch
-                    epic_keys = [
-                        epic['key']
-                        for tc in item['contributing_teams']
-                        for epic in tc.get('epics', [])
-                    ]
-                    teams_count = len(issue['teams_involved'])
-                    epics_count = len(issue['teams_with_epics'])
-
-                    print(f"   ⚠️  Missing dependencies - Action:")
-                    if verbose:
-                        print(f"       - Has {len(epic_keys)} epics: {', '.join(epic_keys)}")
-                        print(f"       - Teams Involved: {', '.join(issue['teams_involved'])}")
-
-                    if epics_count < teams_count:
-                        # Find which teams are missing epics (excluding owner team)
-                        teams_with_epics_set = set(issue['teams_with_epics'])
-                        owner_team = item.get('owner_team')
-                        team_managers = _load_team_managers()
-                        missing_teams = []
-
-                        for display_name in issue['teams_involved']:
-                            # Skip owner team - they don't need to create epics
-                            if owner_team and display_name == owner_team:
-                                continue
-
-                            # Look up project key from mapping
-                            project_key = team_mappings.get(display_name)
-                            if project_key and project_key not in teams_with_epics_set:
-                                missing_teams.append((f"{display_name} ({project_key})", project_key))
-                            elif not project_key and display_name not in teams_with_epics_set:
-                                # No mapping found, show display name only
-                                missing_teams.append((f"{display_name} (unmapped)", None))
-
-                        if missing_teams:
-                            for team_str, project_key in missing_teams:
-                                manager_info = team_managers.get(project_key, {}) if project_key else {}
-                                manager_tag = manager_info.get('notion_handle', '')
-                                manager_suffix = f" {manager_tag}" if manager_tag else ""
-                                print(f"       [ ] {team_str} to create epic{manager_suffix}")
-                        else:
-                            missing_count = teams_count - epics_count
-                            print(f"       - Action: Create {missing_count} missing epic{'s' if missing_count > 1 else ''} or update Teams Involved field")
-                    elif epics_count > teams_count:
-                        # Find which teams have epics but aren't in Teams Involved
-                        teams_involved_keys = set()
-                        for display_name in issue['teams_involved']:
-                            # Try mapping first, then fall back to display name (case-insensitive)
-                            project_key = team_mappings.get(display_name)
-                            if project_key:
-                                teams_involved_keys.add(project_key.upper())
-                            else:
-                                teams_involved_keys.add(display_name.upper())
-
-                        # Find teams with epics that aren't in the Teams Involved set
-                        extra_teams = [key for key in issue['teams_with_epics']
-                                      if key.upper() not in teams_involved_keys]
-
-                        if extra_teams:
-                            print(f"       - Action: Add {', '.join(extra_teams)} to Teams Involved field")
-                        else:
-                            print(f"       - Action: Update Teams Involved field to include all {epics_count} teams with epics")
-                    print()
-
-                elif issue['type'] == 'missing_rag_status':
-                    print(f"   ⚠️  Missing RAG status - Action:")
-                    for team_data in issue['teams']:
-                        team_name = team_data['team_name']
-                        epic_keys = [epic['key'] for epic in team_data['epics']]
-                        epics_str = ', '.join(epic_keys)
-
-                        if verbose:
-                            print(f"       - {team_name}:")
-                            for epic in team_data['epics']:
-                                print(f"         {epic['key']}: \"{epic['summary']}\"")
-
-                        print(f"       [ ] {team_name} to set RAG status for {epics_str}")
-                    print()
-
-                elif issue['type'] == 'red_epics':
-                    print(f"   ⚠️  Epics with RED status ({len(issue['epics'])})")
-                    for epic in issue['epics']:
-                        rag_display = "🔴" if epic['rag_status'] == '🔴' else "(missing - treated as RED)"
-                        print(f"       - {epic['key']} {rag_display}: \"{epic['summary']}\"")
-                    print()
-
-                elif issue['type'] == 'yellow_epics':
-                    print(f"   ⚠️  Epics with YELLOW status or missing RAG ({len(issue['epics'])})")
-                    for epic in issue['epics']:
-                        rag_status = epic.get('rag_status')
-                        if rag_status is None:
-                            rag_display = "(missing RAG - treated as YELLOW)"
-                        elif rag_status == '🟡':
-                            rag_display = "🟡"
-                        elif rag_status == '⚠️':
-                            rag_display = "⚠️"
-                        else:
-                            rag_display = rag_status
-                        print(f"       - {epic['key']} {rag_display}: \"{epic['summary']}\"")
-                    print()
-
-                elif issue['type'] == 'missing_assignee':
-                    print(f"   ⚠️  Missing Assignee - Action:")
-                    # Tag owner team's manager
-                    owner_team = item.get('owner_team')
-                    team_managers = _load_team_managers()
-                    manager_tag = ''
-                    if owner_team:
-                        # Owner team might be a display name, try to get project key
-                        project_key = team_mappings.get(owner_team, owner_team)
-                        manager_info = team_managers.get(project_key, {})
-                        manager_tag = manager_info.get('notion_handle', '')
-                    manager_suffix = f" {manager_tag}" if manager_tag else ""
-                    print(f"       [ ] Set the assignee/owner for the initiative{manager_suffix}")
-                    print()
-
-        print(f"{'-' * 80}\n")
-
-    # Section 6: Not Analyzed (other statuses) - verbose only
-    if verbose and result.ignored_statuses:
-        print(f"⏭️  NOT ANALYZED ({len(result.ignored_statuses)} initiatives)\n")
-        print("These initiatives are not included in the analysis:\n")
-
-        for item in result.ignored_statuses:
-            print(f"{item['key']}: {item['summary']}")
-            print(f"   Status: {item['status']}")
-            print()
-
-        print(f"{'-' * 80}\n")
+    # Print output
+    print(output)
 
 
 def generate_markdown_report(result: ValidationResult, json_file: Path, verbose: bool = False) -> str:
