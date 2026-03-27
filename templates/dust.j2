@@ -3,7 +3,7 @@
 {% for message in messages -%}
 Recipient: {{ message.slack_id }}
 Message: ```
-Hi! Here are your action items from the latest initiative validation:
+Hi {{ message.manager_name.split()[0] }}! Here are your action items from the latest initiative validation:
 
 You have {{ message.total_actions }} action item{% if message.total_actions != 1 %}s{% endif %} across {{ message.total_initiatives }} initiative{% if message.total_initiatives != 1 %}s{% endif %}.
 
