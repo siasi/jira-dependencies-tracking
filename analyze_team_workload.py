@@ -70,6 +70,7 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
     workload = defaultdict(lambda: {'leading': set(), 'contributing': set()})
     initiatives_without_owner = []
     initiatives_without_epics = []
+    initiative_summaries = {}  # Map initiative key to summary
 
     # Analyze each initiative
     for initiative in initiatives:
@@ -77,6 +78,9 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
         initiative_summary = initiative.get('summary', '')
         owner_team = initiative.get('owner_team')
         contributing_teams_data = initiative.get('contributing_teams', [])
+
+        # Store summary for verbose output
+        initiative_summaries[initiative_key] = initiative_summary
 
         # Normalize owner team
         normalized_owner = normalize_team_name(owner_team, team_mappings)
@@ -142,6 +146,7 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
     return {
         'team_stats': team_stats,
         'team_details': team_details,
+        'initiative_summaries': initiative_summaries,
         'initiatives_without_owner': initiatives_without_owner,
         'initiatives_without_epics': initiatives_without_epics,
         'total_initiatives': len(initiatives),
@@ -187,6 +192,7 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
     """
     team_stats = analysis['team_stats']
     team_details = analysis.get('team_details', {})
+    initiative_summaries = analysis.get('initiative_summaries', {})
     initiatives_without_owner = analysis['initiatives_without_owner']
     initiatives_without_epics = analysis['initiatives_without_epics']
     total_initiatives = analysis['total_initiatives']
@@ -236,7 +242,11 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
             if leading_list:
                 print(f"\nLeading ({stats['leading']} initiatives):")
                 for init_key in leading_list:
-                    print(f"  - {init_key}")
+                    summary = initiative_summaries.get(init_key, 'No summary')
+                    # Truncate long summaries
+                    if len(summary) > 70:
+                        summary = summary[:67] + "..."
+                    print(f"  - {init_key}: {summary}")
             else:
                 print(f"\nLeading: None")
 
@@ -244,7 +254,11 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
             if contributing_list:
                 print(f"\nContributing ({stats['contributing']} initiatives):")
                 for init_key in contributing_list:
-                    print(f"  - {init_key}")
+                    summary = initiative_summaries.get(init_key, 'No summary')
+                    # Truncate long summaries
+                    if len(summary) > 70:
+                        summary = summary[:67] + "..."
+                    print(f"  - {init_key}: {summary}")
             else:
                 print(f"\nContributing: None")
 
