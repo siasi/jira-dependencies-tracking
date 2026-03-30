@@ -266,8 +266,9 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
             leading_list = details.get('leading', [])
             contributing_list = details.get('contributing', [])
 
-            print(f"\n{team} - {stats['total']} total initiatives")
-            print("=" * 50)
+            print("\n" + "=" * 70)
+            print(f"{team} - {stats['total']} total initiatives")
+            print("=" * 70)
 
             # Leading initiatives
             if leading_list:
