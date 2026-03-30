@@ -19,6 +19,10 @@ You have {{ message.total_actions }} action item{% if message.total_actions != 1
 :warning: Missing RAG status - {{ action.description }}{% if action.epic_key %} on <https://truelayer.atlassian.net/browse/{{ action.epic_key }}>{% endif %}
 {% elif action.action_type == 'missing_assignee' -%}
 :raising_hand: Missing assignee - {{ action.description }}
+{% elif action.action_type == 'missing_strategic_objective' -%}
+:red_circle: Missing strategic objective - {{ action.description }}
+{% elif action.action_type == 'invalid_strategic_objective' -%}
+:red_circle: Invalid strategic objective - {{ action.description }}
 {% elif action.action_type == 'ready_to_planned' -%}
 :rocket: {{ action.description }}
 {% endif %}

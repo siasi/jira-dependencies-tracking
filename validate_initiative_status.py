@@ -83,10 +83,18 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
     if not assignee:
         issues.append({'type': 'missing_assignee'})
 
-    # Check for missing strategic objective
+    # Check strategic objective (missing or invalid)
     strategic_objective = initiative.get('strategic_objective')
     if not strategic_objective or (isinstance(strategic_objective, str) and not strategic_objective.strip()):
         issues.append({'type': 'missing_strategic_objective'})
+    else:
+        # Check if strategic objective is valid
+        valid_objectives = _load_valid_strategic_objectives()
+        if valid_objectives and strategic_objective not in valid_objectives:
+            issues.append({
+                'type': 'invalid_strategic_objective',
+                'current_value': strategic_objective
+            })
 
     # Skip dependency and RAG checks for discovery initiatives
     if is_discovery:
@@ -464,6 +472,25 @@ def _load_teams_excluded_from_analysis() -> List[str]:
         return []
 
 
+def _load_valid_strategic_objectives() -> List[str]:
+    """Load valid strategic objective values from config.yaml.
+
+    Returns:
+        List of valid strategic objective values, or empty list if not found
+    """
+    config_file = Path(__file__).parent / 'config.yaml'
+    if not config_file.exists():
+        return []
+
+    try:
+        with open(config_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            valid_values = data.get('validation', {}).get('strategic_objective', {}).get('valid_values', [])
+            return valid_values if valid_values else []
+    except Exception:
+        return []
+
+
 def _normalize_teams_involved(teams_involved: Any) -> List[str]:
     """Normalize teams_involved field to a list.
 
@@ -540,13 +567,17 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
     - 'missing_dependencies': Team needs to create epic
     - 'missing_rag': Team needs to set RAG status on epic
     - 'missing_assignee': Initiative needs assignee
+    - 'missing_strategic_objective': Initiative needs strategic objective set
+    - 'invalid_strategic_objective': Initiative has invalid strategic objective value
     - 'ready_to_planned': Initiative ready to move to PLANNED status
 
     Priority ordering (1=highest):
     1. missing_assignee (blocks planning)
-    2. missing_dependencies (blocks execution)
-    3. missing_rag (blocks visibility)
-    4. ready_to_planned (informational)
+    2. missing_strategic_objective (blocks planning)
+    3. invalid_strategic_objective (blocks planning)
+    4. missing_dependencies (blocks execution)
+    5. missing_rag (blocks visibility)
+    6. ready_to_planned (informational)
     """
     actions = []
     team_mappings = _load_team_mappings()
@@ -555,9 +586,11 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
     # Priority mapping
     PRIORITY = {
         'missing_assignee': 1,
-        'missing_dependencies': 2,
-        'missing_rag': 3,
-        'ready_to_planned': 4
+        'missing_strategic_objective': 2,
+        'invalid_strategic_objective': 3,
+        'missing_dependencies': 4,
+        'missing_rag': 5,
+        'ready_to_planned': 6
     }
 
     # Helper to build base initiative context
@@ -597,6 +630,39 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
                         'action_type': 'missing_assignee',
                         'priority': PRIORITY['missing_assignee'],
                         'description': 'Set assignee',
+                        'epic_key': None,
+                        'epic_title': None,
+                        'epic_rag': None
+                    }
+                    _add_manager_info(action, owner_key, owner_team)
+                    actions.append(action)
+
+            elif issue['type'] == 'missing_strategic_objective':
+                # Owner team responsible for strategic objective
+                if owner_team:
+                    owner_key = team_mappings.get(owner_team, owner_team)
+                    action = {
+                        **base,
+                        'action_type': 'missing_strategic_objective',
+                        'priority': PRIORITY['missing_strategic_objective'],
+                        'description': 'Set strategic objective',
+                        'epic_key': None,
+                        'epic_title': None,
+                        'epic_rag': None
+                    }
+                    _add_manager_info(action, owner_key, owner_team)
+                    actions.append(action)
+
+            elif issue['type'] == 'invalid_strategic_objective':
+                # Owner team responsible for fixing invalid strategic objective
+                if owner_team:
+                    owner_key = team_mappings.get(owner_team, owner_team)
+                    current_value = issue.get('current_value', 'unknown')
+                    action = {
+                        **base,
+                        'action_type': 'invalid_strategic_objective',
+                        'priority': PRIORITY['invalid_strategic_objective'],
+                        'description': f'Fix invalid strategic objective (current: "{current_value}")',
                         'epic_key': None,
                         'epic_title': None,
                         'epic_rag': None
@@ -686,6 +752,37 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
                         'action_type': 'missing_assignee',
                         'priority': PRIORITY['missing_assignee'],
                         'description': 'Set assignee',
+                        'epic_key': None,
+                        'epic_title': None,
+                        'epic_rag': None
+                    }
+                    _add_manager_info(action, owner_key, owner_team)
+                    actions.append(action)
+
+            elif issue['type'] == 'missing_strategic_objective':
+                if owner_team:
+                    owner_key = team_mappings.get(owner_team, owner_team)
+                    action = {
+                        **base,
+                        'action_type': 'missing_strategic_objective',
+                        'priority': PRIORITY['missing_strategic_objective'],
+                        'description': 'Set strategic objective',
+                        'epic_key': None,
+                        'epic_title': None,
+                        'epic_rag': None
+                    }
+                    _add_manager_info(action, owner_key, owner_team)
+                    actions.append(action)
+
+            elif issue['type'] == 'invalid_strategic_objective':
+                if owner_team:
+                    owner_key = team_mappings.get(owner_team, owner_team)
+                    current_value = issue.get('current_value', 'unknown')
+                    action = {
+                        **base,
+                        'action_type': 'invalid_strategic_objective',
+                        'priority': PRIORITY['invalid_strategic_objective'],
+                        'description': f'Fix invalid strategic objective (current: "{current_value}")',
                         'epic_key': None,
                         'epic_title': None,
                         'epic_rag': None
