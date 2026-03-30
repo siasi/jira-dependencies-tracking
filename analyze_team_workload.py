@@ -34,6 +34,33 @@ def load_team_mappings() -> Tuple[Dict[str, str], List[str]]:
         return {}, []
 
 
+def make_clickable_link(text: str, url: str) -> str:
+    """Create a clickable hyperlink for terminal output.
+
+    Uses ANSI escape codes supported by modern terminals:
+    - iTerm2 (macOS)
+    - Terminal.app (macOS 10.14+)
+    - GNOME Terminal (Linux)
+    - Windows Terminal
+    - VS Code integrated terminal
+    - Alacritty, Kitty, and other modern terminals
+
+    Note: In terminals without hyperlink support, the text will display normally
+    without the link functionality.
+
+    Args:
+        text: The text to display
+        url: The URL to link to
+
+    Returns:
+        ANSI-formatted string with hyperlink
+    """
+    if not url:
+        return text
+    # ANSI escape code format: \033]8;;URL\033\\TEXT\033]8;;\033\\
+    return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
+
+
 def normalize_team_name(team_name: str, team_mappings: Dict[str, str]) -> str:
     """Normalize team name using team_mappings.
 
@@ -71,6 +98,7 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
     initiatives_without_owner = []
     initiatives_without_epics = []
     initiative_summaries = {}  # Map initiative key to summary
+    initiative_urls = {}  # Map initiative key to Jira URL
 
     # Analyze each initiative
     for initiative in initiatives:
@@ -79,8 +107,9 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
         owner_team = initiative.get('owner_team')
         contributing_teams_data = initiative.get('contributing_teams', [])
 
-        # Store summary for verbose output
+        # Store summary and URL for verbose output
         initiative_summaries[initiative_key] = initiative_summary
+        initiative_urls[initiative_key] = initiative.get('url', '')
 
         # Normalize owner team
         normalized_owner = normalize_team_name(owner_team, team_mappings)
@@ -147,6 +176,7 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
         'team_stats': team_stats,
         'team_details': team_details,
         'initiative_summaries': initiative_summaries,
+        'initiative_urls': initiative_urls,
         'initiatives_without_owner': initiatives_without_owner,
         'initiatives_without_epics': initiatives_without_epics,
         'total_initiatives': len(initiatives),
@@ -193,6 +223,7 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
     team_stats = analysis['team_stats']
     team_details = analysis.get('team_details', {})
     initiative_summaries = analysis.get('initiative_summaries', {})
+    initiative_urls = analysis.get('initiative_urls', {})
     initiatives_without_owner = analysis['initiatives_without_owner']
     initiatives_without_epics = analysis['initiatives_without_epics']
     total_initiatives = analysis['total_initiatives']
@@ -243,10 +274,13 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
                 print(f"\nLeading ({stats['leading']} initiatives):")
                 for init_key in leading_list:
                     summary = initiative_summaries.get(init_key, 'No summary')
+                    url = initiative_urls.get(init_key, '')
                     # Truncate long summaries
                     if len(summary) > 70:
                         summary = summary[:67] + "..."
-                    print(f"  - {init_key}: {summary}")
+                    # Make initiative key clickable if URL available
+                    clickable_key = make_clickable_link(init_key, url)
+                    print(f"  - {clickable_key}: {summary}")
             else:
                 print(f"\nLeading: None")
 
@@ -255,10 +289,13 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
                 print(f"\nContributing ({stats['contributing']} initiatives):")
                 for init_key in contributing_list:
                     summary = initiative_summaries.get(init_key, 'No summary')
+                    url = initiative_urls.get(init_key, '')
                     # Truncate long summaries
                     if len(summary) > 70:
                         summary = summary[:67] + "..."
-                    print(f"  - {init_key}: {summary}")
+                    # Make initiative key clickable if URL available
+                    clickable_key = make_clickable_link(init_key, url)
+                    print(f"  - {clickable_key}: {summary}")
             else:
                 print(f"\nContributing: None")
 
@@ -275,7 +312,10 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
             summary = init['summary']
             if len(summary) > 60:
                 summary = summary[:57] + "..."
-            print(f"  - {init['key']}: \"{summary}\"")
+            # Make key clickable
+            url = initiative_urls.get(init['key'], '')
+            clickable_key = make_clickable_link(init['key'], url)
+            print(f"  - {clickable_key}: \"{summary}\"")
     else:
         print("\n✓ All initiatives have owner_team")
 
@@ -288,7 +328,10 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
             if len(summary) > 50:
                 summary = summary[:47] + "..."
             owner = init.get('owner_team', 'None')
-            print(f"  - {init['key']} (owner: {owner}): \"{summary}\"")
+            # Make key clickable
+            url = initiative_urls.get(init['key'], '')
+            clickable_key = make_clickable_link(init['key'], url)
+            print(f"  - {clickable_key} (owner: {owner}): \"{summary}\"")
     else:
         print("\n✓ All initiatives have epics")
 
