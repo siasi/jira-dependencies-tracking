@@ -139,6 +139,25 @@ def normalize_team_name(team_name: str, team_mappings: Dict[str, str]) -> str:
     return team_mappings.get(team_name, team_name)
 
 
+def load_valid_strategic_objectives() -> List[str]:
+    """Load valid strategic objective values from config.yaml.
+
+    Returns:
+        List of valid strategic objective values, or empty list if not found
+    """
+    config_file = Path(__file__).parent / 'config.yaml'
+    if not config_file.exists():
+        return []
+
+    try:
+        with open(config_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            valid_values = data.get('validation', {}).get('strategic_objective', {}).get('valid_values', [])
+            return valid_values if valid_values else []
+    except Exception:
+        return []
+
+
 def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_teams: List[str]) -> Dict:
     """Analyze team workload from extraction data.
 
@@ -161,8 +180,13 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
     contributing_rag = defaultdict(lambda: defaultdict(list))  # Map team -> initiative -> [rag statuses]
     initiatives_without_owner = []
     initiatives_without_epics = []
+    initiatives_missing_strategic_objective = []
+    initiatives_invalid_strategic_objective = []
     initiative_summaries = {}  # Map initiative key to summary
     initiative_urls = {}  # Map initiative key to Jira URL
+
+    # Load valid strategic objectives for validation
+    valid_strategic_objectives = load_valid_strategic_objectives()
 
     # Analyze each initiative
     for initiative in initiatives:
@@ -170,6 +194,7 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
         initiative_summary = initiative.get('summary', '')
         owner_team = initiative.get('owner_team')
         contributing_teams_data = initiative.get('contributing_teams', [])
+        strategic_objective = initiative.get('strategic_objective')
 
         # Store summary and URL for verbose output
         initiative_summaries[initiative_key] = initiative_summary
@@ -177,6 +202,24 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
 
         # Normalize owner team
         normalized_owner = normalize_team_name(owner_team, team_mappings)
+
+        # Validate strategic objective (skip if owner is excluded team)
+        if not normalized_owner or normalized_owner not in excluded_teams:
+            if not strategic_objective or (isinstance(strategic_objective, str) and not strategic_objective.strip()):
+                # Missing strategic objective
+                initiatives_missing_strategic_objective.append({
+                    'key': initiative_key,
+                    'summary': initiative_summary,
+                    'owner_team': normalized_owner or 'None'
+                })
+            elif valid_strategic_objectives and strategic_objective not in valid_strategic_objectives:
+                # Invalid strategic objective
+                initiatives_invalid_strategic_objective.append({
+                    'key': initiative_key,
+                    'summary': initiative_summary,
+                    'owner_team': normalized_owner or 'None',
+                    'current_value': strategic_objective
+                })
 
         # Track initiatives without owner
         if not normalized_owner:
@@ -248,6 +291,8 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
         'initiative_urls': initiative_urls,
         'initiatives_without_owner': initiatives_without_owner,
         'initiatives_without_epics': initiatives_without_epics,
+        'initiatives_missing_strategic_objective': initiatives_missing_strategic_objective,
+        'initiatives_invalid_strategic_objective': initiatives_invalid_strategic_objective,
         'total_initiatives': len(initiatives),
         'excluded_teams': excluded_teams
     }
@@ -296,6 +341,8 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
     initiative_urls = analysis.get('initiative_urls', {})
     initiatives_without_owner = analysis['initiatives_without_owner']
     initiatives_without_epics = analysis['initiatives_without_epics']
+    initiatives_missing_strategic_objective = analysis.get('initiatives_missing_strategic_objective', [])
+    initiatives_invalid_strategic_objective = analysis.get('initiatives_invalid_strategic_objective', [])
     total_initiatives = analysis['total_initiatives']
     excluded_teams = analysis['excluded_teams']
 
@@ -411,6 +458,40 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
             print(f"  - {clickable_key} (owner: {owner}): \"{summary}\"")
     else:
         print("\n✓ All initiatives have epics")
+
+    # Initiatives with missing strategic objective
+    if initiatives_missing_strategic_objective:
+        print(f"\nInitiatives without strategic objective: {len(initiatives_missing_strategic_objective)}")
+        for init in initiatives_missing_strategic_objective:
+            # Truncate long summaries
+            summary = init['summary']
+            if len(summary) > 50:
+                summary = summary[:47] + "..."
+            owner = init.get('owner_team', 'None')
+            # Make key clickable
+            url = initiative_urls.get(init['key'], '')
+            clickable_key = make_clickable_link(init['key'], url)
+            print(f"  - {clickable_key} (owner: {owner}): \"{summary}\"")
+    else:
+        print("\n✓ All initiatives have strategic objective set")
+
+    # Initiatives with invalid strategic objective
+    if initiatives_invalid_strategic_objective:
+        print(f"\nInitiatives with invalid strategic objective: {len(initiatives_invalid_strategic_objective)}")
+        for init in initiatives_invalid_strategic_objective:
+            # Truncate long summaries
+            summary = init['summary']
+            if len(summary) > 40:
+                summary = summary[:37] + "..."
+            owner = init.get('owner_team', 'None')
+            current = init['current_value']
+            # Make key clickable
+            url = initiative_urls.get(init['key'], '')
+            clickable_key = make_clickable_link(init['key'], url)
+            print(f"  - {clickable_key} (owner: {owner}): \"{summary}\"")
+            print(f"    Current value: \"{current}\"")
+    else:
+        print("\n✓ All strategic objectives are valid")
 
     print("\n" + "=" * 70 + "\n")
 
