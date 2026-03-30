@@ -13,15 +13,15 @@ from collections import defaultdict
 import yaml
 
 
-def load_team_mappings() -> Tuple[Dict[str, str], List[str], Dict[str, str], Dict[str, Dict[str, str]]]:
+def load_team_mappings() -> Tuple[Dict[str, str], List[str], Dict[str, str], Dict[str, Dict[str, str]], Dict[str, str]]:
     """Load team mappings, exclusions, strategic objective mappings, and team managers from team_mappings.yaml.
 
     Returns:
-        Tuple of (team_mappings dict, excluded_teams list, strategic_objective_mappings dict, team_managers dict)
+        Tuple of (team_mappings dict, excluded_teams list, strategic_objective_mappings dict, team_managers dict, reverse_team_mappings dict)
     """
     mappings_file = Path(__file__).parent / 'team_mappings.yaml'
     if not mappings_file.exists():
-        return {}, [], {}, {}
+        return {}, [], {}, {}, {}
 
     try:
         with open(mappings_file, 'r', encoding='utf-8') as f:
@@ -30,6 +30,11 @@ def load_team_mappings() -> Tuple[Dict[str, str], List[str], Dict[str, str], Dic
             excluded_teams = data.get('teams_excluded_from_analysis', [])
             strategic_objective_mappings = data.get('strategic_objective_mappings', {})
             raw_managers = data.get('team_managers', {})
+
+            # Create reverse mapping: project_key -> display_name
+            reverse_team_mappings = {v: k for k, v in team_mappings.items()}
+            # For teams not in team_mappings, use the project key as display name
+            # This handles teams like "Tech Leadership" that don't have a mapping
 
             # Normalize team_managers to dict format
             team_managers = {}
@@ -47,10 +52,10 @@ def load_team_mappings() -> Tuple[Dict[str, str], List[str], Dict[str, str], Dic
                         'slack_id': value.get('slack_id')
                     }
 
-            return team_mappings, excluded_teams, strategic_objective_mappings, team_managers
+            return team_mappings, excluded_teams, strategic_objective_mappings, team_managers, reverse_team_mappings
     except Exception as e:
         print(f"Warning: Could not load team mappings: {e}", file=sys.stderr)
-        return {}, [], {}, {}
+        return {}, [], {}, {}, {}
 
 
 def make_clickable_link(text: str, url: str) -> str:
@@ -437,16 +442,19 @@ def find_latest_extract() -> Path:
 
 
 def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str]] = None,
-                         verbose: bool = False) -> None:
+                         reverse_team_mappings: Dict[str, str] = None, verbose: bool = False) -> None:
     """Print workload analysis report to console.
 
     Args:
         analysis: Results from analyze_workload()
         team_managers: Mapping of team keys to manager information
+        reverse_team_mappings: Mapping of project keys to display names
         verbose: If True, show detailed list of initiatives per team
     """
     if team_managers is None:
         team_managers = {}
+    if reverse_team_mappings is None:
+        reverse_team_mappings = {}
     team_stats = analysis['team_stats']
     team_details = analysis.get('team_details', {})
     contributing_rag = analysis.get('contributing_rag', {})
@@ -528,13 +536,16 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
             leading_list = details.get('leading', [])
             contributing_list = details.get('contributing', [])
 
+            # Get team display name (use reverse mapping or fall back to project key)
+            team_display = reverse_team_mappings.get(team, team)
+
             # Get manager info for this team
             manager_info = team_managers.get(team, {})
             manager_handle = manager_info.get('notion_handle', '')
-            manager_display = f" {manager_handle}" if manager_handle else ""
+            manager_part = f" - {manager_handle}" if manager_handle else ""
 
             print("\n" + "=" * 70)
-            print(f"{team} - {stats['total']} total initiatives{manager_display}")
+            print(f"{team_display}{manager_part} - {stats['total']} total initiatives")
             print("=" * 70)
 
             # Leading initiatives
@@ -603,6 +614,8 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
                 summary = summary[:42] + "..."
             owner = init.get('owner_team', 'None')
             missing_teams = init.get('missing_teams', [])
+            # Get team display name
+            owner_display = reverse_team_mappings.get(owner, owner)
             # Get manager info
             manager_info = team_managers.get(owner, {})
             manager_handle = manager_info.get('notion_handle', '')
@@ -610,7 +623,7 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
             # Make key clickable
             url = initiative_urls.get(init['key'], '')
             clickable_key = make_clickable_link(init['key'], url)
-            print(f"  - {clickable_key} (owner: {owner}{manager_display}): \"{summary}\"")
+            print(f"  - {clickable_key} (owner: {owner_display}{manager_display}): \"{summary}\"")
             if missing_teams:
                 print(f"    Missing epics from: {', '.join(missing_teams)}")
     else:
@@ -625,6 +638,8 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
             if len(summary) > 50:
                 summary = summary[:47] + "..."
             owner = init.get('owner_team', 'None')
+            # Get team display name
+            owner_display = reverse_team_mappings.get(owner, owner)
             # Get manager info
             manager_info = team_managers.get(owner, {})
             manager_handle = manager_info.get('notion_handle', '')
@@ -632,7 +647,7 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
             # Make key clickable
             url = initiative_urls.get(init['key'], '')
             clickable_key = make_clickable_link(init['key'], url)
-            print(f"  - {clickable_key} (owner: {owner}{manager_display}): \"{summary}\"")
+            print(f"  - {clickable_key} (owner: {owner_display}{manager_display}): \"{summary}\"")
     else:
         print("\n✓ All initiatives have strategic objective set")
 
@@ -721,7 +736,7 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
         print(f"Loading extraction data from: {json_file}")
 
     # Load team mappings and exclusions
-    team_mappings, excluded_teams, strategic_objective_mappings, team_managers = load_team_mappings()
+    team_mappings, excluded_teams, strategic_objective_mappings, team_managers, reverse_team_mappings = load_team_mappings()
 
     if args.verbose:
         print(f"Loaded {len(team_mappings)} team mappings")
@@ -736,7 +751,8 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
     analysis = analyze_workload(json_file, team_mappings, excluded_teams, strategic_objective_mappings)
 
     # Print report
-    print_workload_report(analysis, team_managers=team_managers, verbose=args.verbose)
+    print_workload_report(analysis, team_managers=team_managers, reverse_team_mappings=reverse_team_mappings,
+                         verbose=args.verbose)
 
 
 if __name__ == '__main__':
