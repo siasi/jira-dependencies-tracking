@@ -305,24 +305,36 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
                     })
 
         # Track contributing teams (teams with epics that are not the owner)
+        # Only include teams with at least one epic that is NOT Done or Won't Do
         contributing_teams_list = []
         if teams_with_epics:
             # Identify teams contributing (have epics but are not owner)
             for team_data in contributing_teams_data:
                 team_project_key = team_data.get('team_project_key')
                 if team_project_key and team_project_key != normalized_owner:
-                    # Add to contributing teams list (regardless of excluded status for CSV export)
-                    contributing_teams_list.append(team_project_key)
+                    epics = team_data.get('epics', [])
 
-                    # Count as "contributing" for non-owner teams (if not excluded)
-                    if team_project_key not in excluded_teams:
-                        workload[team_project_key]['contributing'].add(initiative_key)
+                    # Check if this team has at least one active epic (not Done or Won't Do)
+                    has_active_epic = False
+                    for epic in epics:
+                        epic_status = epic.get('status', '')
+                        if epic_status not in ['Done', "Won't Do"]:
+                            has_active_epic = True
+                            break
 
-                        # Track RAG statuses for this team's epics
-                        epics = team_data.get('epics', [])
-                        for epic in epics:
-                            rag_status = epic.get('rag_status')
-                            contributing_rag[team_project_key][initiative_key].append(rag_status)
+                    # Only include team if they have active epics
+                    if has_active_epic:
+                        # Add to contributing teams list (regardless of excluded status for CSV export)
+                        contributing_teams_list.append(team_project_key)
+
+                        # Count as "contributing" for non-owner teams (if not excluded)
+                        if team_project_key not in excluded_teams:
+                            workload[team_project_key]['contributing'].add(initiative_key)
+
+                            # Track RAG statuses for this team's epics
+                            for epic in epics:
+                                rag_status = epic.get('rag_status')
+                                contributing_rag[team_project_key][initiative_key].append(rag_status)
 
         # Store contributing teams for this initiative
         initiative_contributing_teams[initiative_key] = contributing_teams_list
