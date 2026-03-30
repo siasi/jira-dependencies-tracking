@@ -18,12 +18,12 @@ Summary:
   🟡 No/Low confidence for completion - require discussion: {{ result.low_confidence_completion|length }} initiatives
   ✅ Ready to Move to Planned: {{ result.ready_to_plan|length }} initiatives
   🎯 Planned/In Progress for the Quarter: {{ result.planned_for_quarter|length }} initiatives
-{%- if result.planned_regressions %}
+{% if result.planned_regressions %}
   🔄 Planned/In Progress Initiatives with Issues: {{ result.planned_regressions|length }} initiatives
-{%- endif %}
-{%- if verbose and result.ignored_statuses %}
+{% endif %}
+{% if verbose and result.ignored_statuses %}
   ⏭️  Not Analyzed: {{ result.ignored_statuses|length }} initiatives
-{%- endif %}
+{% endif %}
 
 --------------------------------------------------------------------------------
 
@@ -36,9 +36,9 @@ Action required: Create missing epics and set initial RAG status
 {{ item.key }}: {{ item.summary }}
 
 {% for issue in item.issues -%}
-{% if issue.type == 'missing_assignee' -%}
+{% if issue.type == 'missing_assignee' %}
    ⚠️  Missing Assignee - Action:
-{%- set owner_team = item.get('owner_team') -%}
+{% set owner_team = item.get('owner_team') -%}
 {%- set manager_tag = '' -%}
 {%- if owner_team -%}
 {%- set project_key = team_mappings.get(owner_team, owner_team) -%}
@@ -48,9 +48,9 @@ Action required: Create missing epics and set initial RAG status
 {%- set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
        [ ] Set the assignee/owner for the initiative{{ manager_suffix }}
 
-{% elif issue.type == 'missing_strategic_objective' -%}
+{% elif issue.type == 'missing_strategic_objective' %}
    ⚠️  Missing Strategic Objective - Action:
-{%- set owner_team = item.get('owner_team') -%}
+{% set owner_team = item.get('owner_team') -%}
 {%- set manager_tag = '' -%}
 {%- if owner_team -%}
 {%- set project_key = team_mappings.get(owner_team, owner_team) -%}
@@ -60,9 +60,9 @@ Action required: Create missing epics and set initial RAG status
 {%- set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
        [ ] Set the Strategic Objective field for this initiative{{ manager_suffix }}
 
-{% elif issue.type == 'invalid_strategic_objective' -%}
+{% elif issue.type == 'invalid_strategic_objective' %}
    ⚠️  Invalid Strategic Objective - Action:
-{%- set owner_team = item.get('owner_team') -%}
+{% set owner_team = item.get('owner_team') -%}
 {%- set manager_tag = '' -%}
 {%- if owner_team -%}
 {%- set project_key = team_mappings.get(owner_team, owner_team) -%}
@@ -83,7 +83,7 @@ Action required: Create missing epics and set initial RAG status
 {%- set teams_count = issue.teams_involved|length -%}
 {%- set epics_count = issue.teams_with_epics|length %}
    ⚠️  Missing dependencies - Action:
-{%- if verbose %}
+{% if verbose %}
        - Has {{ epic_keys|length }} epics: {{ epic_keys|join(', ') }}
        - Teams Involved: {{ issue.teams_involved|join(', ') }}
 {%- endif %}
@@ -107,7 +107,7 @@ Action required: Create missing epics and set initial RAG status
 {%- set manager_tag = manager_info.get('notion_handle', '') -%}
 {%- set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
        [ ] {{ team_str }} to create epic{{ manager_suffix }}
-{%- endfor -%}
+{% endfor %}
 {%- else -%}
 {%- set missing_count = teams_count - epics_count %}
        - Action: Create {{ missing_count }} missing epic{% if missing_count > 1 %}s{% endif %} or update Teams Involved field
@@ -135,9 +135,9 @@ Action required: Create missing epics and set initial RAG status
 {%- endif -%}
 {%- endif %}
 
-{% elif issue.type == 'missing_rag_status' -%}
+{% elif issue.type == 'missing_rag_status' %}
    ⚠️  Missing RAG status - Action:
-{%- for team_data in issue.teams -%}
+{% for team_data in issue.teams -%}
 {%- set team_name = team_data.team_name -%}
 {%- set epic_keys = [] -%}
 {%- for epic in team_data.epics -%}
@@ -151,7 +151,7 @@ Action required: Create missing epics and set initial RAG status
 {%- endfor %}
 {%- endif %}
        [ ] {{ team_name }} to set RAG status for {{ epics_str }}
-{%- endfor %}
+{% endfor %}
 
 {%- endif -%}
 {%- endfor -%}
@@ -172,27 +172,27 @@ deprioritise it (move to DEPRIORITISED)
 {{ item.key }}: {{ item.summary }}
 
 {% for issue in item.issues -%}
-{% if issue.type == 'red_epics' -%}
+{% if issue.type == 'red_epics' %}
    🔴 Epics with RED status ({{ issue.epics|length }})
-{%- for epic in issue.epics -%}
-{%- set rag_display = '🔴' if epic.rag_status == '🔴' else '(missing - treated as RED)' %}
+{% for epic in issue.epics -%}
+{% set rag_display = '🔴' if epic.rag_status == '🔴' else '(missing - treated as RED)' %}
        - {{ epic.key }} {{ rag_display }}: "{{ epic.summary }}"
-{%- endfor %}
+{% endfor %}
 
-{% elif issue.type == 'yellow_epics' -%}
+{% elif issue.type == 'yellow_epics' %}
    🟡 Epics with YELLOW status ({{ issue.epics|length }})
-{%- for epic in issue.epics -%}
-{%- set rag_display = '🟡' if epic.get('rag_status') else '(missing - treated as YELLOW)' %}
+{% for epic in issue.epics -%}
+{% set rag_display = '🟡' if epic.get('rag_status') else '(missing - treated as YELLOW)' %}
        - {{ epic.key }} {{ rag_display }}: "{{ epic.summary }}"
-{%- endfor %}
+{% endfor %}
 
 {%- endif -%}
 {%- endfor -%}
 {%- endfor -%}
-{%- else %}
+{% else %}
 No initiatives with no/low confidence for completion at this time.
 
-{%- endif %}
+{% endif %}
 --------------------------------------------------------------------------------
 
 ✅ READY TO MOVE TO PLANNED ({{ result.ready_to_plan|length }} initiatives)
@@ -218,41 +218,41 @@ These initiatives are ready and meet all quality criteria
 
 {% if result.planned_for_quarter -%}
 {% for item in result.planned_for_quarter -%}
-{%- set warning = '' -%}
-{%- if item.get('has_red_epics') -%}
-{%- set warning = " WON'T COMPLETE" -%}
-{%- elif item.get('has_yellow_epics') -%}
-{%- set warning = ' ⚠️ LOW CONFIDENCE' -%}
-{%- endif %}
+{% set warning = '' -%}
+{% if item.get('has_red_epics') -%}
+{% set warning = " WON'T COMPLETE" -%}
+{% elif item.get('has_yellow_epics') -%}
+{% set warning = ' ⚠️ LOW CONFIDENCE' -%}
+{% endif %}
 {{ item.key }}: {{ item.summary }}{{ warning }}
-{%- if item.get('assignee') %}
+{% if item.get('assignee') %}
    Assignee: {{ item.assignee }}
-{%- endif -%}
-{%- set contributing_teams = item.get('contributing_teams', []) -%}
-{%- if contributing_teams -%}
-{%- set epic_keys = [] -%}
-{%- for tc in contributing_teams -%}
-{%- for epic in tc.get('epics', []) -%}
-{%- set rag = epic.get('rag_status') or 'No RAG' -%}
-{%- set _ = epic_keys.append(epic.key + ' (' + rag + ')') -%}
-{%- endfor -%}
-{%- endfor -%}
-{%- if epic_keys %}
+{% endif -%}
+{% set contributing_teams = item.get('contributing_teams', []) -%}
+{% if contributing_teams -%}
+{% set epic_keys = [] -%}
+{% for tc in contributing_teams -%}
+{% for epic in tc.get('epics', []) -%}
+{% set rag = epic.get('rag_status') or 'No RAG' -%}
+{% set _ = epic_keys.append(epic.key + ' (' + rag + ')') -%}
+{% endfor -%}
+{% endfor -%}
+{% if epic_keys %}
    Epics: {{ epic_keys|join(', ') }}
-{%- endif -%}
-{%- endif -%}
-{%- if item.get('is_discovery') -%}
-{%- set teams_involved = item.get('teams_involved', []) -%}
-{%- if teams_involved -%}
-{%- set teams_str = teams_involved|join(', ') %}
+{% endif -%}
+{% endif -%}
+{% if item.get('is_discovery') -%}
+{% set teams_involved = item.get('teams_involved', []) -%}
+{% if teams_involved -%}
+{% set teams_str = teams_involved|join(', ') %}
    ⚠️ Discovery impact for: {{ teams_str }}
-{%- endif -%}
-{%- endif %}
+{% endif -%}
+{% endif %}
 
-{%- endfor -%}
-{%- else %}
+{% endfor -%}
+{% else %}
 No initiatives are planned for this quarter yet.
-{%- endif %}
+{% endif %}
 
 --------------------------------------------------------------------------------
 
@@ -268,7 +268,7 @@ Help needed: Verify RAG status updates, confirm team commitment
 {% for issue in item.get('issues', []) -%}
 {% if issue.type == 'missing_strategic_objective' -%}
    ⚠️  Missing Strategic Objective - Action:
-{%- set owner_team = item.get('owner_team') -%}
+{% set owner_team = item.get('owner_team') -%}
 {%- set manager_tag = '' -%}
 {%- if owner_team -%}
 {%- set project_key = team_mappings.get(owner_team, owner_team) -%}
@@ -278,9 +278,9 @@ Help needed: Verify RAG status updates, confirm team commitment
 {%- set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
        [ ] Set the Strategic Objective field for this initiative{{ manager_suffix }}
 
-{% elif issue.type == 'invalid_strategic_objective' -%}
+{% elif issue.type == 'invalid_strategic_objective' %}
    ⚠️  Invalid Strategic Objective - Action:
-{%- set owner_team = item.get('owner_team') -%}
+{% set owner_team = item.get('owner_team') -%}
 {%- set manager_tag = '' -%}
 {%- if owner_team -%}
 {%- set project_key = team_mappings.get(owner_team, owner_team) -%}
@@ -301,7 +301,7 @@ Help needed: Verify RAG status updates, confirm team commitment
 {%- set teams_count = issue.teams_involved|length -%}
 {%- set epics_count = issue.teams_with_epics|length %}
    ⚠️  Missing dependencies - Action:
-{%- if verbose %}
+{% if verbose %}
        - Has {{ epic_keys|length }} epics: {{ epic_keys|join(', ') }}
        - Teams Involved: {{ issue.teams_involved|join(', ') }}
 {%- endif %}
@@ -325,7 +325,7 @@ Help needed: Verify RAG status updates, confirm team commitment
 {%- set manager_tag = manager_info.get('notion_handle', '') -%}
 {%- set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
        [ ] {{ team_str }} to create epic{{ manager_suffix }}
-{%- endfor -%}
+{% endfor %}
 {%- else -%}
 {%- set missing_count = teams_count - epics_count %}
        - Action: Create {{ missing_count }} missing epic{% if missing_count > 1 %}s{% endif %} or update Teams Involved field
@@ -353,9 +353,9 @@ Help needed: Verify RAG status updates, confirm team commitment
 {%- endif -%}
 {%- endif %}
 
-{% elif issue.type == 'missing_rag_status' -%}
+{% elif issue.type == 'missing_rag_status' %}
    ⚠️  Missing RAG status - Action:
-{%- for team_data in issue.teams -%}
+{% for team_data in issue.teams -%}
 {%- set team_name = team_data.team_name -%}
 {%- set epic_keys = [] -%}
 {%- for epic in team_data.epics -%}
@@ -369,19 +369,19 @@ Help needed: Verify RAG status updates, confirm team commitment
 {%- endfor %}
 {%- endif %}
        [ ] {{ team_name }} to set RAG status for {{ epics_str }}
-{%- endfor %}
+{% endfor %}
 
-{% elif issue.type == 'red_epics' -%}
+{% elif issue.type == 'red_epics' %}
    ⚠️  Epics with RED status ({{ issue.epics|length }})
-{%- for epic in issue.epics -%}
-{%- set rag_display = '🔴' if epic.rag_status == '🔴' else '(missing - treated as RED)' %}
+{% for epic in issue.epics -%}
+{% set rag_display = '🔴' if epic.rag_status == '🔴' else '(missing - treated as RED)' %}
        - {{ epic.key }} {{ rag_display }}: "{{ epic.summary }}"
-{%- endfor %}
+{% endfor %}
 
-{% elif issue.type == 'yellow_epics' -%}
+{% elif issue.type == 'yellow_epics' %}
    ⚠️  Epics with YELLOW status or missing RAG ({{ issue.epics|length }})
-{%- for epic in issue.epics -%}
-{%- set rag_status = epic.get('rag_status') -%}
+{% for epic in issue.epics -%}
+{% set rag_status = epic.get('rag_status') -%}
 {%- if rag_status is none -%}
 {%- set rag_display = '(missing RAG - treated as YELLOW)' -%}
 {%- elif rag_status == '🟡' -%}
@@ -392,11 +392,11 @@ Help needed: Verify RAG status updates, confirm team commitment
 {%- set rag_display = rag_status -%}
 {%- endif %}
        - {{ epic.key }} {{ rag_display }}: "{{ epic.summary }}"
-{%- endfor %}
+{% endfor %}
 
-{% elif issue.type == 'missing_assignee' -%}
+{% elif issue.type == 'missing_assignee' %}
    ⚠️  Missing Assignee - Action:
-{%- set owner_team = item.get('owner_team') -%}
+{% set owner_team = item.get('owner_team') -%}
 {%- set manager_tag = '' -%}
 {%- if owner_team -%}
 {%- set project_key = team_mappings.get(owner_team, owner_team) -%}
@@ -406,12 +406,12 @@ Help needed: Verify RAG status updates, confirm team commitment
 {%- set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
        [ ] Set the assignee/owner for the initiative{{ manager_suffix }}
 
-{%- endif -%}
-{%- endfor -%}
-{%- endfor %}
+{% endif -%}
+{% endfor -%}
+{% endfor %}
 --------------------------------------------------------------------------------
 
-{%- endif %}
+{% endif %}
 {% if verbose and result.ignored_statuses -%}
 ⏭️  NOT ANALYZED ({{ result.ignored_statuses|length }} initiatives)
 
