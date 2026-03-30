@@ -34,7 +34,7 @@ def load_team_mappings() -> Tuple[Dict[str, str], List[str]]:
         return {}, []
 
 
-def make_clickable_link(text: str, url: str, enable_links: bool = True) -> str:
+def make_clickable_link(text: str, url: str) -> str:
     """Create a clickable hyperlink for terminal output.
 
     Uses ANSI escape codes supported by modern terminals:
@@ -51,12 +51,11 @@ def make_clickable_link(text: str, url: str, enable_links: bool = True) -> str:
     Args:
         text: The text to display
         url: The URL to link to
-        enable_links: If False, return plain text without hyperlink codes
 
     Returns:
-        ANSI-formatted string with hyperlink (if enable_links=True), or plain text
+        ANSI-formatted string with hyperlink
     """
-    if not url or not enable_links:
+    if not url:
         return text
     # ANSI escape code format: \033]8;;URL\033\\TEXT\033]8;;\033\\
     return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
@@ -214,13 +213,12 @@ def find_latest_extract() -> Path:
     return max(all_files, key=lambda p: p.stat().st_mtime)
 
 
-def print_workload_report(analysis: Dict, verbose: bool = False, enable_links: bool = True) -> None:
+def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
     """Print workload analysis report to console.
 
     Args:
         analysis: Results from analyze_workload()
         verbose: If True, show detailed list of initiatives per team
-        enable_links: If True, make initiative keys clickable hyperlinks
     """
     team_stats = analysis['team_stats']
     team_details = analysis.get('team_details', {})
@@ -281,7 +279,7 @@ def print_workload_report(analysis: Dict, verbose: bool = False, enable_links: b
                     if len(summary) > 70:
                         summary = summary[:67] + "..."
                     # Make initiative key clickable if URL available
-                    clickable_key = make_clickable_link(init_key, url, enable_links)
+                    clickable_key = make_clickable_link(init_key, url)
                     print(f"  - {clickable_key}: {summary}")
             else:
                 print(f"\nLeading: None")
@@ -296,7 +294,7 @@ def print_workload_report(analysis: Dict, verbose: bool = False, enable_links: b
                     if len(summary) > 70:
                         summary = summary[:67] + "..."
                     # Make initiative key clickable if URL available
-                    clickable_key = make_clickable_link(init_key, url, enable_links)
+                    clickable_key = make_clickable_link(init_key, url)
                     print(f"  - {clickable_key}: {summary}")
             else:
                 print(f"\nContributing: None")
@@ -316,7 +314,7 @@ def print_workload_report(analysis: Dict, verbose: bool = False, enable_links: b
                 summary = summary[:57] + "..."
             # Make key clickable
             url = initiative_urls.get(init['key'], '')
-            clickable_key = make_clickable_link(init['key'], url, enable_links)
+            clickable_key = make_clickable_link(init['key'], url)
             print(f"  - {clickable_key}: \"{summary}\"")
     else:
         print("\n✓ All initiatives have owner_team")
@@ -332,7 +330,7 @@ def print_workload_report(analysis: Dict, verbose: bool = False, enable_links: b
             owner = init.get('owner_team', 'None')
             # Make key clickable
             url = initiative_urls.get(init['key'], '')
-            clickable_key = make_clickable_link(init['key'], url, enable_links)
+            clickable_key = make_clickable_link(init['key'], url)
             print(f"  - {clickable_key} (owner: {owner}): \"{summary}\"")
     else:
         print("\n✓ All initiatives have epics")
@@ -380,12 +378,6 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
         help='Show detailed list of initiatives per team (leading and contributing)'
     )
 
-    parser.add_argument(
-        '--no-links',
-        action='store_true',
-        help='Disable clickable hyperlinks in output (use plain text)'
-    )
-
     args = parser.parse_args()
 
     # Determine which JSON file to use
@@ -417,7 +409,7 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
     analysis = analyze_workload(json_file, team_mappings, excluded_teams)
 
     # Print report
-    print_workload_report(analysis, verbose=args.verbose, enable_links=not args.no_links)
+    print_workload_report(analysis, verbose=args.verbose)
 
 
 if __name__ == '__main__':
