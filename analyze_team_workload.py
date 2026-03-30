@@ -192,13 +192,15 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
         # Check if initiative has any epics
         has_epics = any(team_data.get('epics') for team_data in contributing_teams_data)
 
-        # Track initiatives without epics
+        # Track initiatives without epics (exclude if owned by excluded team)
         if not has_epics:
-            initiatives_without_epics.append({
-                'key': initiative_key,
-                'summary': initiative_summary,
-                'owner_team': normalized_owner or 'None'
-            })
+            # Only add if owner is not in excluded teams
+            if not normalized_owner or normalized_owner not in excluded_teams:
+                initiatives_without_epics.append({
+                    'key': initiative_key,
+                    'summary': initiative_summary,
+                    'owner_team': normalized_owner or 'None'
+                })
         else:
             # Identify teams contributing (have epics but are not owner)
             for team_data in contributing_teams_data:
