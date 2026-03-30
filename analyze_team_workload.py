@@ -117,9 +117,14 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
 
     # Convert sets to counts and calculate totals
     team_stats = {}
+    team_details = {}
+
     for team, data in workload.items():
-        leading_count = len(data['leading'])
-        contributing_count = len(data['contributing'])
+        leading_list = sorted(data['leading'])
+        contributing_list = sorted(data['contributing'])
+
+        leading_count = len(leading_list)
+        contributing_count = len(contributing_list)
         total_count = leading_count + contributing_count
 
         team_stats[team] = {
@@ -128,8 +133,15 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
             'total': total_count
         }
 
+        # Store detailed lists for verbose mode
+        team_details[team] = {
+            'leading': leading_list,
+            'contributing': contributing_list
+        }
+
     return {
         'team_stats': team_stats,
+        'team_details': team_details,
         'initiatives_without_owner': initiatives_without_owner,
         'initiatives_without_epics': initiatives_without_epics,
         'total_initiatives': len(initiatives),
@@ -166,13 +178,15 @@ def find_latest_extract() -> Path:
     return max(all_files, key=lambda p: p.stat().st_mtime)
 
 
-def print_workload_report(analysis: Dict) -> None:
+def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
     """Print workload analysis report to console.
 
     Args:
         analysis: Results from analyze_workload()
+        verbose: If True, show detailed list of initiatives per team
     """
     team_stats = analysis['team_stats']
+    team_details = analysis.get('team_details', {})
     initiatives_without_owner = analysis['initiatives_without_owner']
     initiatives_without_epics = analysis['initiatives_without_epics']
     total_initiatives = analysis['total_initiatives']
@@ -203,6 +217,36 @@ def print_workload_report(analysis: Dict) -> None:
             print(f"{team}: {stats['total']} total ({stats['leading']} leading, {stats['contributing']} contributing)")
     else:
         print("No teams found in analysis.")
+
+    # Verbose detailed section
+    if verbose and sorted_teams:
+        print("\n" + "-" * 70)
+        print("Detailed Breakdown by Team:")
+        print("-" * 70)
+
+        for team, stats in sorted_teams:
+            details = team_details.get(team, {})
+            leading_list = details.get('leading', [])
+            contributing_list = details.get('contributing', [])
+
+            print(f"\n{team} - {stats['total']} total initiatives")
+            print("=" * 50)
+
+            # Leading initiatives
+            if leading_list:
+                print(f"\nLeading ({stats['leading']} initiatives):")
+                for init_key in leading_list:
+                    print(f"  - {init_key}")
+            else:
+                print(f"\nLeading: None")
+
+            # Contributing initiatives
+            if contributing_list:
+                print(f"\nContributing ({stats['contributing']} initiatives):")
+                for init_key in contributing_list:
+                    print(f"  - {init_key}")
+            else:
+                print(f"\nContributing: None")
 
     # Issues section
     print("\n" + "-" * 70)
@@ -274,7 +318,7 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
     parser.add_argument(
         '--verbose',
         action='store_true',
-        help='Verbose output for debugging'
+        help='Show detailed list of initiatives per team (leading and contributing)'
     )
 
     args = parser.parse_args()
@@ -308,7 +352,7 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
     analysis = analyze_workload(json_file, team_mappings, excluded_teams)
 
     # Print report
-    print_workload_report(analysis)
+    print_workload_report(analysis, verbose=args.verbose)
 
 
 if __name__ == '__main__':
