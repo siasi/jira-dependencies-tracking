@@ -33,7 +33,7 @@ Action required: Create missing epics and set initial RAG status
 
 {% if result.dependency_mapping -%}
 {% for item in result.dependency_mapping -%}
-{{ item.key }}: {{ item.summary }}
+{{ item.key|hyperlink(item.url) }}: {{ item.summary }}
 
 {% for issue in item.issues -%}
 {% if issue.type == 'missing_assignee' %}
@@ -147,7 +147,7 @@ Action required: Create missing epics and set initial RAG status
 {%- if verbose %}
        - {{ team_name }}:
 {%- for epic in team_data.epics %}
-         {{ epic.key }}: "{{ epic.summary }}"
+         {{ epic.key|hyperlink(epic.url) }}: "{{ epic.summary }}"
 {%- endfor %}
 {%- endif %}
        [ ] {{ team_name }} to set RAG status for {{ epics_str }}
@@ -169,21 +169,21 @@ deprioritise it (move to DEPRIORITISED)
 
 {% if result.low_confidence_completion -%}
 {% for item in result.low_confidence_completion -%}
-{{ item.key }}: {{ item.summary }}
+{{ item.key|hyperlink(item.url) }}: {{ item.summary }}
 
 {% for issue in item.issues -%}
 {% if issue.type == 'red_epics' %}
    🔴 Epics with RED status ({{ issue.epics|length }})
 {% for epic in issue.epics -%}
 {% set rag_display = '🔴' if epic.rag_status == '🔴' else '(missing - treated as RED)' %}
-       - {{ rag_display }} {{ epic.key }}: "{{ epic.summary }}"
+       - {{ rag_display }} {{ epic.key|hyperlink(epic.url) }}: "{{ epic.summary }}"
 {% endfor %}
 
 {% elif issue.type == 'yellow_epics' %}
    🟡 Epics with YELLOW status ({{ issue.epics|length }})
 {% for epic in issue.epics -%}
 {% set rag_display = '🟡' if epic.get('rag_status') else '(missing - treated as YELLOW)' %}
-       - {{ rag_display }} {{ epic.key }}: "{{ epic.summary }}"
+       - {{ rag_display }} {{ epic.key|hyperlink(epic.url) }}: "{{ epic.summary }}"
 {% endfor %}
 
 {%- endif -%}
@@ -201,7 +201,7 @@ Action required: Update status to Planned in Jira (bulk keys provided below)
 
 {% if result.ready_to_plan -%}
 {% for item in result.ready_to_plan -%}
-{{ item.key }}: {{ item.summary }}
+{{ item.key|hyperlink(item.url) }}: {{ item.summary }}
 {% endfor -%}
 
 Bulk update - Copy these issue keys for Jira:
@@ -224,7 +224,7 @@ These initiatives are ready and meet all quality criteria
 {% elif item.get('has_yellow_epics') -%}
 {% set warning = ' ⚠️ LOW CONFIDENCE' -%}
 {% endif %}
-{{ item.key }}: {{ item.summary }}{{ warning }}
+{{ item.key|hyperlink(item.url) }}: {{ item.summary }}{{ warning }}
 {% if item.get('assignee') %}
    Assignee: {{ item.assignee }}
 {% endif -%}
@@ -263,7 +263,7 @@ To maintain quality: Review status changes for these planned/in progress initiat
 Help needed: Verify RAG status updates, confirm team commitment
 
 {% for item in result.planned_regressions -%}
-{{ item.key }}: {{ item.summary }}
+{{ item.key|hyperlink(item.url) }}: {{ item.summary }}
 
 {% for issue in item.get('issues', []) -%}
 {% if issue.type == 'missing_strategic_objective' -%}
@@ -365,7 +365,7 @@ Help needed: Verify RAG status updates, confirm team commitment
 {%- if verbose %}
        - {{ team_name }}:
 {%- for epic in team_data.epics %}
-         {{ epic.key }}: "{{ epic.summary }}"
+         {{ epic.key|hyperlink(epic.url) }}: "{{ epic.summary }}"
 {%- endfor %}
 {%- endif %}
        [ ] {{ team_name }} to set RAG status for {{ epics_str }}
@@ -375,7 +375,7 @@ Help needed: Verify RAG status updates, confirm team commitment
    ⚠️  Epics with RED status ({{ issue.epics|length }})
 {% for epic in issue.epics -%}
 {% set rag_display = '🔴' if epic.rag_status == '🔴' else '(missing - treated as RED)' %}
-       - {{ rag_display }} {{ epic.key }}: "{{ epic.summary }}"
+       - {{ rag_display }} {{ epic.key|hyperlink(epic.url) }}: "{{ epic.summary }}"
 {% endfor %}
 
 {% elif issue.type == 'yellow_epics' %}
@@ -391,7 +391,7 @@ Help needed: Verify RAG status updates, confirm team commitment
 {%- else -%}
 {%- set rag_display = rag_status -%}
 {%- endif %}
-       - {{ rag_display }} {{ epic.key }}: "{{ epic.summary }}"
+       - {{ rag_display }} {{ epic.key|hyperlink(epic.url) }}: "{{ epic.summary }}"
 {% endfor %}
 
 {% elif issue.type == 'missing_assignee' %}
@@ -418,7 +418,7 @@ Help needed: Verify RAG status updates, confirm team commitment
 These initiatives are not included in the analysis:
 
 {% for item in result.ignored_statuses -%}
-{{ item.key }}: {{ item.summary }}
+{{ item.key|hyperlink(item.url) }}: {{ item.summary }}
    Status: {{ item.status }}
 
 {%- endfor %}

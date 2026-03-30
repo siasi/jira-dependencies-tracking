@@ -3,14 +3,17 @@
 import pytest
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
-from validate_initiative_status import ValidationResult
+from validate_initiative_status import ValidationResult, make_clickable_link
 
 
 @pytest.fixture
 def jinja_env():
     """Create Jinja2 environment for template rendering."""
     template_dir = Path(__file__).parent.parent / 'templates'
-    return Environment(loader=FileSystemLoader(str(template_dir)))
+    env = Environment(loader=FileSystemLoader(str(template_dir)))
+    # Register hyperlink filter
+    env.filters['hyperlink'] = make_clickable_link
+    return env
 
 
 @pytest.fixture
@@ -23,6 +26,7 @@ def sample_validation_result():
         'key': 'INIT-1',
         'summary': 'Test Initiative 1',
         'owner_team': 'TestTeam',
+        'url': 'https://truelayer.atlassian.net/browse/INIT-1',
         'issues': [
             {'type': 'missing_assignee'},
             {'type': 'missing_strategic_objective'},
@@ -38,13 +42,13 @@ def sample_validation_result():
                     {
                         'team_name': 'Team1',
                         'epics': [
-                            {'key': 'EPIC-1', 'summary': 'Epic 1'}
+                            {'key': 'EPIC-1', 'summary': 'Epic 1', 'url': 'https://truelayer.atlassian.net/browse/EPIC-1'}
                         ]
                     },
                     {
                         'team_name': 'Team2',
                         'epics': [
-                            {'key': 'EPIC-2', 'summary': 'Epic 2'}
+                            {'key': 'EPIC-2', 'summary': 'Epic 2', 'url': 'https://truelayer.atlassian.net/browse/EPIC-2'}
                         ]
                     }
                 ]
@@ -53,7 +57,7 @@ def sample_validation_result():
         'contributing_teams': [
             {
                 'team_project_key': 'TEAM1',
-                'epics': [{'key': 'EPIC-1', 'summary': 'Epic 1', 'rag_status': None}]
+                'epics': [{'key': 'EPIC-1', 'summary': 'Epic 1', 'rag_status': None, 'url': 'https://truelayer.atlassian.net/browse/EPIC-1'}]
             }
         ]
     })
@@ -63,19 +67,20 @@ def sample_validation_result():
         'key': 'INIT-2',
         'summary': 'Test Initiative 2',
         'owner_team': 'TestTeam',
+        'url': 'https://truelayer.atlassian.net/browse/INIT-2',
         'issues': [
             {
                 'type': 'red_epics',
                 'epics': [
-                    {'key': 'EPIC-3', 'summary': 'Red Epic 1', 'rag_status': '🔴'},
-                    {'key': 'EPIC-4', 'summary': 'Red Epic 2', 'rag_status': '🔴'}
+                    {'key': 'EPIC-3', 'summary': 'Red Epic 1', 'rag_status': '🔴', 'url': 'https://truelayer.atlassian.net/browse/EPIC-3'},
+                    {'key': 'EPIC-4', 'summary': 'Red Epic 2', 'rag_status': '🔴', 'url': 'https://truelayer.atlassian.net/browse/EPIC-4'}
                 ]
             },
             {
                 'type': 'yellow_epics',
                 'epics': [
-                    {'key': 'EPIC-5', 'summary': 'Yellow Epic 1', 'rag_status': '🟡'},
-                    {'key': 'EPIC-6', 'summary': 'Yellow Epic 2', 'rag_status': '🟡'}
+                    {'key': 'EPIC-5', 'summary': 'Yellow Epic 1', 'rag_status': '🟡', 'url': 'https://truelayer.atlassian.net/browse/EPIC-5'},
+                    {'key': 'EPIC-6', 'summary': 'Yellow Epic 2', 'rag_status': '🟡', 'url': 'https://truelayer.atlassian.net/browse/EPIC-6'}
                 ]
             }
         ],

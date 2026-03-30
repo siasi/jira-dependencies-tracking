@@ -53,6 +53,33 @@ class ValidationResult:
                 len(self.planned_regressions) > 0)
 
 
+def make_clickable_link(text: str, url: str) -> str:
+    """Create a clickable hyperlink for terminal output.
+
+    Uses ANSI escape codes supported by modern terminals:
+    - iTerm2 (macOS)
+    - Terminal.app (macOS 10.14+)
+    - GNOME Terminal (Linux)
+    - Windows Terminal
+    - VS Code integrated terminal
+    - Alacritty, Kitty, and other modern terminals
+
+    Note: In terminals without hyperlink support, the text will display normally
+    without the link functionality.
+
+    Args:
+        text: The text to display
+        url: The URL to link to
+
+    Returns:
+        ANSI-formatted string with hyperlink
+    """
+    if not url:
+        return text
+    # ANSI escape code format: \033]8;;URL\033\\TEXT\033]8;;\033\\
+    return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
+
+
 def _is_discovery_initiative(initiative: dict) -> bool:
     """Check if an initiative is a discovery initiative.
 
@@ -972,6 +999,8 @@ def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
         trim_blocks=True,
         lstrip_blocks=True
     )
+    # Register hyperlink filter
+    env.filters['hyperlink'] = make_clickable_link
 
     # Render template
     template = env.get_template('dust.j2')
@@ -1203,6 +1232,8 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
         trim_blocks=True,
         lstrip_blocks=True
     )
+    # Register hyperlink filter
+    env.filters['hyperlink'] = make_clickable_link
 
     # Render template
     template = env.get_template('console.j2')
@@ -1245,6 +1276,8 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
         trim_blocks=True,
         lstrip_blocks=True
     )
+    # Register hyperlink filter
+    env.filters['hyperlink'] = make_clickable_link
 
     # Render template
     template = env.get_template('markdown.j2')
