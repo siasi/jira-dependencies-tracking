@@ -61,6 +61,69 @@ def make_clickable_link(text: str, url: str) -> str:
     return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
 
 
+def get_rag_circle(rag_status: str) -> str:
+    """Get colored circle emoji for RAG status.
+
+    Args:
+        rag_status: RAG status (red, yellow, green, or None)
+
+    Returns:
+        Colored circle emoji
+    """
+    rag_map = {
+        '🔴': '🔴',  # Red circle
+        '🟡': '🟡',  # Yellow circle
+        '🟢': '🟢',  # Green circle
+        'RED': '🔴',
+        'YELLOW': '🟡',
+        'AMBER': '🟡',
+        'GREEN': '🟢',
+    }
+    if not rag_status:
+        return '🔴'  # Missing RAG status is treated as red
+    return rag_map.get(rag_status, '🔴')
+
+
+def aggregate_rag_status(rag_statuses: List[str]) -> str:
+    """Aggregate multiple RAG statuses into a single status.
+
+    Rules:
+    - Red: if at least one epic is red OR missing RAG status
+    - Yellow: if no red, but at least one yellow
+    - Green: if all epics are green
+
+    Args:
+        rag_statuses: List of RAG status values (can include None)
+
+    Returns:
+        Aggregated RAG status emoji (🔴, 🟡, or 🟢)
+    """
+    if not rag_statuses:
+        return '🔴'  # No epics = red
+
+    # Normalize statuses
+    normalized = []
+    for status in rag_statuses:
+        if not status:  # None or empty = red
+            normalized.append('RED')
+        elif status in ['🔴', 'RED']:
+            normalized.append('RED')
+        elif status in ['🟡', 'YELLOW', 'AMBER']:
+            normalized.append('YELLOW')
+        elif status in ['🟢', 'GREEN']:
+            normalized.append('GREEN')
+        else:
+            normalized.append('RED')  # Unknown = red
+
+    # Apply aggregation rules
+    if 'RED' in normalized:
+        return '🔴'
+    elif 'YELLOW' in normalized:
+        return '🟡'
+    else:
+        return '🟢'
+
+
 def normalize_team_name(team_name: str, team_mappings: Dict[str, str]) -> str:
     """Normalize team name using team_mappings.
 
@@ -95,6 +158,7 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
 
     # Data structures for analysis
     workload = defaultdict(lambda: {'leading': set(), 'contributing': set()})
+    contributing_rag = defaultdict(lambda: defaultdict(list))  # Map team -> initiative -> [rag statuses]
     initiatives_without_owner = []
     initiatives_without_epics = []
     initiative_summaries = {}  # Map initiative key to summary
@@ -137,16 +201,18 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
             })
         else:
             # Identify teams contributing (have epics but are not owner)
-            contributing_teams = set()
             for team_data in contributing_teams_data:
                 team_project_key = team_data.get('team_project_key')
                 if team_project_key and team_project_key != normalized_owner:
-                    contributing_teams.add(team_project_key)
+                    # Count as "contributing" for non-owner teams (if not excluded)
+                    if team_project_key not in excluded_teams:
+                        workload[team_project_key]['contributing'].add(initiative_key)
 
-            # Count as "contributing" for non-owner teams (if not excluded)
-            for team in contributing_teams:
-                if team not in excluded_teams:
-                    workload[team]['contributing'].add(initiative_key)
+                        # Track RAG statuses for this team's epics
+                        epics = team_data.get('epics', [])
+                        for epic in epics:
+                            rag_status = epic.get('rag_status')
+                            contributing_rag[team_project_key][initiative_key].append(rag_status)
 
     # Convert sets to counts and calculate totals
     team_stats = {}
@@ -175,6 +241,7 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
     return {
         'team_stats': team_stats,
         'team_details': team_details,
+        'contributing_rag': dict(contributing_rag),  # Convert defaultdict to dict
         'initiative_summaries': initiative_summaries,
         'initiative_urls': initiative_urls,
         'initiatives_without_owner': initiatives_without_owner,
@@ -222,6 +289,7 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
     """
     team_stats = analysis['team_stats']
     team_details = analysis.get('team_details', {})
+    contributing_rag = analysis.get('contributing_rag', {})
     initiative_summaries = analysis.get('initiative_summaries', {})
     initiative_urls = analysis.get('initiative_urls', {})
     initiatives_without_owner = analysis['initiatives_without_owner']
@@ -296,7 +364,13 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
                         summary = summary[:67] + "..."
                     # Make initiative key clickable if URL available
                     clickable_key = make_clickable_link(init_key, url)
-                    print(f"  - {clickable_key}: {summary}")
+
+                    # Get RAG status for this team's contribution
+                    team_rag_data = contributing_rag.get(team, {})
+                    rag_statuses = team_rag_data.get(init_key, [])
+                    rag_circle = aggregate_rag_status(rag_statuses)
+
+                    print(f"  {rag_circle} {clickable_key}: {summary}")
             else:
                 print(f"\nContributing: None")
 
