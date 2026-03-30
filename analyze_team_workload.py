@@ -616,14 +616,10 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
             missing_teams = init.get('missing_teams', [])
             # Get team display name
             owner_display = reverse_team_mappings.get(owner, owner)
-            # Get manager info
-            manager_info = team_managers.get(owner, {})
-            manager_handle = manager_info.get('notion_handle', '')
-            manager_display = f" {manager_handle}" if manager_handle else ""
             # Make key clickable
             url = initiative_urls.get(init['key'], '')
             clickable_key = make_clickable_link(init['key'], url)
-            print(f"  - {clickable_key} (owner: {owner_display}{manager_display}): \"{summary}\"")
+            print(f"  - {clickable_key} (owner: {owner_display}): \"{summary}\"")
             if missing_teams:
                 print(f"    Missing epics from: {', '.join(missing_teams)}")
     else:
