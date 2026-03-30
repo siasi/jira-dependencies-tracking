@@ -672,6 +672,211 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
     print("\n" + "=" * 70 + "\n")
 
 
+def print_markdown_report(analysis: Dict, team_managers: Dict[str, Dict[str, str]] = None,
+                          reverse_team_mappings: Dict[str, str] = None) -> None:
+    """Print workload analysis report in markdown format.
+
+    Args:
+        analysis: Results from analyze_workload()
+        team_managers: Mapping of team keys to manager information
+        reverse_team_mappings: Mapping of project keys to display names
+    """
+    if team_managers is None:
+        team_managers = {}
+    if reverse_team_mappings is None:
+        reverse_team_mappings = {}
+
+    team_stats = analysis['team_stats']
+    team_details = analysis.get('team_details', {})
+    contributing_rag = analysis.get('contributing_rag', {})
+    initiative_summaries = analysis.get('initiative_summaries', {})
+    initiative_urls = analysis.get('initiative_urls', {})
+    initiatives_without_owner = analysis['initiatives_without_owner']
+    initiatives_without_epics = analysis['initiatives_without_epics']
+    initiatives_missing_strategic_objective = analysis.get('initiatives_missing_strategic_objective', [])
+    initiatives_invalid_strategic_objective = analysis.get('initiatives_invalid_strategic_objective', [])
+    total_initiatives = analysis['total_initiatives']
+    excluded_teams = analysis['excluded_teams']
+
+    # Header
+    print("# Team Workload Report\n")
+    print(f"**Total initiatives analyzed:** {total_initiatives}\n")
+
+    if excluded_teams:
+        print(f"**Excluded teams:** {', '.join(excluded_teams)}\n")
+
+    # Team Analysis - Table format
+    print("## Team Analysis\n")
+    print("| Team | Leading | Contributing | Total |")
+    print("|------|---------|--------------|-------|")
+
+    # Sort teams by total initiatives (descending)
+    sorted_teams = sorted(
+        team_stats.items(),
+        key=lambda x: x[1]['total'],
+        reverse=True
+    )
+
+    if sorted_teams:
+        for team, stats in sorted_teams:
+            team_display = reverse_team_mappings.get(team, team)
+            print(f"| {team_display} | {stats['leading']} | {stats['contributing']} | {stats['total']} |")
+    else:
+        print("| No teams found | - | - | - |")
+
+    print()
+
+    # Detailed Breakdown by Team
+    print("## Detailed Breakdown by Team\n")
+
+    for team, stats in sorted_teams:
+        details = team_details.get(team, {})
+        leading_list = details.get('leading', [])
+        contributing_list = details.get('contributing', [])
+
+        # Get team display name
+        team_display = reverse_team_mappings.get(team, team)
+
+        # Get manager info
+        manager_info = team_managers.get(team, {})
+        manager_handle = manager_info.get('notion_handle', '')
+        manager_part = f" - {manager_handle}" if manager_handle else ""
+
+        print(f"### {team_display}{manager_part} - {stats['total']} total initiatives\n")
+
+        # Leading initiatives
+        if leading_list:
+            print(f"**Leading ({stats['leading']} initiatives):**\n")
+            for init_key in leading_list:
+                summary = initiative_summaries.get(init_key, 'No summary')
+                url = initiative_urls.get(init_key, '')
+                # Truncate long summaries
+                if len(summary) > 70:
+                    summary = summary[:67] + "..."
+                # Create markdown link
+                if url:
+                    link = f"[{init_key}]({url})"
+                else:
+                    link = init_key
+                print(f"- {link}: {summary}")
+            print()
+        else:
+            print("**Leading:** None\n")
+
+        # Contributing initiatives
+        if contributing_list:
+            print(f"**Contributing ({stats['contributing']} initiatives):**\n")
+            for init_key in contributing_list:
+                summary = initiative_summaries.get(init_key, 'No summary')
+                url = initiative_urls.get(init_key, '')
+                # Truncate long summaries
+                if len(summary) > 70:
+                    summary = summary[:67] + "..."
+                # Create markdown link
+                if url:
+                    link = f"[{init_key}]({url})"
+                else:
+                    link = init_key
+
+                # Get RAG status
+                team_rag_data = contributing_rag.get(team, {})
+                rag_statuses = team_rag_data.get(init_key, [])
+                rag_circle = aggregate_rag_status(rag_statuses)
+
+                print(f"- {rag_circle} {link}: {summary}")
+            print()
+        else:
+            print("**Contributing:** None\n")
+
+    # Issues section
+    print("## Issues\n")
+
+    # Initiatives without owner
+    if initiatives_without_owner:
+        print(f"### Initiatives without owner_team ({len(initiatives_without_owner)})\n")
+        for init in initiatives_without_owner:
+            summary = init['summary']
+            if len(summary) > 60:
+                summary = summary[:57] + "..."
+            url = initiative_urls.get(init['key'], '')
+            if url:
+                link = f"[{init['key']}]({url})"
+            else:
+                link = init['key']
+            print(f"- {link}: \"{summary}\"")
+        print()
+    else:
+        print("✓ All initiatives have owner_team\n")
+
+    # Initiatives with missing epics
+    if initiatives_without_epics:
+        print(f"### Initiatives with missing contributing epics ({len(initiatives_without_epics)})\n")
+        for init in initiatives_without_epics:
+            summary = init['summary']
+            if len(summary) > 45:
+                summary = summary[:42] + "..."
+            owner = init.get('owner_team', 'None')
+            owner_display = reverse_team_mappings.get(owner, owner)
+            missing_teams = init.get('missing_teams', [])
+            url = initiative_urls.get(init['key'], '')
+            if url:
+                link = f"[{init['key']}]({url})"
+            else:
+                link = init['key']
+            print(f"- {link} (owner: {owner_display}): \"{summary}\"")
+            if missing_teams:
+                print(f"  - Missing epics from: {', '.join(missing_teams)}")
+        print()
+    else:
+        print("✓ All contributing teams have created their epics\n")
+
+    # Initiatives with missing strategic objective
+    if initiatives_missing_strategic_objective:
+        print(f"### Initiatives without strategic objective ({len(initiatives_missing_strategic_objective)})\n")
+        for init in initiatives_missing_strategic_objective:
+            summary = init['summary']
+            if len(summary) > 50:
+                summary = summary[:47] + "..."
+            owner = init.get('owner_team', 'None')
+            owner_display = reverse_team_mappings.get(owner, owner)
+            manager_info = team_managers.get(owner, {})
+            manager_handle = manager_info.get('notion_handle', '')
+            manager_display = f" {manager_handle}" if manager_handle else ""
+            url = initiative_urls.get(init['key'], '')
+            if url:
+                link = f"[{init['key']}]({url})"
+            else:
+                link = init['key']
+            print(f"- {link} (owner: {owner_display}{manager_display}): \"{summary}\"")
+        print()
+    else:
+        print("✓ All initiatives have strategic objective set\n")
+
+    # Initiatives with invalid strategic objective
+    if initiatives_invalid_strategic_objective:
+        print(f"### Initiatives with invalid strategic objective ({len(initiatives_invalid_strategic_objective)})\n")
+        for init in initiatives_invalid_strategic_objective:
+            summary = init['summary']
+            if len(summary) > 40:
+                summary = summary[:37] + "..."
+            owner = init.get('owner_team', 'None')
+            owner_display = reverse_team_mappings.get(owner, owner)
+            current = init['current_value']
+            manager_info = team_managers.get(owner, {})
+            manager_handle = manager_info.get('notion_handle', '')
+            manager_display = f" {manager_handle}" if manager_handle else ""
+            url = initiative_urls.get(init['key'], '')
+            if url:
+                link = f"[{init['key']}]({url})"
+            else:
+                link = init['key']
+            print(f"- {link} (owner: {owner_display}{manager_display}): \"{summary}\"")
+            print(f"  - Current value: \"{current}\"")
+        print()
+    else:
+        print("✓ All strategic objectives are valid\n")
+
+
 def main():
     """Main entry point."""
     import argparse
@@ -712,6 +917,12 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
         help='Show detailed list of initiatives per team (leading and contributing)'
     )
 
+    parser.add_argument(
+        '--markdown',
+        action='store_true',
+        help='Output report in markdown format instead of console format'
+    )
+
     args = parser.parse_args()
 
     # Determine which JSON file to use
@@ -747,8 +958,11 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
     analysis = analyze_workload(json_file, team_mappings, excluded_teams, strategic_objective_mappings)
 
     # Print report
-    print_workload_report(analysis, team_managers=team_managers, reverse_team_mappings=reverse_team_mappings,
-                         verbose=args.verbose)
+    if args.markdown:
+        print_markdown_report(analysis, team_managers=team_managers, reverse_team_mappings=reverse_team_mappings)
+    else:
+        print_workload_report(analysis, team_managers=team_managers, reverse_team_mappings=reverse_team_mappings,
+                             verbose=args.verbose)
 
 
 if __name__ == '__main__':
