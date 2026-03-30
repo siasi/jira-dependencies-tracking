@@ -2,7 +2,7 @@
 """Validate strategic objective field for Jira initiatives.
 
 This script checks that all initiatives have a valid strategic objective
-set from a predefined list of acceptable values.
+set from a predefined list of acceptable values in config.yaml.
 """
 
 import json
@@ -13,20 +13,20 @@ import yaml
 
 
 def load_validation_rules() -> List[str]:
-    """Load valid strategic objective values from validation_rules.yaml.
+    """Load valid strategic objective values from config.yaml.
 
     Returns:
         List of valid strategic objective values, or empty list if not found
     """
-    rules_file = Path(__file__).parent / 'validation_rules.yaml'
-    if not rules_file.exists():
-        print(f"Warning: {rules_file} not found. Create it to define valid values.", file=sys.stderr)
+    config_file = Path(__file__).parent / 'config.yaml'
+    if not config_file.exists():
+        print(f"Warning: {config_file} not found. Create it to define valid values.", file=sys.stderr)
         return []
 
     try:
-        with open(rules_file, 'r', encoding='utf-8') as f:
+        with open(config_file, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
-            valid_values = data.get('strategic_objective', {}).get('valid_values', [])
+            valid_values = data.get('validation', {}).get('strategic_objective', {}).get('valid_values', [])
             return valid_values
     except Exception as e:
         print(f"Warning: Could not load validation rules: {e}", file=sys.stderr)
@@ -207,7 +207,7 @@ def print_validation_report(results: Dict) -> None:
         for value in valid_values:
             print(f"  - {value}")
     else:
-        print("\n⚠ Warning: No valid values configured in validation_rules.yaml")
+        print("\n⚠ Warning: No valid values configured in config.yaml")
 
     # Issues section
     print("\n" + "-" * 70)
@@ -266,13 +266,14 @@ Examples:
   python3 validate_strategic_objective.py data/jira_extract_2024-01-15.json
 
 Configuration:
-  Valid strategic objective values are defined in validation_rules.yaml:
+  Valid strategic objective values are defined in config.yaml:
 
-  strategic_objective:
-    valid_values:
-      - "Revenue Growth"
-      - "Cost Reduction"
-      - "Customer Experience"
+  validation:
+    strategic_objective:
+      valid_values:
+        - "Revenue Growth"
+        - "Cost Reduction"
+        - "Customer Experience"
 
   Teams to exclude are defined in team_mappings.yaml (teams_excluded_from_analysis).
         """

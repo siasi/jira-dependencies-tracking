@@ -22,6 +22,19 @@ custom_fields:
 # filters:
 #   quarter: "25 Q1"  # Format: "YY QN" (e.g., "25 Q1", "25 Q2")
 
+# Validation rules for initiative fields
+# Used by validate_strategic_objective.py and other validation scripts
+validation:
+  strategic_objective:
+    valid_values:
+      - "Revenue Growth"
+      - "Cost Reduction"
+      - "Customer Experience"
+      - "Operational Excellence"
+      - "Risk Management"
+      - "Innovation"
+      # Add your organization's strategic objectives here
+
 output:
   directory: "./data"
   filename_pattern: "jira_extract_{timestamp}.json"
