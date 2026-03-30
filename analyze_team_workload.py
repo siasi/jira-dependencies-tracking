@@ -8,7 +8,7 @@ distinguishing between leading (owner) and contributing (has epics).
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 from collections import defaultdict
 import yaml
 
@@ -158,6 +158,35 @@ def load_valid_strategic_objectives() -> List[str]:
         return []
 
 
+def normalize_teams_involved(teams_involved: Any) -> List[str]:
+    """Normalize teams_involved field to a list.
+
+    Handles multiple formats:
+    - None/null → []
+    - Empty list → []
+    - List of teams → list (unchanged)
+    - Comma-separated string → split into list
+
+    Args:
+        teams_involved: Value from teams_involved field (can be None, list, or string)
+
+    Returns:
+        List of team names
+    """
+    if teams_involved is None:
+        return []
+
+    if isinstance(teams_involved, list):
+        return teams_involved
+
+    if isinstance(teams_involved, str):
+        # Handle comma-separated string (e.g., "Team A, Team B, Team C")
+        return [t.strip() for t in teams_involved.split(',') if t.strip()]
+
+    # Fallback for unexpected types
+    return []
+
+
 def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_teams: List[str]) -> Dict:
     """Analyze team workload from extraction data.
 
@@ -232,19 +261,45 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
             if normalized_owner not in excluded_teams:
                 workload[normalized_owner]['leading'].add(initiative_key)
 
-        # Check if initiative has any epics
-        has_epics = any(team_data.get('epics') for team_data in contributing_teams_data)
+        # Check for missing epics based on teams_involved field
+        # Only report as "without epics" if there are teams involved but missing epics
+        # (excluding the owner team, who doesn't need to create an epic)
+        teams_involved = normalize_teams_involved(initiative.get('teams_involved'))
+        teams_with_epics = {
+            tc['team_project_key']
+            for tc in contributing_teams_data
+            if tc.get('epics')
+        }
 
-        # Track initiatives without epics (exclude if owned by excluded team)
-        if not has_epics:
-            # Only add if owner is not in excluded teams
-            if not normalized_owner or normalized_owner not in excluded_teams:
-                initiatives_without_epics.append({
-                    'key': initiative_key,
-                    'summary': initiative_summary,
-                    'owner_team': normalized_owner or 'None'
-                })
-        else:
+        # Check for epic count mismatch (only if owner is not in excluded teams)
+        if teams_involved and (not normalized_owner or normalized_owner not in excluded_teams):
+            if len(teams_involved) != len(teams_with_epics):
+                # Find which teams are missing epics
+                teams_with_epics_set = set(teams_with_epics)
+                missing_teams = []
+                for display_name in teams_involved:
+                    project_key = team_mappings.get(display_name, display_name)
+                    if project_key.upper() not in {k.upper() for k in teams_with_epics_set}:
+                        missing_teams.append(display_name)
+
+                # Only report if there are missing teams other than the owner
+                # or if the only missing team is NOT the owner
+                is_only_owner_missing = (
+                    owner_team and
+                    len(missing_teams) == 1 and
+                    missing_teams[0] == owner_team
+                )
+
+                if not is_only_owner_missing:
+                    initiatives_without_epics.append({
+                        'key': initiative_key,
+                        'summary': initiative_summary,
+                        'owner_team': normalized_owner or 'None',
+                        'missing_teams': missing_teams
+                    })
+
+        # Track contributing teams (teams with epics that are not the owner)
+        if teams_with_epics:
             # Identify teams contributing (have epics but are not owner)
             for team_data in contributing_teams_data:
                 team_project_key = team_data.get('team_project_key')
@@ -443,21 +498,24 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
     else:
         print("\n✓ All initiatives have owner_team")
 
-    # Initiatives without epics
+    # Initiatives with missing epics (from contributing teams)
     if initiatives_without_epics:
-        print(f"\nInitiatives without epics: {len(initiatives_without_epics)}")
+        print(f"\nInitiatives with missing contributing epics: {len(initiatives_without_epics)}")
         for init in initiatives_without_epics:
             # Truncate long summaries
             summary = init['summary']
-            if len(summary) > 50:
-                summary = summary[:47] + "..."
+            if len(summary) > 45:
+                summary = summary[:42] + "..."
             owner = init.get('owner_team', 'None')
+            missing_teams = init.get('missing_teams', [])
             # Make key clickable
             url = initiative_urls.get(init['key'], '')
             clickable_key = make_clickable_link(init['key'], url)
             print(f"  - {clickable_key} (owner: {owner}): \"{summary}\"")
+            if missing_teams:
+                print(f"    Missing epics from: {', '.join(missing_teams)}")
     else:
-        print("\n✓ All initiatives have epics")
+        print("\n✓ All contributing teams have created their epics")
 
     # Initiatives with missing strategic objective
     if initiatives_missing_strategic_objective:
