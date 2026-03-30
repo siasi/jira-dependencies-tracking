@@ -1,0 +1,315 @@
+#!/usr/bin/env python3
+"""Analyze team workload from Jira extraction data.
+
+This script analyzes how many initiatives each team is involved in,
+distinguishing between leading (owner) and contributing (has epics).
+"""
+
+import json
+import sys
+from pathlib import Path
+from typing import Dict, List, Set, Tuple
+from collections import defaultdict
+import yaml
+
+
+def load_team_mappings() -> Tuple[Dict[str, str], List[str]]:
+    """Load team mappings and exclusions from team_mappings.yaml.
+
+    Returns:
+        Tuple of (team_mappings dict, excluded_teams list)
+    """
+    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    if not mappings_file.exists():
+        return {}, []
+
+    try:
+        with open(mappings_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            team_mappings = data.get('team_mappings', {})
+            excluded_teams = data.get('teams_excluded_from_analysis', [])
+            return team_mappings, excluded_teams
+    except Exception as e:
+        print(f"Warning: Could not load team mappings: {e}", file=sys.stderr)
+        return {}, []
+
+
+def normalize_team_name(team_name: str, team_mappings: Dict[str, str]) -> str:
+    """Normalize team name using team_mappings.
+
+    Args:
+        team_name: Display name from Jira
+        team_mappings: Mapping from display names to project keys
+
+    Returns:
+        Project key if mapped, otherwise original name
+    """
+    if not team_name:
+        return None
+    return team_mappings.get(team_name, team_name)
+
+
+def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_teams: List[str]) -> Dict:
+    """Analyze team workload from extraction data.
+
+    Args:
+        json_file: Path to extraction JSON file
+        team_mappings: Mapping from display names to project keys
+        excluded_teams: List of teams to exclude from analysis
+
+    Returns:
+        Dict with workload analysis results
+    """
+    # Load extraction data
+    with open(json_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    initiatives = data.get('initiatives', [])
+
+    # Data structures for analysis
+    workload = defaultdict(lambda: {'leading': set(), 'contributing': set()})
+    initiatives_without_owner = []
+    initiatives_without_epics = []
+
+    # Analyze each initiative
+    for initiative in initiatives:
+        initiative_key = initiative.get('key')
+        initiative_summary = initiative.get('summary', '')
+        owner_team = initiative.get('owner_team')
+        contributing_teams_data = initiative.get('contributing_teams', [])
+
+        # Normalize owner team
+        normalized_owner = normalize_team_name(owner_team, team_mappings)
+
+        # Track initiatives without owner
+        if not normalized_owner:
+            initiatives_without_owner.append({
+                'key': initiative_key,
+                'summary': initiative_summary
+            })
+        else:
+            # Count as "leading" if not excluded
+            if normalized_owner not in excluded_teams:
+                workload[normalized_owner]['leading'].add(initiative_key)
+
+        # Check if initiative has any epics
+        has_epics = any(team_data.get('epics') for team_data in contributing_teams_data)
+
+        # Track initiatives without epics
+        if not has_epics:
+            initiatives_without_epics.append({
+                'key': initiative_key,
+                'summary': initiative_summary,
+                'owner_team': normalized_owner or 'None'
+            })
+        else:
+            # Identify teams contributing (have epics but are not owner)
+            contributing_teams = set()
+            for team_data in contributing_teams_data:
+                team_project_key = team_data.get('team_project_key')
+                if team_project_key and team_project_key != normalized_owner:
+                    contributing_teams.add(team_project_key)
+
+            # Count as "contributing" for non-owner teams (if not excluded)
+            for team in contributing_teams:
+                if team not in excluded_teams:
+                    workload[team]['contributing'].add(initiative_key)
+
+    # Convert sets to counts and calculate totals
+    team_stats = {}
+    for team, data in workload.items():
+        leading_count = len(data['leading'])
+        contributing_count = len(data['contributing'])
+        total_count = leading_count + contributing_count
+
+        team_stats[team] = {
+            'leading': leading_count,
+            'contributing': contributing_count,
+            'total': total_count
+        }
+
+    return {
+        'team_stats': team_stats,
+        'initiatives_without_owner': initiatives_without_owner,
+        'initiatives_without_epics': initiatives_without_epics,
+        'total_initiatives': len(initiatives),
+        'excluded_teams': excluded_teams
+    }
+
+
+def find_latest_extract() -> Path:
+    """Find the most recent extraction file.
+
+    Returns:
+        Path to most recent JSON file
+
+    Raises:
+        FileNotFoundError: If no data directory or no extraction files found
+    """
+    data_dir = Path('data')
+
+    if not data_dir.exists():
+        raise FileNotFoundError(
+            "No data directory found. Run 'python jira_extract.py extract' first."
+        )
+
+    # Support both extraction files and snapshots
+    json_files = list(data_dir.glob('jira_extract_*.json'))
+    snapshot_files = list(data_dir.glob('snapshots/snapshot_*.json'))
+    all_files = json_files + snapshot_files
+
+    if not all_files:
+        raise FileNotFoundError(
+            "No extraction files found in data/. Run 'python jira_extract.py extract' first."
+        )
+
+    return max(all_files, key=lambda p: p.stat().st_mtime)
+
+
+def print_workload_report(analysis: Dict) -> None:
+    """Print workload analysis report to console.
+
+    Args:
+        analysis: Results from analyze_workload()
+    """
+    team_stats = analysis['team_stats']
+    initiatives_without_owner = analysis['initiatives_without_owner']
+    initiatives_without_epics = analysis['initiatives_without_epics']
+    total_initiatives = analysis['total_initiatives']
+    excluded_teams = analysis['excluded_teams']
+
+    # Header
+    print("\n" + "=" * 70)
+    print("Team Workload Report")
+    print("=" * 70)
+    print(f"\nTotal initiatives analyzed: {total_initiatives}")
+
+    if excluded_teams:
+        print(f"Excluded teams: {', '.join(excluded_teams)}")
+
+    print("\n" + "-" * 70)
+    print("Team Analysis (sorted by total initiatives, descending):")
+    print("-" * 70)
+
+    # Sort teams by total initiatives (descending)
+    sorted_teams = sorted(
+        team_stats.items(),
+        key=lambda x: x[1]['total'],
+        reverse=True
+    )
+
+    if sorted_teams:
+        for team, stats in sorted_teams:
+            print(f"{team}: {stats['total']} total ({stats['leading']} leading, {stats['contributing']} contributing)")
+    else:
+        print("No teams found in analysis.")
+
+    # Issues section
+    print("\n" + "-" * 70)
+    print("Issues:")
+    print("-" * 70)
+
+    # Initiatives without owner
+    if initiatives_without_owner:
+        print(f"\nInitiatives without owner_team: {len(initiatives_without_owner)}")
+        for init in initiatives_without_owner:
+            # Truncate long summaries
+            summary = init['summary']
+            if len(summary) > 60:
+                summary = summary[:57] + "..."
+            print(f"  - {init['key']}: \"{summary}\"")
+    else:
+        print("\n✓ All initiatives have owner_team")
+
+    # Initiatives without epics
+    if initiatives_without_epics:
+        print(f"\nInitiatives without epics: {len(initiatives_without_epics)}")
+        for init in initiatives_without_epics:
+            # Truncate long summaries
+            summary = init['summary']
+            if len(summary) > 50:
+                summary = summary[:47] + "..."
+            owner = init.get('owner_team', 'None')
+            print(f"  - {init['key']} (owner: {owner}): \"{summary}\"")
+    else:
+        print("\n✓ All initiatives have epics")
+
+    print("\n" + "=" * 70 + "\n")
+
+
+def main():
+    """Main entry point."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='Analyze team workload from Jira extraction data',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Analyze workload from latest extraction
+  python3 analyze_team_workload.py
+
+  # Analyze specific extraction
+  python3 analyze_team_workload.py data/jira_extract_2024-01-15.json
+
+  # Analyze with verbose output
+  python3 analyze_team_workload.py --verbose
+
+The script distinguishes between:
+  - Leading: Team is the owner_team of the initiative
+  - Contributing: Team has epics in an initiative they don't own
+  - Total: Leading + Contributing
+
+Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered out.
+        """
+    )
+
+    parser.add_argument(
+        'json_file',
+        nargs='?',
+        type=Path,
+        help='Path to extraction JSON file (optional, uses latest if omitted)'
+    )
+
+    parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Verbose output for debugging'
+    )
+
+    args = parser.parse_args()
+
+    # Determine which JSON file to use
+    if args.json_file:
+        json_file = args.json_file
+        if not json_file.exists():
+            print(f"Error: File not found: {json_file}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        try:
+            json_file = find_latest_extract()
+            print(f"Using latest extraction: {json_file}")
+        except FileNotFoundError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    if args.verbose:
+        print(f"Loading extraction data from: {json_file}")
+
+    # Load team mappings and exclusions
+    team_mappings, excluded_teams = load_team_mappings()
+
+    if args.verbose:
+        print(f"Loaded {len(team_mappings)} team mappings")
+        if excluded_teams:
+            print(f"Excluding teams: {', '.join(excluded_teams)}")
+
+    # Analyze workload
+    analysis = analyze_workload(json_file, team_mappings, excluded_teams)
+
+    # Print report
+    print_workload_report(analysis)
+
+
+if __name__ == '__main__':
+    main()
