@@ -13,25 +13,26 @@ from collections import defaultdict
 import yaml
 
 
-def load_team_mappings() -> Tuple[Dict[str, str], List[str]]:
-    """Load team mappings and exclusions from team_mappings.yaml.
+def load_team_mappings() -> Tuple[Dict[str, str], List[str], Dict[str, str]]:
+    """Load team mappings, exclusions, and strategic objective mappings from team_mappings.yaml.
 
     Returns:
-        Tuple of (team_mappings dict, excluded_teams list)
+        Tuple of (team_mappings dict, excluded_teams list, strategic_objective_mappings dict)
     """
     mappings_file = Path(__file__).parent / 'team_mappings.yaml'
     if not mappings_file.exists():
-        return {}, []
+        return {}, [], {}
 
     try:
         with open(mappings_file, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
             team_mappings = data.get('team_mappings', {})
             excluded_teams = data.get('teams_excluded_from_analysis', [])
-            return team_mappings, excluded_teams
+            strategic_objective_mappings = data.get('strategic_objective_mappings', {})
+            return team_mappings, excluded_teams, strategic_objective_mappings
     except Exception as e:
         print(f"Warning: Could not load team mappings: {e}", file=sys.stderr)
-        return {}, []
+        return {}, [], {}
 
 
 def make_clickable_link(text: str, url: str) -> str:
@@ -187,13 +188,15 @@ def normalize_teams_involved(teams_involved: Any) -> List[str]:
     return []
 
 
-def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_teams: List[str]) -> Dict:
+def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_teams: List[str],
+                     strategic_objective_mappings: Dict[str, str]) -> Dict:
     """Analyze team workload from extraction data.
 
     Args:
         json_file: Path to extraction JSON file
         team_mappings: Mapping from display names to project keys
         excluded_teams: List of teams to exclude from analysis
+        strategic_objective_mappings: Mapping from old strategic objectives to current ones
 
     Returns:
         Dict with workload analysis results
@@ -231,7 +234,12 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
         # Store summary and URL for verbose output
         initiative_summaries[initiative_key] = initiative_summary
         initiative_urls[initiative_key] = initiative.get('url', '')
-        initiative_strategic_objectives[initiative_key] = strategic_objective or ''
+
+        # Apply strategic objective mapping (consolidate old objectives to current ones)
+        mapped_objective = strategic_objective or ''
+        if mapped_objective and strategic_objective_mappings:
+            mapped_objective = strategic_objective_mappings.get(strategic_objective, strategic_objective)
+        initiative_strategic_objectives[initiative_key] = mapped_objective
 
         # Normalize owner team
         normalized_owner = normalize_team_name(owner_team, team_mappings)
@@ -674,15 +682,17 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
         print(f"Loading extraction data from: {json_file}")
 
     # Load team mappings and exclusions
-    team_mappings, excluded_teams = load_team_mappings()
+    team_mappings, excluded_teams, strategic_objective_mappings = load_team_mappings()
 
     if args.verbose:
         print(f"Loaded {len(team_mappings)} team mappings")
         if excluded_teams:
             print(f"Excluding teams: {', '.join(excluded_teams)}")
+        if strategic_objective_mappings:
+            print(f"Loaded {len(strategic_objective_mappings)} strategic objective mappings")
 
     # Analyze workload
-    analysis = analyze_workload(json_file, team_mappings, excluded_teams)
+    analysis = analyze_workload(json_file, team_mappings, excluded_teams, strategic_objective_mappings)
 
     # Print report
     print_workload_report(analysis, verbose=args.verbose)
