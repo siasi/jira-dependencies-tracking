@@ -1,0 +1,23 @@
+# Validation rules for Jira initiative fields
+#
+# This file defines valid values for custom fields on Jira initiatives.
+# Used by validation scripts to check data quality.
+
+# Strategic Objective field validation
+# List all acceptable values for the strategic_objective custom field
+strategic_objective:
+  valid_values:
+    - "Revenue Growth"
+    - "Cost Reduction"
+    - "Customer Experience"
+    - "Operational Excellence"
+    - "Risk Management"
+    - "Innovation"
+
+# Add other field validations here as needed
+# Example:
+# priority:
+#   valid_values:
+#     - "High"
+#     - "Medium"
+#     - "Low"
