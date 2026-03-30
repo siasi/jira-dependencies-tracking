@@ -262,7 +262,7 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
                 workload[normalized_owner]['leading'].add(initiative_key)
 
         # Check for missing epics based on teams_involved field
-        # Only report as "without epics" if there are teams involved but missing epics
+        # Only report as "without epics" if there are contributing teams expected but missing epics
         # (excluding the owner team, who doesn't need to create an epic)
         teams_involved = normalize_teams_involved(initiative.get('teams_involved'))
         teams_with_epics = {
@@ -273,24 +273,25 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
 
         # Check for epic count mismatch (only if owner is not in excluded teams)
         if teams_involved and (not normalized_owner or normalized_owner not in excluded_teams):
-            if len(teams_involved) != len(teams_with_epics):
+            # Skip if teams_involved only contains the owner team
+            non_owner_teams = [t for t in teams_involved if t != owner_team]
+            if not non_owner_teams:
+                # Teams involved only has the owner, no contributing teams expected
+                pass
+            else:
                 # Find which teams are missing epics
                 teams_with_epics_set = set(teams_with_epics)
                 missing_teams = []
                 for display_name in teams_involved:
+                    # Skip owner team - they don't need to create an epic
+                    if display_name == owner_team:
+                        continue
                     project_key = team_mappings.get(display_name, display_name)
                     if project_key.upper() not in {k.upper() for k in teams_with_epics_set}:
                         missing_teams.append(display_name)
 
-                # Only report if there are missing teams other than the owner
-                # or if the only missing team is NOT the owner
-                is_only_owner_missing = (
-                    owner_team and
-                    len(missing_teams) == 1 and
-                    missing_teams[0] == owner_team
-                )
-
-                if not is_only_owner_missing:
+                # Only report if there are actually missing contributing teams
+                if missing_teams:
                     initiatives_without_epics.append({
                         'key': initiative_key,
                         'summary': initiative_summary,
