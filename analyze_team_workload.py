@@ -451,9 +451,14 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
     all_initiative_keys = sorted(initiative_summaries.keys())
 
     for init_key in all_initiative_keys:
+        leading_team = initiative_owner_teams.get(init_key, '')
+
+        # Skip initiatives owned by excluded teams
+        if leading_team in excluded_teams:
+            continue
+
         init_name = initiative_summaries.get(init_key, '').replace('"', '""')  # Escape quotes
         strategic_obj = initiative_strategic_objectives.get(init_key, '').replace('"', '""')
-        leading_team = initiative_owner_teams.get(init_key, '')
         contributing = initiative_contributing_teams.get(init_key, [])
 
         # Format contributing teams: comma-separated in double quotes, or empty quotes if none
