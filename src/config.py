@@ -55,12 +55,15 @@ class Config:
         Raises:
             ConfigError: If configuration is invalid
         """
-        # Check if filters.quarter is set but quarter field is missing
+        # Deprecation warning for filters in config
         if self.filters and self.filters.quarter:
-            if "quarter" not in self.custom_fields:
-                raise ConfigError(
-                    "Quarter filtering requires custom_fields.initiatives.quarter to be defined"
-                )
+            import warnings
+            warnings.warn(
+                "Filters in config.yaml are deprecated. Use --quarter flag instead: "
+                "python3 jira_extract.py extract --quarter '26 Q2'",
+                DeprecationWarning,
+                stacklevel=2
+            )
 
 
 def load_config(config_path: str = "config.yaml") -> Config:

@@ -14,12 +14,13 @@ custom_fields:
   initiatives:
     rag_status: "customfield_XXXXX"           # Select field example
     strategic_objective: "customfield_XXXXX"  # Text field example
-    quarter: "customfield_XXXXX"              # Required if using filters.quarter
+    quarter: "customfield_XXXXX"              # Required if using --quarter flag
 
-# Optional: Filter initiatives by quarter and status
-# If omitted, all initiatives are extracted
-filters:
-  quarter: "25 Q1"  # Format: "YY QN" (e.g., "25 Q1", "25 Q2")
+# DEPRECATED: Filters moved to command-line options
+# Use --quarter and --status flags instead:
+#   python3 jira_extract.py extract --quarter "26 Q2" --status "In Progress"
+# filters:
+#   quarter: "25 Q1"  # Format: "YY QN" (e.g., "25 Q1", "25 Q2")
 
 output:
   directory: "./data"

@@ -25,6 +25,8 @@ class DataFetcher:
         team_projects: List[str],
         custom_fields: Dict[str, str],
         filter_quarter: Optional[str] = None,
+        filter_status: Optional[str] = None,
+        custom_jql: Optional[str] = None,
     ):
         """Initialize data fetcher.
 
@@ -34,12 +36,16 @@ class DataFetcher:
             team_projects: List of team project keys
             custom_fields: Dict mapping output field names to Jira field IDs
             filter_quarter: Quarter value to filter by (e.g., "25 Q1", optional)
+            filter_status: Status value to filter by (e.g., "In Progress" or "!Done", optional)
+            custom_jql: Custom JQL filter for advanced queries (optional, overrides other filters)
         """
         self.client = client
         self.initiatives_project = initiatives_project
         self.team_projects = team_projects
         self.custom_fields = custom_fields
         self.filter_quarter = filter_quarter
+        self.filter_status = filter_status
+        self.custom_jql = custom_jql
         self._field_name_cache = None  # Cache for field ID -> name mapping
 
     def _get_field_name(self, field_id: str) -> str:
@@ -110,15 +116,34 @@ class DataFetcher:
         Returns:
             FetchResult with initiatives data
         """
-        # Build base JQL
-        jql = f"project = {self.initiatives_project} AND issuetype = Initiative"
+        # Build JQL - use custom JQL if provided, otherwise build from filters
+        if self.custom_jql:
+            # Custom JQL: wrap with project and issuetype constraints
+            jql = f"project = {self.initiatives_project} AND issuetype = Initiative AND ({self.custom_jql})"
+        else:
+            # Build base JQL
+            jql = f"project = {self.initiatives_project} AND issuetype = Initiative"
 
-        # Add filters if configured
-        if self.filter_quarter and "quarter" in self.custom_fields:
-            quarter_field_id = self.custom_fields["quarter"]
-            # Use field name for JQL (not ID) - some fields like dropdowns require this
-            quarter_field_name = self._get_field_name(quarter_field_id)
-            jql += f' AND status != "Done" AND "{quarter_field_name}" = "{self.filter_quarter}"'
+            # Add status filter if explicitly provided (takes precedence)
+            if self.filter_status:
+                if self.filter_status.startswith('!'):
+                    # Negation syntax: !Done → status != "Done"
+                    status_value = self.filter_status[1:]
+                    jql += f' AND status != "{status_value}"'
+                else:
+                    # Direct match: In Progress → status = "In Progress"
+                    jql += f' AND status = "{self.filter_status}"'
+
+            # Add quarter filter (with default status != Done if no explicit status filter)
+            if self.filter_quarter and "quarter" in self.custom_fields:
+                quarter_field_id = self.custom_fields["quarter"]
+                # Use field name for JQL (not ID) - some fields like dropdowns require this
+                quarter_field_name = self._get_field_name(quarter_field_id)
+                jql += f' AND "{quarter_field_name}" = "{self.filter_quarter}"'
+
+                # Add default status != "Done" only if no explicit status filter provided
+                if not self.filter_status:
+                    jql += ' AND status != "Done"'
 
         # Build fields list - dynamic from config
         # NOTE: Fetches ALL configured custom fields, even if not used for filtering

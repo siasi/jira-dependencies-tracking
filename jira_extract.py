@@ -61,9 +61,32 @@ def cli():
     is_flag=True,
     help="Verbose output for debugging",
 )
-def extract(config: str, output: Optional[str], format: str, dry_run: bool, verbose: bool):
+@click.option(
+    "--status",
+    default=None,
+    help='Filter by status (e.g., "In Progress" or "!Done" to exclude Done)',
+)
+@click.option(
+    "--quarter",
+    default=None,
+    help='Filter by quarter (e.g., "26 Q2"). When set, automatically excludes Done initiatives unless --status is specified.',
+)
+@click.option(
+    "--jql",
+    default=None,
+    help='Custom JQL filter for advanced queries (e.g., \'status IN ("Proposed", "In Progress")\'). When set, overrides --quarter and --status.',
+)
+def extract(config: str, output: Optional[str], format: str, dry_run: bool, verbose: bool, status: Optional[str], quarter: Optional[str], jql: Optional[str]):
     """Extract data from Jira."""
     try:
+        # Validate flag combinations
+        if jql and (status or quarter):
+            click.echo(click.style(
+                "Warning: --jql overrides --status and --quarter flags. "
+                "The --status and --quarter options will be ignored.",
+                fg="yellow"
+            ))
+
         # Load configuration
         if verbose:
             click.echo(f"Loading config from: {config}")
@@ -86,7 +109,9 @@ def extract(config: str, output: Optional[str], format: str, dry_run: bool, verb
             initiatives_project=cfg.projects.initiatives,
             team_projects=cfg.projects.teams,
             custom_fields=cfg.custom_fields,
-            filter_quarter=cfg.filters.quarter if cfg.filters else None,
+            filter_quarter=quarter if 'quarter' in locals() and not jql else None,
+            filter_status=status if 'status' in locals() and not jql else None,
+            custom_jql=jql if 'jql' in locals() else None,
         )
 
         if dry_run:
@@ -100,8 +125,22 @@ def extract(config: str, output: Optional[str], format: str, dry_run: bool, verb
         click.echo("Fetching data from Jira...")
 
         # Show filtering status
-        if cfg.filters and cfg.filters.quarter:
-            click.echo(f"Applying filters: quarter='{cfg.filters.quarter}', status!='Done'")
+        if jql:
+            click.echo(f"Applying custom JQL: {jql}")
+        else:
+            filter_msgs = []
+            if quarter:
+                filter_msgs.append(f"quarter='{quarter}'")
+            if status:
+                if status.startswith('!'):
+                    filter_msgs.append(f"status!='{status[1:]}'")
+                else:
+                    filter_msgs.append(f"status='{status}'")
+            elif quarter:
+                # Show default status filter when quarter filtering without explicit --status
+                filter_msgs.append("status!='Done'")
+            if filter_msgs:
+                click.echo(f"Applying filters: {', '.join(filter_msgs)}")
 
         with click.progressbar(length=2, label="Extracting") as bar:
             initiatives_result, epics_result = fetcher.fetch_all()
@@ -189,8 +228,8 @@ def extract(config: str, output: Optional[str], format: str, dry_run: bool, verb
 
         # Print summary
         click.echo(f"\nSummary:")
-        if cfg.filters and cfg.filters.quarter:
-            click.echo(f"  Initiatives: {hierarchy_data['summary']['total_initiatives']} (filtered by quarter: {cfg.filters.quarter})")
+        if quarter:
+            click.echo(f"  Initiatives: {hierarchy_data['summary']['total_initiatives']} (filtered by quarter: {quarter})")
         else:
             click.echo(f"  Initiatives: {hierarchy_data['summary']['total_initiatives']}")
         click.echo(f"  Epics: {hierarchy_data['summary']['total_epics']}")
@@ -325,7 +364,12 @@ def validate_config(config: str):
     is_flag=True,
     help="Verbose output for debugging",
 )
-def snapshot(config: str, label: str, verbose: bool):
+@click.option(
+    "--quarter",
+    default=None,
+    help='Filter by quarter (e.g., "26 Q2"). When set, automatically excludes Done initiatives.',
+)
+def snapshot(config: str, label: str, verbose: bool, quarter: Optional[str]):
     """Capture timestamped snapshot of current Jira data."""
     try:
         # Load configuration
@@ -350,14 +394,16 @@ def snapshot(config: str, label: str, verbose: bool):
             initiatives_project=cfg.projects.initiatives,
             team_projects=cfg.projects.teams,
             custom_fields=cfg.custom_fields,
-            filter_quarter=cfg.filters.quarter if cfg.filters else None,
+            filter_quarter=quarter if 'quarter' in locals() else None,
+            filter_status=status if 'status' in locals() else None,
         )
 
         # Fetch data
         click.echo(f"Capturing snapshot: {label}")
 
-        if cfg.filters and cfg.filters.quarter:
-            click.echo(f"Applying filters: quarter='{cfg.filters.quarter}', status!='Done'")
+        # Note: snapshot command supports quarter filtering
+        if quarter:
+            click.echo(f"Applying filters: quarter='{quarter}', status!='Done'")
 
         with click.progressbar(length=2, label="Extracting") as bar:
             initiatives_result, epics_result = fetcher.fetch_all()
@@ -442,8 +488,8 @@ def snapshot(config: str, label: str, verbose: bool):
         click.echo(f"\n✓ Snapshot saved: {snapshot_path}")
         click.echo(f"\nSnapshot summary:")
         click.echo(f"  Label: {label}")
-        if cfg.filters and cfg.filters.quarter:
-            click.echo(f"  Initiatives: {hierarchy_data['summary']['total_initiatives']} (filtered by quarter: {cfg.filters.quarter})")
+        if quarter:
+            click.echo(f"  Initiatives: {hierarchy_data['summary']['total_initiatives']} (filtered by quarter: {quarter})")
         else:
             click.echo(f"  Initiatives: {hierarchy_data['summary']['total_initiatives']}")
         click.echo(f"  Epics: {hierarchy_data['summary']['total_epics']}")
