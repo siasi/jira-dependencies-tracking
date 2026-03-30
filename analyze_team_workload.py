@@ -531,7 +531,7 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
             # Get manager info for this team
             manager_info = team_managers.get(team, {})
             manager_handle = manager_info.get('notion_handle', '')
-            manager_display = f" (Manager: {manager_handle})" if manager_handle else ""
+            manager_display = f" {manager_handle}" if manager_handle else ""
 
             print("\n" + "=" * 70)
             print(f"{team} - {stats['total']} total initiatives{manager_display}")
@@ -606,7 +606,7 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
             # Get manager info
             manager_info = team_managers.get(owner, {})
             manager_handle = manager_info.get('notion_handle', '')
-            manager_display = f", manager: {manager_handle}" if manager_handle else ""
+            manager_display = f" {manager_handle}" if manager_handle else ""
             # Make key clickable
             url = initiative_urls.get(init['key'], '')
             clickable_key = make_clickable_link(init['key'], url)
@@ -628,7 +628,7 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
             # Get manager info
             manager_info = team_managers.get(owner, {})
             manager_handle = manager_info.get('notion_handle', '')
-            manager_display = f", manager: {manager_handle}" if manager_handle else ""
+            manager_display = f" {manager_handle}" if manager_handle else ""
             # Make key clickable
             url = initiative_urls.get(init['key'], '')
             clickable_key = make_clickable_link(init['key'], url)
@@ -649,7 +649,7 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
             # Get manager info
             manager_info = team_managers.get(owner, {})
             manager_handle = manager_info.get('notion_handle', '')
-            manager_display = f", manager: {manager_handle}" if manager_handle else ""
+            manager_display = f" {manager_handle}" if manager_handle else ""
             # Make key clickable
             url = initiative_urls.get(init['key'], '')
             clickable_key = make_clickable_link(init['key'], url)
