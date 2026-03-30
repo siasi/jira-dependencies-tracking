@@ -176,14 +176,14 @@ deprioritise it (move to DEPRIORITISED)
    🔴 Epics with RED status ({{ issue.epics|length }})
 {% for epic in issue.epics -%}
 {% set rag_display = '🔴' if epic.rag_status == '🔴' else '(missing - treated as RED)' %}
-       - {{ epic.key }} {{ rag_display }}: "{{ epic.summary }}"
+       - {{ rag_display }} {{ epic.key }}: "{{ epic.summary }}"
 {% endfor %}
 
 {% elif issue.type == 'yellow_epics' %}
    🟡 Epics with YELLOW status ({{ issue.epics|length }})
 {% for epic in issue.epics -%}
 {% set rag_display = '🟡' if epic.get('rag_status') else '(missing - treated as YELLOW)' %}
-       - {{ epic.key }} {{ rag_display }}: "{{ epic.summary }}"
+       - {{ rag_display }} {{ epic.key }}: "{{ epic.summary }}"
 {% endfor %}
 
 {%- endif -%}
@@ -375,7 +375,7 @@ Help needed: Verify RAG status updates, confirm team commitment
    ⚠️  Epics with RED status ({{ issue.epics|length }})
 {% for epic in issue.epics -%}
 {% set rag_display = '🔴' if epic.rag_status == '🔴' else '(missing - treated as RED)' %}
-       - {{ epic.key }} {{ rag_display }}: "{{ epic.summary }}"
+       - {{ rag_display }} {{ epic.key }}: "{{ epic.summary }}"
 {% endfor %}
 
 {% elif issue.type == 'yellow_epics' %}
@@ -391,7 +391,7 @@ Help needed: Verify RAG status updates, confirm team commitment
 {%- else -%}
 {%- set rag_display = rag_status -%}
 {%- endif %}
-       - {{ epic.key }} {{ rag_display }}: "{{ epic.summary }}"
+       - {{ rag_display }} {{ epic.key }}: "{{ epic.summary }}"
 {% endfor %}
 
 {% elif issue.type == 'missing_assignee' %}
