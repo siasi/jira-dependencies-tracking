@@ -213,6 +213,9 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
     initiatives_invalid_strategic_objective = []
     initiative_summaries = {}  # Map initiative key to summary
     initiative_urls = {}  # Map initiative key to Jira URL
+    initiative_strategic_objectives = {}  # Map initiative key to strategic objective
+    initiative_owner_teams = {}  # Map initiative key to owner team
+    initiative_contributing_teams = {}  # Map initiative key to list of contributing teams
 
     # Load valid strategic objectives for validation
     valid_strategic_objectives = load_valid_strategic_objectives()
@@ -228,9 +231,11 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
         # Store summary and URL for verbose output
         initiative_summaries[initiative_key] = initiative_summary
         initiative_urls[initiative_key] = initiative.get('url', '')
+        initiative_strategic_objectives[initiative_key] = strategic_objective or ''
 
         # Normalize owner team
         normalized_owner = normalize_team_name(owner_team, team_mappings)
+        initiative_owner_teams[initiative_key] = normalized_owner or ''
 
         # Validate strategic objective (skip if owner is excluded team)
         if not normalized_owner or normalized_owner not in excluded_teams:
@@ -300,11 +305,15 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
                     })
 
         # Track contributing teams (teams with epics that are not the owner)
+        contributing_teams_list = []
         if teams_with_epics:
             # Identify teams contributing (have epics but are not owner)
             for team_data in contributing_teams_data:
                 team_project_key = team_data.get('team_project_key')
                 if team_project_key and team_project_key != normalized_owner:
+                    # Add to contributing teams list (regardless of excluded status for CSV export)
+                    contributing_teams_list.append(team_project_key)
+
                     # Count as "contributing" for non-owner teams (if not excluded)
                     if team_project_key not in excluded_teams:
                         workload[team_project_key]['contributing'].add(initiative_key)
@@ -314,6 +323,9 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
                         for epic in epics:
                             rag_status = epic.get('rag_status')
                             contributing_rag[team_project_key][initiative_key].append(rag_status)
+
+        # Store contributing teams for this initiative
+        initiative_contributing_teams[initiative_key] = contributing_teams_list
 
     # Convert sets to counts and calculate totals
     team_stats = {}
@@ -345,6 +357,9 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
         'contributing_rag': dict(contributing_rag),  # Convert defaultdict to dict
         'initiative_summaries': initiative_summaries,
         'initiative_urls': initiative_urls,
+        'initiative_strategic_objectives': initiative_strategic_objectives,
+        'initiative_owner_teams': initiative_owner_teams,
+        'initiative_contributing_teams': initiative_contributing_teams,
         'initiatives_without_owner': initiatives_without_owner,
         'initiatives_without_epics': initiatives_without_epics,
         'initiatives_missing_strategic_objective': initiatives_missing_strategic_objective,
@@ -395,6 +410,9 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
     contributing_rag = analysis.get('contributing_rag', {})
     initiative_summaries = analysis.get('initiative_summaries', {})
     initiative_urls = analysis.get('initiative_urls', {})
+    initiative_strategic_objectives = analysis.get('initiative_strategic_objectives', {})
+    initiative_owner_teams = analysis.get('initiative_owner_teams', {})
+    initiative_contributing_teams = analysis.get('initiative_contributing_teams', {})
     initiatives_without_owner = analysis['initiatives_without_owner']
     initiatives_without_epics = analysis['initiatives_without_epics']
     initiatives_missing_strategic_objective = analysis.get('initiatives_missing_strategic_objective', [])
@@ -410,6 +428,30 @@ def print_workload_report(analysis: Dict, verbose: bool = False) -> None:
 
     if excluded_teams:
         print(f"Excluded teams: {', '.join(excluded_teams)}")
+
+    # Initiative Analysis - CSV Export
+    print("\n" + "-" * 70)
+    print("Initiative Analysis (CSV format):")
+    print("-" * 70)
+    print("initiative_key,initiative_name,strategic_objective,leading_team,contributing_teams")
+
+    # Get all initiative keys and sort them
+    all_initiative_keys = sorted(initiative_summaries.keys())
+
+    for init_key in all_initiative_keys:
+        init_name = initiative_summaries.get(init_key, '').replace('"', '""')  # Escape quotes
+        strategic_obj = initiative_strategic_objectives.get(init_key, '').replace('"', '""')
+        leading_team = initiative_owner_teams.get(init_key, '')
+        contributing = initiative_contributing_teams.get(init_key, [])
+
+        # Format contributing teams: comma-separated in double quotes, or empty quotes if none
+        if contributing:
+            contributing_str = f'"{",".join(contributing)}"'
+        else:
+            contributing_str = '""'
+
+        # Print CSV row with all fields properly quoted
+        print(f'{init_key},"{init_name}","{strategic_obj}",{leading_team},{contributing_str}')
 
     print("\n" + "-" * 70)
     print("Team Analysis (sorted by total initiatives, descending):")
