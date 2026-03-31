@@ -190,8 +190,18 @@
 {% if result.ready_to_plan -%}
 {% for item in result.ready_to_plan -%}
 - [{{ item.key }}]({{ item.get('url', '#') }}): {{ item.summary }}
-{% endfor -%}
+{% set owner_team = item.get('owner_team') -%}
+{%- set manager_tag = '' -%}
+{%- if owner_team -%}
+{%- set project_key = team_mappings.get(owner_team, owner_team) -%}
+{%- set manager_info = team_managers.get(project_key, {}) -%}
+{%- set manager_tag = manager_info.get('notion_handle', '') -%}
+{%- endif -%}
+{%- set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
+  - **✅ Action:**
+    - [ ] Engineering Manager to move initiative to PLANNED status{{ manager_suffix }}
 
+{% endfor -%}
 **Bulk update - Copy these issue keys for Jira:**
 
 `{{ result.ready_to_plan|map(attribute='key')|join(',') }}`
