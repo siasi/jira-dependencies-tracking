@@ -3,7 +3,7 @@
 import json
 import pytest
 from pathlib import Path
-from validate_initiative_status import (
+from validate_planning import (
     ValidationResult,
     validate_initiative_status,
     _check_data_quality,
@@ -680,7 +680,7 @@ def test_validate_initiative_status_planned_for_quarter(tmp_path):
 
 def test_load_teams_exempt_from_rag(tmp_path):
     """Test loading teams exempt from RAG checking from team_mappings.yaml."""
-    from validate_initiative_status import _load_teams_exempt_from_rag
+    from validate_planning import _load_teams_exempt_from_rag
 
     # Note: This test will use the actual team_mappings.yaml in the project if it exists
     # For a full test, you would need to mock the file path
@@ -872,14 +872,14 @@ def test_find_latest_extract_no_files(tmp_path, monkeypatch):
 
 def test_normalize_teams_involved_handles_none():
     """Test _normalize_teams_involved handles None/null values."""
-    from validate_initiative_status import _normalize_teams_involved
+    from validate_planning import _normalize_teams_involved
 
     assert _normalize_teams_involved(None) == []
 
 
 def test_normalize_teams_involved_handles_string():
     """Test _normalize_teams_involved handles comma-separated strings."""
-    from validate_initiative_status import _normalize_teams_involved
+    from validate_planning import _normalize_teams_involved
 
     # Single team
     assert _normalize_teams_involved("Team A") == ["Team A"]
@@ -903,7 +903,7 @@ def test_normalize_teams_involved_handles_string():
 
 def test_normalize_teams_involved_handles_list():
     """Test _normalize_teams_involved handles list values."""
-    from validate_initiative_status import _normalize_teams_involved
+    from validate_planning import _normalize_teams_involved
 
     # Normal list
     assert _normalize_teams_involved(["Team1", "Team2"]) == ["Team1", "Team2"]
@@ -917,7 +917,7 @@ def test_normalize_teams_involved_handles_list():
 
 def test_count_teams_involved():
     """Test _count_teams_involved with various formats."""
-    from validate_initiative_status import _count_teams_involved
+    from validate_planning import _count_teams_involved
 
     # None/null
     assert _count_teams_involved(None) == 0

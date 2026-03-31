@@ -9,6 +9,7 @@ import json
 import sys
 from pathlib import Path
 from typing import Dict, List, Set
+from datetime import datetime
 import yaml
 
 from lib.common_formatting import make_clickable_link
@@ -236,6 +237,82 @@ def print_validation_report(results: Dict) -> None:
     print("\n" + "=" * 70 + "\n")
 
 
+def generate_markdown_report(results: Dict) -> str:
+    """Generate validation report in markdown format.
+
+    Args:
+        results: Results from validate_strategic_objectives()
+
+    Returns:
+        Markdown-formatted report string
+    """
+    from lib.common_formatting import make_markdown_link
+
+    total_validated = results['total_validated']
+    valid_count = results['valid_count']
+    missing_objective = results['missing_objective']
+    invalid_objective = results['invalid_objective']
+    valid_values = results['valid_values']
+    excluded_teams = results['excluded_teams']
+
+    issues_count = len(missing_objective) + len(invalid_objective)
+
+    lines = []
+
+    # Header
+    lines.append("# Strategic Objective Validation Report\n")
+    lines.append(f"**Total initiatives analyzed:** {total_validated}  ")
+    lines.append(f"**Valid:** {valid_count}  ")
+    lines.append(f"**Issues found:** {issues_count}\n")
+
+    if excluded_teams:
+        lines.append(f"**Excluded teams:** {', '.join(excluded_teams)}\n")
+
+    if valid_values:
+        lines.append("## Valid Strategic Objectives\n")
+        for value in valid_values:
+            lines.append(f"- {value}")
+        lines.append("")
+    else:
+        lines.append("⚠️ **Warning:** No valid values configured in config.yaml\n")
+
+    # Issues section
+    lines.append("## Issues\n")
+
+    # Missing strategic objective
+    if missing_objective:
+        lines.append(f"### Missing strategic objective ({len(missing_objective)} initiatives)\n")
+        for init in missing_objective:
+            summary = init['summary']
+            if len(summary) > 50:
+                summary = summary[:47] + "..."
+            owner = init.get('owner_team', 'None')
+            markdown_key = make_markdown_link(init['key'], init['url'])
+            lines.append(f"- {markdown_key} (owner: {owner}): {summary}")
+        lines.append("")
+    else:
+        lines.append("✓ All initiatives have strategic objective set\n")
+
+    # Invalid strategic objective
+    if invalid_objective:
+        lines.append(f"### Invalid strategic objective ({len(invalid_objective)} initiatives)\n")
+        for init in invalid_objective:
+            summary = init['summary']
+            if len(summary) > 40:
+                summary = summary[:37] + "..."
+            owner = init.get('owner_team', 'None')
+            current = init['current_value']
+            markdown_key = make_markdown_link(init['key'], init['url'])
+            lines.append(f"- {markdown_key} (owner: {owner}): {summary}")
+            lines.append(f"  - Current value: \"{current}\"")
+        lines.append("")
+    else:
+        if valid_values:
+            lines.append("✓ All set strategic objectives are valid\n")
+
+    return "\n".join(lines)
+
+
 def main():
     """Main entry point."""
     import argparse
@@ -278,6 +355,16 @@ Configuration:
         help='Verbose output for debugging'
     )
 
+    parser.add_argument(
+        '--markdown',
+        type=str,
+        nargs='?',
+        const='auto',
+        metavar='FILENAME',
+        help='Export report as markdown file. '
+             'Optionally specify filename, otherwise auto-generates with timestamp.'
+    )
+
     args = parser.parse_args()
 
     # Determine which JSON file to use
@@ -312,8 +399,26 @@ Configuration:
     # Validate strategic objectives
     results = validate_strategic_objectives(json_file, valid_values, excluded_teams)
 
-    # Print report
+    # Print console report
     print_validation_report(results)
+
+    # Generate markdown export if requested
+    if args.markdown:
+        if args.markdown == 'auto':
+            # Auto-generate filename with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            markdown_file = Path(f"strategic_objective_validation_report_{timestamp}.md")
+        else:
+            markdown_file = Path(args.markdown)
+
+        # Generate markdown content
+        markdown_content = generate_markdown_report(results)
+
+        # Write to file
+        with open(markdown_file, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+
+        print(f"\n✅ Markdown report exported to: {markdown_file}")
 
     # Exit with error code if issues found
     issues_count = len(results['missing_objective']) + len(results['invalid_objective'])

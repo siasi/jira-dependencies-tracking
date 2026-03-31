@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Set, Tuple
 from collections import defaultdict
+from datetime import datetime
 import yaml
 
 from lib.common_formatting import make_clickable_link
@@ -901,8 +902,12 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
 
     parser.add_argument(
         '--markdown',
-        action='store_true',
-        help='Output report in markdown format instead of console format'
+        type=str,
+        nargs='?',
+        const='auto',
+        metavar='FILENAME',
+        help='Export report as markdown file. '
+             'Optionally specify filename, otherwise auto-generates with timestamp.'
     )
 
     args = parser.parse_args()
@@ -939,12 +944,37 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
     # Analyze workload
     analysis = analyze_workload(json_file, team_mappings, excluded_teams, strategic_objective_mappings)
 
-    # Print report
+    # Print console report
+    print_workload_report(analysis, team_managers=team_managers, reverse_team_mappings=reverse_team_mappings,
+                         verbose=args.verbose)
+
+    # Generate markdown export if requested
     if args.markdown:
-        print_markdown_report(analysis, team_managers=team_managers, reverse_team_mappings=reverse_team_mappings)
-    else:
-        print_workload_report(analysis, team_managers=team_managers, reverse_team_mappings=reverse_team_mappings,
-                             verbose=args.verbose)
+        if args.markdown == 'auto':
+            # Auto-generate filename with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            markdown_file = Path(f"workload_analysis_report_{timestamp}.md")
+        else:
+            markdown_file = Path(args.markdown)
+
+        # Capture markdown output to string
+        import io
+        markdown_buffer = io.StringIO()
+        original_stdout = sys.stdout
+        sys.stdout = markdown_buffer
+
+        try:
+            print_markdown_report(analysis, team_managers=team_managers, reverse_team_mappings=reverse_team_mappings)
+        finally:
+            sys.stdout = original_stdout
+
+        markdown_content = markdown_buffer.getvalue()
+
+        # Write to file
+        with open(markdown_file, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+
+        print(f"\n✅ Markdown report exported to: {markdown_file}")
 
 
 if __name__ == '__main__':
