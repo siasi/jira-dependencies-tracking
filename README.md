@@ -2,7 +2,7 @@
 
 Engineering Management toolkit for Jira that helps you manage multi-team initiatives effectively.
 
-## Common EM Challenges This Solves
+## What Problems Does This Solve?
 
 ❌ **"Are all teams ready to commit to this initiative?"**
 ✅ Run `validate_planning.py` → Get instant readiness report with specific blockers
@@ -19,64 +19,99 @@ Engineering Management toolkit for Jira that helps you manage multi-team initiat
 ❌ **"Do all initiatives align with company strategy?"**
 ✅ Both validation scripts check strategic objectives automatically
 
-**Built for multi-team environments** where initiatives span multiple engineering teams and coordination is critical.
-
 ---
 
-## Try It in 2 Minutes
+## Setup
 
-**Prerequisites:** Python 3.9+, Jira Cloud access with API token
+### Prerequisites
+- Python 3.9+
+- Jira Cloud access with API token
+
+### Installation
 
 ```bash
-# 1. Install
 pip install -r requirements.txt
 
-# 2. Configure - Edit these 3 things:
-cp config/jira_config.yaml.example config/jira_config.yaml
-cp .env.example .env
+# Optional: Install command aliases
+pip install -e .
+```
 
-# In config/jira_config.yaml: Set jira instance + project keys
-# In .env: Add Jira email + API token
+### Configure
 
-# 3. Run it
+1. **Copy templates:**
+   ```bash
+   cp config/jira_config.yaml.example config/jira_config.yaml
+   cp config/team_mappings.yaml.example config/team_mappings.yaml
+   cp .env.example .env
+   ```
+
+2. **Edit `config/jira_config.yaml`:**
+   ```yaml
+   jira:
+     instance: "company.atlassian.net"  # No https://
+
+   projects:
+     initiatives: "INIT"     # Your initiatives project KEY
+     teams:                  # Your team project KEYS
+       - "TEAM1"
+       - "TEAM2"
+
+   custom_fields:
+     initiatives:
+       rag_status: "customfield_12111"
+       strategic_objective: "customfield_12101"
+       quarter: "customfield_12108"
+   ```
+
+3. **Edit `.env`:**
+   ```bash
+   JIRA_EMAIL=your.email@company.com
+   JIRA_API_TOKEN=your_token_here
+   ```
+
+4. **Find custom field IDs:**
+   ```bash
+   python extract.py list-fields
+   ```
+
+> **Important:** Use project **KEYS** (like `RSK`, `INIT`) not project names (like "Risk Team").
+
+---
+
+## Usage
+
+Three scripts that work together:
+
+### Extract Data
+```bash
 python extract.py extract
+```
+**What you get:** JSON/CSV file with all initiatives, epics, custom fields, and team relationships.
+
+### Validate Planning Readiness
+```bash
 python validate_planning.py
 ```
+**What you get:** Report showing which initiatives have data quality issues, commitment blockers, or are ready to move to "Planned" status.
 
-**→ You now have a planning readiness report!**
+### Analyze Team Workload
+```bash
+python analyze_workload.py
+```
+**What you get:** Breakdown of which teams are leading vs contributing to initiatives, with workload distribution metrics.
 
-> **Note:** Use project **KEYS** (like `RSK`, `INIT`) not names (like "Risk Team").
-> See [Advanced Configuration](#advanced-configuration) section below for custom fields and detailed setup.
+**Typical workflow:**
+```
+Extract data → Validate readiness → Analyze workload → Report to stakeholders
+```
 
 ---
 
-## The Workflow
+## Extract
 
-```
-┌─────────┐    ┌──────────┐    ┌─────────┐    ┌─────────┐
-│ Extract │ →  │ Validate │ →  │ Analyze │ →  │ Report  │
-└─────────┘    └──────────┘    └─────────┘    └─────────┘
-   extract.py   validate_       analyze_       (markdown/
-                planning.py    workload.py      dust msgs)
-```
+Extract initiatives and epics from Jira into JSON or CSV format.
 
-**Typical flow:**
-1. **Extract** current Jira state
-2. **Validate** planning readiness (are initiatives ready?)
-3. **Analyze** workload distribution (who's overloaded?)
-4. **Report** to stakeholders (markdown for Notion, Slack via Dust)
-
----
-
-## The Three Scripts
-
-### 1. Extract Data (`extract.py`)
-
-**Use this when:** You need current Jira data for analysis
-
-**What it does:** Pulls initiatives and epics from Jira, builds hierarchy, exports to JSON/CSV
-
-**Scenario:** "I need to analyze our Q2 initiatives"
+### Basic Usage
 
 ```bash
 # Extract to JSON (default)
@@ -85,183 +120,245 @@ python extract.py extract
 # Extract to CSV for spreadsheet analysis
 python extract.py extract --format csv
 
-# See what custom fields are available
+# Extract both formats
+python extract.py extract --format both
+```
+
+### Utility Commands
+
+```bash
+# List available custom fields with IDs
 python extract.py list-fields
+
+# Validate your configuration
+python extract.py validate-config
 ```
 
-**What you get:**
-- `data/jira_extract_YYYYMMDD_HHMMSS.json` or `.csv`
+### Options
+
+```bash
+python extract.py extract --config custom.yaml    # Use custom config
+python extract.py extract --output ./data.json    # Custom output path
+python extract.py extract --verbose              # Detailed logging
+python extract.py extract --dry-run              # Preview without writing
+```
+
+### Output Formats
+
+**JSON:** Hierarchical structure
 - Initiative → Team → Epics hierarchy
-- All configured custom fields (RAG status, strategic objective, quarter, etc.)
-- Orphaned epics (no parent initiative)
+- All configured custom fields included
+- Orphaned epics (no parent initiative) tracked separately
+- Metadata: extraction timestamp, Jira instance, totals
+- File: `data/jira_extract_YYYYMMDD_HHMMSS.json`
 
----
+**CSV:** Flat structure for spreadsheets
+- One row per epic (initiative data repeated)
+- Dynamic columns based on your custom field configuration
+- UTF-8 with BOM for Excel compatibility
+- Emoji characters preserved (🟢🟡🔴)
+- File: `data/jira_extract_YYYYMMDD_HHMMSS.csv`
 
-### 2. Validate Planning Readiness (`validate_planning.py`)
+### Snapshots
 
-**Use this when:** Before moving initiatives from "Proposed" → "Planned" status
+Track plan stability over time by capturing quarterly snapshots.
 
-**What it does:** Checks if initiatives are ready to commit to, identifies blockers
-
-**Scenario 1:** "Can we commit to these initiatives in quarterly planning?"
-
-```bash
-python validate_planning.py
-```
-
-**Output:** Four sections
-1. 🔴 **Fix Data Quality** - Missing epics, wrong team counts, no assignee
-2. 🟡 **Address Commitment Blockers** - RED/YELLOW epics, missing RAG status
-3. ✅ **Ready to Move to Planned** - Comma-separated Jira keys for bulk update
-4. ⚠️  **Planned Initiatives Requiring Attention** - Regressions in committed work
-
-**Scenario 2:** "I only care about multi-team initiatives (2+ teams)"
+#### Capture a Snapshot
 
 ```bash
-python validate_planning.py --min-teams 2
-```
-
-**Scenario 3:** "Generate a Notion-friendly report for leadership"
-
-```bash
-python validate_planning.py --markdown planning-report.md
-```
-
-**Scenario 4:** "Send action items to engineering managers via Slack (using Dust)"
-
-```bash
-python validate_planning.py --dust
-# Outputs: data/dust_messages_YYYYMMDD_HHMMSS.txt
-# Grouped by manager, ready to paste into Dust for bulk DMs
-```
-
-**What it checks:**
-
-✅ **Data Quality Issues (blocking):**
-- Epic count matches "Teams Involved" field
-- All epics have RAG status set (except exempt teams)
-- Initiatives have valid strategic objectives
-- Each initiative has at least one epic
-
-✅ **Commitment Blockers (not ready):**
-- Any RED or YELLOW epics (all must be GREEN)
-- Missing initiative assignee
-- Missing RAG status (treated as blocker)
-
-**Strategic objective validation:** Automatically checks against valid values from config. Reports missing or invalid objectives as data quality issues.
-
-**Exit code:** `0` if ready, `1` if issues found (useful for CI/CD)
-
----
-
-### 3. Analyze Team Workload (`analyze_workload.py`)
-
-**Use this when:** Planning team capacity or reviewing workload distribution
-
-**What it does:** Shows which teams are leading vs contributing to initiatives
-
-**Scenario 1:** "Which teams are most loaded this quarter?"
-
-```bash
-python analyze_workload.py
-```
-
-**Output:**
-- **Team Analysis Table:** Leading, Contributing, Total per team
-- **Detailed Breakdown:** Every initiative listed by team
-- **Issues Section:** Missing owners, missing epics, invalid strategic objectives
-
-**Scenario 2:** "Generate a workload report for quarterly planning review"
-
-```bash
-python analyze_workload.py --markdown workload-report.md
-```
-
-**Scenario 3:** "Show me all the details - which specific initiatives each team owns"
-
-```bash
-python analyze_workload.py --verbose
-```
-
-**What you get:**
-- **Leading count:** Initiatives where team is the owner
-- **Contributing count:** Initiatives where team has epics but isn't owner
-- **RAG status:** For contributing work (shows 🟢🟡🔴 health)
-- **Data quality issues:** Same strategic objective validation as validate_planning.py
-
-**Use cases:**
-- Capacity planning: "Can this team take on more work?"
-- Ownership gaps: "Which initiatives have no clear owner?"
-- Strategic alignment: "Are all initiatives tied to company objectives?"
-- Dependency visualization: "How many initiatives span multiple teams?"
-
-**Strategic objective validation:** Same checks as validate_planning.py - reports missing/invalid objectives.
-
----
-
-## Advanced Features
-
-### Snapshot Tracking
-
-**Use this when:** You want to measure plan stability over a quarter
-
-**Scenario:** "How much did our Q2 plan change since we committed?"
-
-```bash
-# Beginning of quarter - capture baseline
+# Capture baseline when plan stabilizes
 python extract.py snapshot --label "2026-Q2-baseline"
 
-# End of quarter - capture final state
+# Monthly checkpoints
+python extract.py snapshot --label "2026-Q2-month1"
+python extract.py snapshot --label "2026-Q2-month2"
 python extract.py snapshot --label "2026-Q2-end"
+```
 
-# Generate comparison report
+Snapshots are saved to `data/snapshots/` with:
+- All Jira data (initiatives, epics, orphaned epics)
+- Metadata (timestamp, configuration, totals)
+- Same filtering rules as extract command
+
+#### List Snapshots
+
+```bash
+python extract.py snapshots list
+```
+
+Shows: Label, timestamp, Jira instance, total initiatives/epics/teams
+
+#### Compare Snapshots
+
+Generate comparison reports between two snapshots:
+
+```bash
+# Text output to terminal
+python extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
+
+# Markdown report
 python extract.py compare \
   --from "2026-Q2-baseline" \
   --to "2026-Q2-end" \
   --format markdown \
   --output reports/q2-final.md
+
+# CSV export
+python extract.py compare \
+  --from "2026-Q2-baseline" \
+  --to "2026-Q2-end" \
+  --format csv \
+  --output reports/q2-comparison.csv
 ```
 
-**Comparison reports show:**
-1. **Commitment Drift** - Initiatives that dropped from "Planned"
-2. **New Work Injection** - New initiatives added mid-quarter
-3. **Epic Churn** - Epics added/removed per initiative
-4. **Team Stability** - % of epics unchanged by team
-5. **Orphaned Epics** - Tracking of unassigned epics
+**Report formats:** `text` (default), `markdown`, `csv`
 
-**Use cases:**
-- Quarterly retrospectives: "How stable was our planning?"
-- Leadership reporting: "Did we deliver what we committed to?"
-- Process improvement: "Are we getting better at planning?"
+#### Comparison Reports
+
+The comparison generates 5 reports:
+
+1. **Commitment Drift** - Initiatives that were "Planned" in baseline, now "Proposed" or "Cancelled"
+2. **New Work Injection** - Initiatives that weren't "Planned" in baseline, now "Planned"
+3. **Epic Churn** - Epics added or removed within each initiative (net change per initiative)
+4. **Initiative Overruns** *(future feature)* - Track initiatives delivered >20% beyond ETA
+5. **Team Stability** - Per-team metrics: % of epics unchanged, added, removed (sorted by least stable)
+
+Plus: **Orphaned Epics Tracking** (epics that became orphaned, got assigned, or stayed orphaned)
+
+#### Typical Quarterly Workflow
+
+```bash
+# 1. Capture baseline when plan stabilizes
+python extract.py snapshot --label "2026-Q2-baseline"
+
+# 2. Capture monthly checkpoints
+python extract.py snapshot --label "2026-Q2-month1"
+python extract.py snapshot --label "2026-Q2-month2"
+
+# 3. Capture end-of-quarter
+python extract.py snapshot --label "2026-Q2-end"
+
+# 4. Generate comparison reports
+python extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
+python extract.py compare \
+  --from "2026-Q2-baseline" \
+  --to "2026-Q2-end" \
+  --format markdown \
+  --output reports/2026-Q2-final.md
+```
 
 ---
 
-### Dust Manager Notifications
+## Validate Planning
 
-**Use this when:** You need to send action items to engineering managers via Slack
+Check if initiatives are ready to move from **Proposed** → **Planned** status.
 
-**Scenario:** "Send each manager a DM with action items for their team's initiatives"
+### Basic Usage
 
+```bash
+# Validate latest extraction
+python validate_planning.py
+
+# Validate specific file
+python validate_planning.py data/jira_extract_20260321.json
+
+# Validate snapshot
+python validate_planning.py data/snapshots/snapshot_baseline_*.json
+```
+
+### Options
+
+```bash
+# Only check multi-team initiatives (2+ teams)
+python validate_planning.py --min-teams 2
+
+# Export to markdown (Notion-compatible)
+python validate_planning.py --markdown planning-report.md
+
+# Verbose output with additional details
+python validate_planning.py --verbose
+
+# Generate Dust messages for Slack DMs
+python validate_planning.py --dust
+```
+
+### What It Checks
+
+#### Data Quality (must fix first):
+- ✅ Epic count matches "Teams Involved" field
+- ✅ All epics have RAG status set (except exempt teams)
+- ✅ All initiatives have valid strategic objectives
+- ✅ Each initiative has at least one epic
+- ✅ Initiative has an assignee
+
+#### Commitment Blockers (readiness):
+- ✅ No RED or YELLOW epics (all must be GREEN)
+- ✅ No missing RAG status (treated as blocker)
+- ✅ Strategic objective is valid (checked against config)
+
+### Output
+
+Terminal report with four sections:
+
+1. **🔴 Fix Data Quality** - Issues blocking validation (epic-level detail)
+   - Missing epics for teams involved
+   - Wrong team counts
+   - No assignee
+   - Missing/invalid strategic objectives
+
+2. **🟡 Address Commitment Blockers** - Not ready for planning (epic-level detail)
+   - RED or YELLOW epics
+   - Missing RAG status
+
+3. **✅ Ready to Move to Planned** - Comma-separated Jira keys for bulk update
+   - All checks passed
+   - Ready for commitment
+
+4. **⚠️ Planned Initiatives Requiring Attention** - Regressions in committed work
+   - Initiatives that moved from Planned back to Proposed
+   - Planned initiatives with new blockers
+
+**Exit code:** `0` if all pass, `1` if issues found (useful for CI/CD)
+
+### Output Formats
+
+**Console:** Terminal-friendly with ANSI hyperlinks (clickable Jira links)
+
+**Markdown:** Notion-compatible format with tables and links
+```bash
+python validate_planning.py --markdown report.md
+```
+
+**Dust Messages:** Grouped by engineering manager for Slack DMs
 ```bash
 python validate_planning.py --dust
 # Output: data/dust_messages_YYYYMMDD_HHMMSS.txt
 ```
 
-**What you get:**
-- Messages grouped by engineering manager
-- Each message includes Slack member ID (`Recipient: U01ABC123`)
-- Action items organized by initiative
-- Multi-team managers get subsections per team
-- Ready to copy-paste into Dust chatbot for bulk sending
+### Strategic Objective Validation
 
-**Action types included:**
-- Missing dependencies (teams need to create epics)
-- Missing RAG status (teams need to update status)
-- Missing assignee (initiative needs owner)
-- Ready to move to PLANNED (green light for commitment)
+Automatically validates strategic objectives against configured values.
 
-**Setup required:** Configure `config/team_mappings.yaml` with Slack IDs:
+**Configuration required in `config/jira_config.yaml`:**
+```yaml
+validation:
+  strategic_objective:
+    valid_values:
+      - "Revenue Growth"
+      - "Cost Reduction"
+      - "Customer Experience"
+```
 
+**What's checked:**
+- ❌ Missing strategic objective → Data quality issue
+- ❌ Invalid value (not in list) → Data quality issue
+- ✅ Valid objective from list → Passes
+
+### Dust Notifications
+
+Generate Slack DM messages for engineering managers.
+
+**Setup:** Configure `config/team_mappings.yaml` with Slack IDs:
 ```yaml
 team_managers:
   "TEAM1":
@@ -269,87 +366,108 @@ team_managers:
     slack_id: "U01ABC123"
 ```
 
+**Usage:**
+```bash
+python validate_planning.py --dust
+```
+
+**Output:**
+- Messages grouped by manager
+- Each message includes Slack member ID (`Recipient: U01ABC123`)
+- Action items organized by initiative
+- Multi-team managers get subsections per team
+- Ready to paste into Dust chatbot
+
+**Action types included:**
+- Missing dependencies (teams need to create epics)
+- Missing RAG status (teams need to update status)
+- Missing assignee (initiative needs owner)
+- Ready to PLANNED (green light for commitment)
+
 ---
 
-## Command Reference
+## Analyze Workload
 
-### Extract Commands
+Understand team capacity and initiative distribution.
+
+### Basic Usage
 
 ```bash
-# Basic extraction
-python extract.py extract                    # JSON format
-python extract.py extract --format csv       # CSV format
-python extract.py extract --format both      # Both formats
+# Analyze latest extraction
+python analyze_workload.py
 
-# Utilities
-python extract.py list-fields               # Show available custom fields
-python extract.py validate-config           # Test your configuration
-
-# Snapshots
-python extract.py snapshot --label "Q2-baseline"
-python extract.py snapshots list
-python extract.py compare --from "label1" --to "label2"
-
-# Options
---config PATH        # Custom config file
---output PATH        # Custom output location
---verbose           # Detailed logging
---dry-run           # Show what would be fetched
+# Analyze specific file
+python analyze_workload.py data/jira_extract_20260321.json
 ```
 
-### Validation Commands
+### Options
 
 ```bash
-# Basic validation
-python validate_planning.py                          # Latest extraction
-python validate_planning.py data/extract.json        # Specific file
+# Export to markdown
+python analyze_workload.py --markdown workload-report.md
 
-# Filters
-python validate_planning.py --min-teams 2            # Only multi-team initiatives
-
-# Output formats
-python validate_planning.py --markdown report.md     # Markdown export
-python validate_planning.py --dust                   # Dust messages for Slack
-python validate_planning.py --verbose               # Detailed output
-```
-
-### Analysis Commands
-
-```bash
-# Basic analysis
-python analyze_workload.py                    # Latest extraction
-python analyze_workload.py data/extract.json  # Specific file
-
-# Output formats
-python analyze_workload.py --markdown workload.md
+# Verbose output with initiative details
 python analyze_workload.py --verbose
 ```
 
----
+### What You Get
 
-## Troubleshooting
+#### Team Analysis Table
+Shows for each team:
+- **Leading count:** Initiatives where team is the owner
+- **Contributing count:** Initiatives where team has epics but isn't owner
+- **Total:** Sum of leading + contributing
 
-**Authentication failed:**
-- Verify API token is valid: https://id.atlassian.com/manage-profile/security/api-tokens
-- Check email in `.env` matches your Atlassian account
+Sorted by total (most loaded teams first)
 
-**JQL syntax error / "Expecting either a value, list or function":**
-- Use project **KEYS** (e.g., `RSK`) not names (e.g., "Risk Team")
-- Verify keys: Visit `https://your-company.atlassian.net/browse/RSK-1`
-- Test config: `python extract.py validate-config`
+#### Detailed Breakdown by Team
+For each team:
+- List of leading initiatives with summaries
+- List of contributing initiatives with RAG status (🟢🟡🔴)
+- Team manager information (if configured)
 
-**Custom field not found:**
-- List available fields: `python extract.py list-fields`
-- Update field ID in `config/jira_config.yaml`
+#### Issues Section
+Data quality problems:
+- Initiatives without owner_team
+- Initiatives with missing epics for teams involved
+- Missing strategic objectives
+- Invalid strategic objectives
 
-**Missing data:**
-- Check `extraction_status` in output JSON
-- Verify you have permissions to access all projects
-- Tool continues with partial data but reports issues
+### Output Formats
 
-**"No data files found":**
-- Run `python extract.py extract` first to create data
-- Or specify file: `python validate_planning.py data/your-file.json`
+**Console:** Terminal-friendly with tables and clickable links
+
+**Markdown:** Notion-compatible report with tables
+```bash
+python analyze_workload.py --markdown workload.md
+```
+
+### Use Cases
+
+**Capacity Planning:**
+- "Can this team take on more work?"
+- "Which teams are bottlenecks?"
+
+**Ownership Gaps:**
+- "Which initiatives have no clear owner?"
+- "Are all teams engaged?"
+
+**Strategic Alignment:**
+- "Are all initiatives tied to company objectives?"
+- "Which initiatives need strategic objective updates?"
+
+**Dependency Visualization:**
+- "How many initiatives span multiple teams?"
+- "Which teams collaborate most?"
+
+### Strategic Objective Validation
+
+Same validation as `validate_planning.py`:
+- Checks against configured valid values
+- Reports missing objectives as data quality issues
+- Reports invalid objectives as data quality issues
+
+See [Advanced Configuration](#advanced-configuration) for setup.
 
 ---
 
@@ -434,7 +552,7 @@ teams_exempt_from_rag:
 
 ```bash
 JIRA_EMAIL=your.email@company.com
-JIRA_API_TOKEN=your_api_token_here  # Get from: id.atlassian.com/manage-profile/security/api-tokens
+JIRA_API_TOKEN=your_token_here  # Get from: id.atlassian.com/manage-profile/security/api-tokens
 ```
 
 ### Finding Project Keys
@@ -454,17 +572,22 @@ Find keys in:
 
 Supports: Select, Text, Multi-select fields. Missing fields = `null`.
 
-### Output Formats
+### Optional: Command Aliases
 
-- **JSON:** Hierarchical (Initiative → Team → Epics), all custom fields, metadata
-- **CSV:** One row per epic, Excel-compatible, dynamic columns based on config
-- **Markdown:** Notion-compatible, generated by `--markdown` flag
+```bash
+pip install -e .
+
+# Short commands:
+jem-extract
+jem-validate-planning
+jem-analyze-workload
+```
 
 ---
 
 ## Migration from v1.x
 
-If you're upgrading from an older version:
+If upgrading from an older version:
 
 **Script names changed:**
 ```
@@ -474,27 +597,12 @@ analyze_team_workload.py  → analyze_workload.py
 ```
 
 **Removed scripts** (functionality now built-in):
-- `validate_strategic_objective.py` - Now built into `validate_planning.py` and `analyze_workload.py`
-- `validate_dependencies.py` - Now built into `validate_planning.py`
-
-Both validation scripts automatically check strategic objectives against configured valid values.
+- `validate_strategic_objective.py` → Built into `validate_planning.py` and `analyze_workload.py`
 
 **Configuration moved:**
 ```bash
 mv config.yaml config/jira_config.yaml
 mv team_mappings.yaml config/team_mappings.yaml
-```
-
-Scripts check root directory as fallback (with warning) if configs not in `config/`.
-
-**Optional command aliases:**
-```bash
-pip install -e .
-
-# Short commands now available:
-jem-extract
-jem-validate-planning
-jem-analyze-workload
 ```
 
 ---
@@ -520,14 +628,3 @@ jira-em-toolkit/
 ├── validate_planning.py
 └── analyze_workload.py
 ```
-
----
-
-## Contributing
-
-This toolkit follows test-driven development:
-- All features have tests in `tests/`
-- Run tests: `pytest tests/ -v`
-- Current status: 149 tests passing
-
-See `docs/` for architecture decisions and design documentation.
