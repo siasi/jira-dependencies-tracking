@@ -45,6 +45,7 @@ class ValidationResult:
         self.planned_regressions: List[Dict[str, Any]] = []
         self.ignored_statuses: List[Dict[str, Any]] = []
         # Metadata
+        self.quarter: Optional[str] = None
         self.total_checked = 0
         self.total_filtered = 0
 
@@ -993,14 +994,15 @@ def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
     print(f"Total action items: {sum(m['total_actions'] for m in messages)}")
 
 
-def validate_initiative_status(json_file: Path) -> ValidationResult:
+def validate_initiative_status(json_file: Path, quarter: str) -> ValidationResult:
     """Validate initiative readiness for Proposed → Planned transition.
 
-    Only validates multi-team initiatives (teams_involved >= 2).
+    Only validates multi-team initiatives (teams_involved >= 2) for the specified quarter.
     Single-team initiatives are tracked in ignored_statuses.
 
     Args:
         json_file: Path to JSON file from jira_extract.py or snapshot
+        quarter: Quarter to validate (e.g., "26 Q2")
 
     Returns:
         ValidationResult with categorized findings
@@ -1009,7 +1011,17 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
         data = json.load(f)
 
     result = ValidationResult()
-    all_initiatives = data.get('initiatives', [])
+    result.quarter = quarter  # Store quarter for reporting
+    all_initiatives_unfiltered = data.get('initiatives', [])
+
+    # Filter by quarter first
+    all_initiatives = [
+        init for init in all_initiatives_unfiltered
+        if init.get('quarter') == quarter
+    ]
+
+    # Track initiatives filtered out by quarter
+    quarter_filtered_count = len(all_initiatives_unfiltered) - len(all_initiatives)
 
     # Load excluded teams
     excluded_teams = _load_teams_excluded_from_analysis()
@@ -1300,6 +1312,12 @@ def main():
         action='store_true',
         help='Generate Dust bulk messages for manager notifications'
     )
+    parser.add_argument(
+        '--quarter',
+        required=True,
+        type=str,
+        help='Quarter to validate (e.g., "26 Q2"). Only initiatives matching this quarter will be validated.'
+    )
 
     args = parser.parse_args()
 
@@ -1319,7 +1337,7 @@ def main():
 
     # Run validation
     try:
-        result = validate_initiative_status(json_file)
+        result = validate_initiative_status(json_file, quarter=args.quarter)
 
         # Print console report
         print_validation_report(result, json_file, verbose=args.verbose)

@@ -26,7 +26,7 @@ python extract.py extract
 
 Validate readiness for new initiatives in the quarter and track action items for Team Managers, so that initiatives can progress to Planned status:
 ```bash
-python validate_planning.py --min-teams 2 --dust
+python validate_planning.py --quarter "26 Q2" --min-teams 2 --dust
 ```
 
 Once Planning is done, extract data again and analyze workload per team:
@@ -232,23 +232,21 @@ custom_fields:
 Validate initiative readiness for Proposed → Planned status transitions based on epic RAG status, team dependencies, and assignee presence.
 
 ```bash
-# Validate latest extraction
-python validate_planning.py
+# Validate latest extraction for Q2 2026
+python validate_planning.py --quarter "26 Q2"
 
-# Validate specific file
-python validate_planning.py data/jira_extract_20260321.json
+# Validate specific file for Q2 2026
+python validate_planning.py --quarter "26 Q2" data/jira_extract_20260321.json
 
-# Validate snapshot
-python validate_planning.py data/snapshots/snapshot_baseline_*.json
+# Validate snapshot with multi-team filter
+python validate_planning.py --quarter "26 Q2" --min-teams 2 data/snapshots/snapshot_baseline_*.json
 
-# Only analyze initiatives with 2+ teams
-python validate_planning.py --min-teams 2
-
-# Validate snapshot with team filter
-python validate_planning.py data/snapshots/snapshot_baseline_*.json --min-teams 2
+# Generate Dust notifications for Q2 2026
+python validate_planning.py --quarter "26 Q2" --dust
 ```
 
 **Options:**
+- `--quarter "YY QN"` - **Required.** Quarter to validate (e.g., "26 Q2"). Only initiatives matching this quarter will be validated.
 - `--min-teams N` - Minimum number of teams required (default: 1, analyzes all initiatives)
   - Use this to focus on multi-team initiatives only
   - Report shows total initiatives and how many were filtered out
@@ -261,8 +259,8 @@ python validate_planning.py data/snapshots/snapshot_baseline_*.json --min-teams 
 Generate copy-paste ready messages for sending bulk Slack DMs via Dust:
 
 ```bash
-# Generate Dust messages
-python validate_planning.py --dust
+# Generate Dust messages for Q2 2026
+python validate_planning.py --quarter "26 Q2" --dust
 
 # Output: Console preview + file in extracts/dust_messages_YYYY-MM-DD_HHMMSS.txt
 ```

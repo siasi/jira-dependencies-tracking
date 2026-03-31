@@ -45,6 +45,7 @@ def test_check_data_quality_epic_count_mismatch():
         "key": "INIT-123",
         "summary": "Test Initiative",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "user@example.com",
         "strategic_objective": "2026_fuel_regulated",
         "teams_involved": ["TEAM1", "TEAM2"],
@@ -79,6 +80,7 @@ def test_check_data_quality_missing_rag():
         "key": "INIT-456",
         "summary": "Test Initiative",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "user@example.com",
         "strategic_objective": "2026_fuel_regulated",
         "teams_involved": ["Team A"],
@@ -114,6 +116,7 @@ def test_check_data_quality_no_epics():
         "key": "INIT-789",
         "summary": "Test Initiative",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "user@example.com",
         "strategic_objective": "2026_fuel_regulated",
         "teams_involved": ["TEAM1", "TEAM2"],
@@ -135,6 +138,7 @@ def test_check_data_quality_missing_strategic_objective():
         "key": "INIT-888",
         "summary": "Test Initiative",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "user@example.com",
         "strategic_objective": None,  # Missing
         "teams_involved": ["TEAM1"],
@@ -159,6 +163,7 @@ def test_check_data_quality_all_good():
         "key": "INIT-100",
         "summary": "Test Initiative",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "user@example.com",
         "strategic_objective": "2026_fuel_regulated",
         "teams_involved": ["TEAM1"],
@@ -181,6 +186,7 @@ def test_has_red_epics_with_red():
         "key": "INIT-200",
         "summary": "Test Initiative",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "user@example.com",
         "strategic_objective": "2026_fuel_regulated",
         "teams_involved": ["TEAM1"],
@@ -206,6 +212,7 @@ def test_has_red_epics_with_owner_team():
         "key": "INIT-400",
         "summary": "Test Initiative",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "user@example.com",
         "owner_team": "TEAM1",
         "teams_involved": ["TEAM1", "TEAM2"],
@@ -236,6 +243,7 @@ def test_has_red_epics_none():
         "key": "INIT-600",
         "summary": "Test Initiative",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "user@example.com",
         "strategic_objective": "2026_fuel_regulated",
         "teams_involved": ["TEAM1"],
@@ -258,6 +266,7 @@ def test_has_yellow_epics_with_yellow():
         "key": "INIT-300",
         "summary": "Test Initiative",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "user@example.com",
         "strategic_objective": "2026_fuel_regulated",
         "teams_involved": ["TEAM1"],
@@ -282,6 +291,7 @@ def test_has_yellow_epics_none():
         "key": "INIT-500",
         "summary": "Test Initiative",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": None,
         "strategic_objective": "2026_fuel_regulated",
         "teams_involved": ["TEAM1"],
@@ -304,6 +314,7 @@ def test_is_ready_to_plan_all_criteria_met():
         "key": "INIT-700",
         "summary": "Ready Initiative",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "user@example.com",
         "strategic_objective": "2026_fuel_regulated",
         "teams_involved": ["TEAM1"],
@@ -324,6 +335,7 @@ def test_is_ready_to_plan_no_epics():
         "key": "INIT-800",
         "summary": "No Epics",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "user@example.com",
         "strategic_objective": "2026_fuel_regulated",
         "teams_involved": [],
@@ -339,6 +351,7 @@ def test_is_ready_to_plan_no_assignee():
         "key": "INIT-900",
         "summary": "No Assignee",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": None,
         "strategic_objective": "2026_fuel_regulated",
         "teams_involved": ["TEAM1"],
@@ -359,6 +372,7 @@ def test_is_ready_to_plan_epic_count_mismatch():
         "key": "INIT-1000",
         "summary": "Count Mismatch",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "user@example.com",
         "strategic_objective": "2026_fuel_regulated",
         "teams_involved": ["TEAM1"],
@@ -383,6 +397,7 @@ def test_is_ready_to_plan_not_all_green():
         "key": "INIT-1100",
         "summary": "Not All Green",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "user@example.com",
         "strategic_objective": "2026_fuel_regulated",
         "teams_involved": ["TEAM1"],
@@ -407,6 +422,7 @@ def test_is_ready_to_plan_with_red_epic():
         "key": "INIT-1101",
         "summary": "Has Red Epic",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "user@example.com",
         "strategic_objective": "2026_fuel_regulated",
         "teams_involved": ["TEAM1"],
@@ -432,6 +448,7 @@ def test_validate_initiative_status_dependency_mapping(tmp_path):
             "key": "INIT-123",
             "summary": "Test Initiative",
             "status": "Proposed",
+            "quarter": "26 Q2",
             "assignee": "user@example.com",
             "strategic_objective": "2026_fuel_regulated",
             "teams_involved": ["TEAM1", "TEAM2"],
@@ -455,7 +472,7 @@ def test_validate_initiative_status_dependency_mapping(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
 
     assert result.total_checked == 1
     assert len(result.dependency_mapping) == 1
@@ -471,6 +488,7 @@ def test_validate_initiative_status_cannot_complete(tmp_path):
             "key": "INIT-456",
             "summary": "Test Initiative",
             "status": "Proposed",
+            "quarter": "26 Q2",
             "assignee": "user@example.com",
             "strategic_objective": "2026_fuel_regulated",
             "teams_involved": ["TEAM1", "TEAM2"],
@@ -490,7 +508,7 @@ def test_validate_initiative_status_cannot_complete(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
 
     assert result.total_checked == 1
     assert len(result.dependency_mapping) == 0
@@ -506,6 +524,7 @@ def test_validate_initiative_status_low_confidence(tmp_path):
             "key": "INIT-457",
             "summary": "Test Initiative",
             "status": "Proposed",
+            "quarter": "26 Q2",
             "assignee": "user@example.com",
             "strategic_objective": "2026_fuel_regulated",
             "teams_involved": ["TEAM1", "TEAM2"],
@@ -525,7 +544,7 @@ def test_validate_initiative_status_low_confidence(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
 
     assert result.total_checked == 1
     assert len(result.dependency_mapping) == 0
@@ -541,6 +560,7 @@ def test_validate_initiative_status_awaiting_owner(tmp_path):
             "key": "INIT-458",
             "summary": "Test Initiative",
             "status": "Proposed",
+            "quarter": "26 Q2",
             "assignee": None,
             "strategic_objective": "2026_fuel_regulated",
             "teams_involved": ["TEAM1", "TEAM2"],
@@ -560,7 +580,7 @@ def test_validate_initiative_status_awaiting_owner(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
 
     assert result.total_checked == 1
     # Missing assignee is now a data quality issue
@@ -577,6 +597,7 @@ def test_validate_initiative_status_ready_to_plan(tmp_path):
             "key": "INIT-789",
             "summary": "Ready Initiative",
             "status": "Proposed",
+            "quarter": "26 Q2",
             "assignee": "user@example.com",
             "strategic_objective": "2026_fuel_regulated",
             "teams_involved": ["TEAM1", "TEAM2"],
@@ -596,7 +617,7 @@ def test_validate_initiative_status_ready_to_plan(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
 
     assert result.total_checked == 1
     assert len(result.dependency_mapping) == 0
@@ -612,6 +633,7 @@ def test_validate_initiative_status_planned_regression(tmp_path):
             "key": "INIT-999",
             "summary": "Regressed Initiative",
             "status": "Planned",
+            "quarter": "26 Q2",
             "assignee": "user@example.com",
             "strategic_objective": "2026_fuel_regulated",
             "teams_involved": ["TEAM1", "TEAM2"],
@@ -631,7 +653,7 @@ def test_validate_initiative_status_planned_regression(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
 
     assert result.total_checked == 1
     assert len(result.dependency_mapping) == 0
@@ -648,6 +670,7 @@ def test_validate_initiative_status_planned_for_quarter(tmp_path):
             "key": "INIT-1000",
             "summary": "Healthy Planned Initiative",
             "status": "Planned",
+            "quarter": "26 Q2",
             "assignee": "user@example.com",
             "strategic_objective": "2026_fuel_regulated",
             "teams_involved": ["TEAM1", "TEAM2"],
@@ -667,7 +690,7 @@ def test_validate_initiative_status_planned_for_quarter(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
 
     assert result.total_checked == 1
     assert len(result.dependency_mapping) == 0
@@ -697,6 +720,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "key": "INIT-001",
                 "summary": "Data Quality Issue",
                 "status": "Proposed",
+                "quarter": "26 Q2",
                 "assignee": "user@example.com",
                 "strategic_objective": "2026_fuel_regulated",
                 "teams_involved": ["TEAM1", "TEAM2"],
@@ -706,6 +730,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "key": "INIT-002",
                 "summary": "RED Epic",
                 "status": "Proposed",
+                "quarter": "26 Q2",
                 "assignee": "user@example.com",
                 "strategic_objective": "2026_fuel_regulated",
                 "teams_involved": ["TEAM1", "TEAM2"],
@@ -724,6 +749,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "key": "INIT-003",
                 "summary": "YELLOW Epic",
                 "status": "Proposed",
+                "quarter": "26 Q2",
                 "assignee": "user@example.com",
                 "strategic_objective": "2026_fuel_regulated",
                 "teams_involved": ["TEAM1", "TEAM2"],
@@ -742,6 +768,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "key": "INIT-004",
                 "summary": "Awaiting Owner",
                 "status": "Proposed",
+                "quarter": "26 Q2",
                 "assignee": None,
                 "strategic_objective": "2026_fuel_regulated",
                 "teams_involved": ["TEAM1", "TEAM2"],
@@ -760,6 +787,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "key": "INIT-005",
                 "summary": "Ready",
                 "status": "Proposed",
+                "quarter": "26 Q2",
                 "assignee": "user@example.com",
                 "strategic_objective": "2026_fuel_regulated",
                 "teams_involved": ["TEAM1", "TEAM2"],
@@ -778,6 +806,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
                 "key": "INIT-006",
                 "summary": "Planned Regression",
                 "status": "Planned",
+                "quarter": "26 Q2",
                 "assignee": "user@example.com",
                 "strategic_objective": "2026_fuel_regulated",
                 "teams_involved": ["TEAM1", "TEAM2"],
@@ -798,7 +827,7 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
 
     assert result.total_checked == 6
     # INIT-001 (no epics) and INIT-004 (no assignee) both go to dependency_mapping
@@ -1011,7 +1040,7 @@ def test_validate_initiative_status_teams_filter(tmp_path):
     json_file.write_text(json.dumps(test_data))
 
     # Filter is hardcoded to teams >= 2, so only INIT-2 and INIT-3 are validated
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
     assert result.total_checked == 2
     assert result.total_filtered == 1
     assert len(result.ready_to_plan) == 2
@@ -1104,7 +1133,7 @@ def test_validate_initiative_status_teams_with_various_formats(tmp_path):
 
     # Filter is hardcoded to teams >= 2
     # Should include only INIT-3 (3 teams) and INIT-4 (2 teams)
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
     assert result.total_checked == 2
     assert result.total_filtered == 2  # INIT-1 (None/0) and INIT-2 (1) filtered out
     # INIT-3 (3 teams) and INIT-4 (2 teams) should be included
@@ -1137,7 +1166,7 @@ def test_console_output_includes_manager_tags_for_missing_epics(tmp_path, capsys
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(test_data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
     assert len(result.dependency_mapping) == 1
 
     # Print the report and capture output
@@ -1176,7 +1205,7 @@ def test_markdown_output_includes_manager_tags_for_missing_epics(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(test_data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
     assert len(result.dependency_mapping) == 1
 
     # Generate markdown report
@@ -1215,7 +1244,7 @@ def test_console_output_no_manager_tag_for_unmapped_team(tmp_path, capsys):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(test_data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
     assert len(result.dependency_mapping) == 1
 
     # Print the report and capture output
@@ -1249,6 +1278,7 @@ def test_discovery_initiative_skips_epic_count_check():
         "key": "INIT-200",
         "summary": "[Discovery] Test Discovery Initiative",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "test@example.com",
         "strategic_objective": "2026_fuel_regulated",
         "owner_team": "Console",
@@ -1276,6 +1306,7 @@ def test_discovery_initiative_skips_missing_rag_check():
         "key": "INIT-201",
         "summary": "[Discovery] Test Discovery Initiative",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "test@example.com",
         "strategic_objective": "2026_fuel_regulated",
         "owner_team": "Console",
@@ -1306,6 +1337,7 @@ def test_discovery_initiative_still_checks_assignee():
         "key": "INIT-202",
         "summary": "[Discovery] Test Discovery Initiative",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": None,  # Missing assignee
         "strategic_objective": "2026_fuel_regulated",
         "owner_team": "Console",
@@ -1332,6 +1364,7 @@ def test_discovery_initiative_still_checks_strategic_objective():
         "key": "INIT-203",
         "summary": "[Discovery] Test Discovery Initiative",
         "status": "Proposed",
+        "quarter": "26 Q2",
         "assignee": "test@example.com",
         "strategic_objective": "",  # Missing strategic objective
         "owner_team": "Console",
@@ -1377,7 +1410,7 @@ def test_planned_discovery_initiative_console_warning(tmp_path, capsys):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(test_data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
     assert len(result.planned_for_quarter) == 1
     assert result.planned_for_quarter[0]['is_discovery'] is True
 
@@ -1414,7 +1447,7 @@ def test_planned_discovery_initiative_markdown_warning(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(test_data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
     assert len(result.planned_for_quarter) == 1
     assert result.planned_for_quarter[0]['is_discovery'] is True
 
@@ -1451,7 +1484,7 @@ def test_non_discovery_initiative_normal_validation(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(test_data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
 
     # Should be in dependency_mapping due to missing epic
     assert len(result.dependency_mapping) == 1
@@ -1471,6 +1504,7 @@ def test_in_progress_initiative_treated_as_planned(tmp_path):
                 "key": "INIT-300",
                 "summary": "In Progress Initiative",
                 "status": "In Progress",
+                "quarter": "26 Q2",
                 "assignee": "test@example.com",
                 "strategic_objective": "2026_fuel_regulated",
                 "owner_team": "Console",
@@ -1492,7 +1526,7 @@ def test_in_progress_initiative_treated_as_planned(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(test_data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
 
     # Should be in planned_for_quarter (healthy initiatives)
     assert len(result.planned_for_quarter) == 1
@@ -1508,6 +1542,7 @@ def test_in_progress_initiative_with_issues(tmp_path):
                 "key": "INIT-301",
                 "summary": "In Progress Initiative with Issues",
                 "status": "In Progress",
+                "quarter": "26 Q2",
                 "assignee": "test@example.com",
                 "strategic_objective": "2026_fuel_regulated",
                 "owner_team": "Console",
@@ -1526,7 +1561,7 @@ def test_in_progress_initiative_with_issues(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(test_data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
 
     # Should be in planned_regressions due to missing epic
     assert len(result.planned_regressions) == 1
@@ -1566,7 +1601,7 @@ def test_excluded_team_initiative_filtered_out(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(test_data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
 
     # Should not appear in any validation category
     assert len(result.dependency_mapping) == 0
@@ -1610,7 +1645,7 @@ def test_non_excluded_team_initiative_processed(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(test_data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
 
     # Should be processed normally and appear in ready_to_plan
     assert len(result.ready_to_plan) == 1
@@ -1665,7 +1700,7 @@ def test_mixed_excluded_and_non_excluded_teams(tmp_path):
     json_file = tmp_path / "test.json"
     json_file.write_text(json.dumps(test_data))
 
-    result = validate_initiative_status(json_file)
+    result = validate_initiative_status(json_file, quarter="26 Q2")
 
     # IT initiative should be in ignored_statuses
     ignored_keys = [item['key'] for item in result.ignored_statuses]
