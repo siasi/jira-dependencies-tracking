@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `test_console_template_formatting.py` test suite ensures that the console.j2 template maintains proper formatting, preventing regressions related to:
+The `test_console_template_formatting.py` test suite ensures that the planning_console.j2 template maintains proper formatting, preventing regressions related to:
 - Indentation issues
 - Missing newlines
 - Items running together on the same line

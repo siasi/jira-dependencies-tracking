@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
-from validate_initiative_status import ValidationResult
+from validate_planning import ValidationResult
 from lib.common_formatting import make_clickable_link
 
 
@@ -96,7 +96,7 @@ def sample_validation_result():
 
 def test_action_labels_have_proper_indentation(jinja_env, sample_validation_result):
     """All Action: labels should have exactly 3 spaces of indentation."""
-    template = jinja_env.get_template('console.j2')
+    template = jinja_env.get_template('planning_console.j2')
 
     output = template.render(
         result=sample_validation_result,
@@ -118,7 +118,7 @@ def test_action_labels_have_proper_indentation(jinja_env, sample_validation_resu
 
 def test_action_labels_followed_by_newline(jinja_env, sample_validation_result):
     """Action: labels should be followed by a newline before checkbox items."""
-    template = jinja_env.get_template('console.j2')
+    template = jinja_env.get_template('planning_console.j2')
 
     output = template.render(
         result=sample_validation_result,
@@ -145,7 +145,7 @@ def test_action_labels_followed_by_newline(jinja_env, sample_validation_result):
 
 def test_checkbox_items_on_separate_lines(jinja_env, sample_validation_result):
     """Each checkbox item should be on its own line."""
-    template = jinja_env.get_template('console.j2')
+    template = jinja_env.get_template('planning_console.j2')
 
     output = template.render(
         result=sample_validation_result,
@@ -172,7 +172,7 @@ def test_checkbox_items_on_separate_lines(jinja_env, sample_validation_result):
 
 def test_epic_status_headers_have_proper_indentation(jinja_env, sample_validation_result):
     """Epic status headers should have exactly 3 spaces of indentation."""
-    template = jinja_env.get_template('console.j2')
+    template = jinja_env.get_template('planning_console.j2')
 
     output = template.render(
         result=sample_validation_result,
@@ -198,7 +198,7 @@ def test_epic_status_headers_have_proper_indentation(jinja_env, sample_validatio
 
 def test_epic_items_on_separate_lines(jinja_env, sample_validation_result):
     """Each epic item should be on its own line."""
-    template = jinja_env.get_template('console.j2')
+    template = jinja_env.get_template('planning_console.j2')
 
     output = template.render(
         result=sample_validation_result,
@@ -244,7 +244,7 @@ def test_epic_items_on_separate_lines(jinja_env, sample_validation_result):
 
 def test_missing_rag_status_items_on_separate_lines(jinja_env, sample_validation_result):
     """Missing RAG status action items should be on separate lines."""
-    template = jinja_env.get_template('console.j2')
+    template = jinja_env.get_template('planning_console.j2')
 
     output = template.render(
         result=sample_validation_result,
@@ -273,7 +273,7 @@ def test_missing_rag_status_items_on_separate_lines(jinja_env, sample_validation
 
 def test_no_excessive_blank_lines(jinja_env, sample_validation_result):
     """Should not have more than 3 consecutive blank lines."""
-    template = jinja_env.get_template('console.j2')
+    template = jinja_env.get_template('planning_console.j2')
 
     output = template.render(
         result=sample_validation_result,
@@ -297,7 +297,7 @@ def test_no_excessive_blank_lines(jinja_env, sample_validation_result):
 
 def test_consistent_indentation_throughout(jinja_env, sample_validation_result):
     """All issue sections should use consistent indentation."""
-    template = jinja_env.get_template('console.j2')
+    template = jinja_env.get_template('planning_console.j2')
 
     output = template.render(
         result=sample_validation_result,
@@ -327,7 +327,7 @@ def test_consistent_indentation_throughout(jinja_env, sample_validation_result):
 
 def test_missing_dependencies_checkboxes_properly_formatted(jinja_env, sample_validation_result):
     """Missing dependencies checkboxes should each be on their own line with proper indentation."""
-    template = jinja_env.get_template('console.j2')
+    template = jinja_env.get_template('planning_console.j2')
 
     output = template.render(
         result=sample_validation_result,

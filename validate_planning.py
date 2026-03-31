@@ -978,7 +978,7 @@ def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
     env.filters['hyperlink'] = make_clickable_link
 
     # Render template
-    template = env.get_template('dust.j2')
+    template = env.get_template('notification_dust.j2')
     output = template.render(messages=messages)
 
     # Print to console
@@ -1211,7 +1211,7 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
     env.filters['hyperlink'] = make_clickable_link
 
     # Render template
-    template = env.get_template('console.j2')
+    template = env.get_template('planning_console.j2')
     output = template.render(
         result=result,
         json_file=json_file,
@@ -1255,7 +1255,7 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     env.filters['hyperlink'] = make_clickable_link
 
     # Render template
-    template = env.get_template('markdown.j2')
+    template = env.get_template('planning_markdown.j2')
     output = template.render(
         result=result,
         json_file=json_file,
