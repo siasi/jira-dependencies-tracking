@@ -3,7 +3,8 @@
 import pytest
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
-from validate_initiative_status import ValidationResult, make_clickable_link
+from validate_initiative_status import ValidationResult
+from lib.common_formatting import make_clickable_link
 
 
 @pytest.fixture

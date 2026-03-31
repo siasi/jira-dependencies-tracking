@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Dict, List, Set
 import yaml
 
+from lib.common_formatting import make_clickable_link
+
 
 def load_validation_rules() -> List[str]:
     """Load valid strategic objective values from config.yaml.
@@ -80,22 +82,6 @@ def find_latest_extract() -> Path:
         )
 
     return max(all_files, key=lambda p: p.stat().st_mtime)
-
-
-def make_clickable_link(text: str, url: str) -> str:
-    """Create a clickable hyperlink for terminal output.
-
-    Args:
-        text: The text to display
-        url: The URL to link to
-
-    Returns:
-        ANSI-formatted string with hyperlink
-    """
-    if not url:
-        return text
-    # ANSI escape code format: \033]8;;URL\033\\TEXT\033]8;;\033\\
-    return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
 
 
 def validate_strategic_objectives(
