@@ -17,7 +17,6 @@ setup(
             "jem-extract=extract:cli",
             "jem-validate-planning=validate_planning:main",
             "jem-analyze-workload=analyze_workload:main",
-            "jem-validate-objective=validate_objective:main",
         ],
     },
     python_requires=">=3.9",

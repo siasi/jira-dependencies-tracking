@@ -17,9 +17,8 @@ jira-em-toolkit/
 
 Scripts are kept in the root directory for easy access:
 - `extract.py` - Extract data from Jira API
-- `validate_planning.py` - Validate planning readiness
-- `analyze_workload.py` - Analyze team workload distribution
-- `validate_objective.py` - Validate strategic objectives
+- `validate_planning.py` - Validate planning readiness (includes strategic objective validation)
+- `analyze_workload.py` - Analyze team workload distribution (includes strategic objective validation)
 
 ## Installation
 
@@ -32,9 +31,8 @@ pip install -e .
 
 # Commands become available:
 jem-extract               # Data extraction from Jira
-jem-validate-planning     # Planning readiness validation
-jem-analyze-workload      # Team workload analysis
-jem-validate-objective    # Strategic objective validation
+jem-validate-planning     # Planning readiness validation (includes strategic objective checks)
+jem-analyze-workload      # Team workload analysis (includes strategic objective checks)
 ```
 
 Or use the scripts directly:
@@ -42,7 +40,6 @@ Or use the scripts directly:
 python extract.py
 python validate_planning.py
 python analyze_workload.py
-python validate_objective.py
 ```
 
 ## Migration from v1.x
@@ -53,7 +50,7 @@ If you're upgrading from an older version:
 - `jira_extract.py` → `extract.py` (or use `jem-extract` command)
 - `validate_initiative_status.py` → `validate_planning.py` (or use `jem-validate-planning`)
 - `analyze_team_workload.py` → `analyze_workload.py` (or use `jem-analyze-workload`)
-- `validate_strategic_objective.py` → `validate_objective.py` (or use `jem-validate-objective`)
+- `validate_strategic_objective.py` → **Removed** (functionality included in `validate_planning.py` and `analyze_workload.py`)
 - `validate_dependencies.py` → **Removed** (functionality included in `validate_planning.py`)
 
 **Configuration files moved:**
