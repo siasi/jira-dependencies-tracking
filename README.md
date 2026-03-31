@@ -1,6 +1,6 @@
-# Jira Dependencies Tracking
+# Jira EM Toolkit
 
-Extract Jira initiatives and epics to analyze team contributions.
+Engineering Management toolkit for Jira - extract initiatives and epics to analyze team contributions, validate planning, and track workload.
 
 ## Setup
 
