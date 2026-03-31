@@ -2,6 +2,8 @@
 .env
 config.yaml
 team_mappings.yaml
+config/*.yaml
+!config/*.yaml.example
 
 # Python
 __pycache__/

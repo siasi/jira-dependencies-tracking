@@ -70,7 +70,8 @@ def load_config(config_path: str = "config.yaml") -> Config:
     """Load configuration from YAML file and environment variables.
 
     Args:
-        config_path: Path to config file
+        config_path: Path to config file (default: config.yaml)
+                    Checks config/jira_config.yaml first, then root directory
 
     Returns:
         Config object
@@ -81,11 +82,24 @@ def load_config(config_path: str = "config.yaml") -> Config:
     # Load environment variables from .env if present
     load_dotenv()
 
+    # Try config/ directory first, then fall back to root
+    config_file = Path(config_path)
+    if not config_file.exists() and config_path == "config.yaml":
+        # Try new location first
+        new_location = Path("config") / "jira_config.yaml"
+        if new_location.exists():
+            config_file = new_location
+        else:
+            # Fall back to root with warning
+            if Path("config.yaml").exists():
+                print("Warning: Using config.yaml from root directory. Please move to config/jira_config.yaml")
+                config_file = Path("config.yaml")
+
     try:
-        with open(config_path) as f:
+        with open(config_file) as f:
             data = yaml.safe_load(f)
     except FileNotFoundError:
-        raise ConfigError(f"Config file not found: {config_path}")
+        raise ConfigError(f"Config file not found: {config_file}")
     except yaml.YAMLError as e:
         raise ConfigError(f"Invalid YAML: {e}")
 

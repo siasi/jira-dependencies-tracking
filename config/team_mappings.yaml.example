@@ -1,0 +1,115 @@
+# Team name mappings for validation
+# Maps display names (from Teams Involved field) to project keys (from epics)
+#
+# Format:
+#   "Display Name": "PROJECT_KEY"
+#
+# This mapping is used to identify which teams need to create epics
+# when there's a mismatch between Teams Involved and actual epics.
+
+team_mappings:
+  "CBP": "CBPPE"
+  "Console": "CONSOLE"
+  "Core Banking": "CBNK"
+  "Identity": "DNTT"
+  "MAP": "MAPS"
+  "PAYIN": "PAYINS"
+  "Payments Payins": "PAYINS"  # Alternative display name
+  "Payments Experience": "PX"
+  "Payments Risk": "RSK"
+  "Analytics" : "Analytics"
+  "Integration Ops" : "DOCS"
+  "User Network" : "PLAT"
+
+  # Teams not yet seen with epics - add mapping when they appear
+  # "BOT": "???"
+
+# Engineering manager Notion handles and Slack IDs for team notifications
+# Maps project keys to manager information (for @mentions and Dust DMs)
+#
+# Format:
+#   "PROJECT_KEY":
+#     notion_handle: "@notion.handle"
+#     slack_id: "U_SLACK_ID"
+#
+# These are used to tag managers in reports and send Dust messages
+team_managers:
+  "CBPPE":
+    notion_handle: "@Ariel Rehano"
+    slack_id: "U03HN9A9XGA"
+  "CONSOLE":
+    notion_handle: "@Karina Rangel"
+    slack_id: "U050ECECBLK"  # Same ID for all Karina's teams
+  "CBNK":
+    notion_handle: "@Joel Oughton"
+    slack_id: "U02GE9CFXGX"
+  "DNTT":
+    notion_handle: "@Michael Steele"
+    slack_id: "U033K9AJKRP"
+  "PLAT":
+    notion_handle: "@Michael Steele"
+    slack_id: "U033K9AJKRP"
+  "MAPS":
+    notion_handle: "@Kevin Plattern"
+    slack_id: "U013U600TT9"  # Same ID for all Kevin's teams
+  "PAYINS":
+    notion_handle: "@Karina Rangel"
+    slack_id: "U050ECECBLK"  # Same ID for all Karina's teams
+  "PX":
+    notion_handle: "@Prabodh Kakodkar"
+    slack_id: "U013XJUFPCG"
+  "RSK":
+    notion_handle: "@Kevin Plattern"
+    slack_id: "U013U600TT9"  # Same ID for all Kevin's teams
+  "DOCS":
+    notion_handle: "@Federico Casali"
+    slack_id: "UG3D1FTUJ"
+  "Analytics":
+    notion_handle: "@Joe Al-Kadhimi"
+    slack_id: "U01EGMVB5JQ"
+  # Add other teams as needed
+
+teams_exempt_from_rag:
+  - "DOCS"
+
+# Teams to exclude from analysis entirely
+# Initiatives with these teams as owner_team will be filtered out
+teams_excluded_from_analysis:
+  - "IT"
+  - "Security Engineering"
+  - "SecOps"
+  - "EngOps"
+  - "Analytics Tooling & Integrations"
+  - "Governance Risk & Compliance"
+  - "Plugins (Ecomm)"
+  - "CBP Recurring Payments"
+  - "OBX Germany"
+
+# Strategic objective mappings - consolidate old objectives to current ones
+# Format:
+#   "old_objective": "new_objective"
+#
+# This maps historical strategic objectives to current ones for consistent
+# reporting. The workload analysis will show only the mapped (current) objectives.
+strategic_objective_mappings:
+  # 2023 objectives -> 2026 objectives
+  "2023_5_Optimise Operations": "engineering_pillars"
+  # 2024 objectives -> 2026 objectives
+  "2024_1 Scale iGaming and FS": "2026_fuel_regulated"
+  "2024_2 Win eCommerce": "2026_scale_ecom"
+  "2024_4 Reach operating maturity": "2026_fuel_regulated"
+  # 2025 objectives -> 2026 objectives
+  "2025_increase_soc_conversion": "2026_scale_ecom"
+  "2025_increase_soc_adoption": "2026_scale_ecom"
+  "2025_recurring_payments": "2026_scale_ecom"
+  "2025_FR_DE_payments": "2026_fuel_regulated"
+  "2025_fraud_and_risk": "2026_network"
+  "2025_scalability_and_reliability": "engineering_pillars"
+  "2025_non_strategic_objective": "beyond_strategic"
+  # Keep current objectives as-is (identity mappings)
+  "2026_fuel_regulated": "2026_fuel_regulated"
+  "2026_scale_ecom": "2026_scale_ecom"
+  "2026_network": "2026_network"
+  "2026_recurring_payments": "2026_recurring_payments"
+  "engineering_pillars": "engineering_pillars"
+  "beyond_strategic": "beyond_strategic"

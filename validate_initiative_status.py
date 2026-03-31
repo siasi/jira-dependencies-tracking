@@ -359,7 +359,7 @@ def _load_team_mappings() -> Dict[str, str]:
     Returns:
         Dict mapping display names to project keys, or empty dict if file not found
     """
-    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    mappings_file = Path(__file__).parent / 'config' / 'team_mappings.yaml'
     if not mappings_file.exists():
         return {}
 
@@ -385,7 +385,7 @@ def _load_team_managers() -> Dict[str, Dict[str, Optional[str]]]:
 
         Handles legacy string format for backward compatibility.
     """
-    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    mappings_file = Path(__file__).parent / 'config' / 'team_mappings.yaml'
     if not mappings_file.exists():
         return {}
 
@@ -441,7 +441,7 @@ def _load_teams_exempt_from_rag() -> List[str]:
     Returns:
         List of project keys for teams that don't require RAG status, or empty list if not found
     """
-    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    mappings_file = Path(__file__).parent / 'config' / 'team_mappings.yaml'
     if not mappings_file.exists():
         return []
 
@@ -461,7 +461,7 @@ def _load_teams_excluded_from_analysis() -> List[str]:
     Returns:
         List of team names for teams whose initiatives should be filtered out, or empty list if not found
     """
-    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    mappings_file = Path(__file__).parent / 'config' / 'team_mappings.yaml'
     if not mappings_file.exists():
         return []
 

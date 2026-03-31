@@ -20,7 +20,7 @@ def load_validation_rules() -> List[str]:
     Returns:
         List of valid strategic objective values, or empty list if not found
     """
-    config_file = Path(__file__).parent / 'config.yaml'
+    config_file = Path(__file__).parent / 'config' / 'jira_config.yaml'
     if not config_file.exists():
         print(f"Warning: {config_file} not found. Create it to define valid values.", file=sys.stderr)
         return []
@@ -41,7 +41,7 @@ def load_excluded_teams() -> List[str]:
     Returns:
         List of team names to exclude, or empty list if not found
     """
-    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    mappings_file = Path(__file__).parent / 'config' / 'team_mappings.yaml'
     if not mappings_file.exists():
         return []
 

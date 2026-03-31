@@ -1,0 +1,57 @@
+jira:
+  instance: "truelayer.atlassian.net/"
+
+projects:
+  initiatives: "INIT"
+  teams:
+    - "CONSOLE"
+    - "RSK"
+    - "MAPS"
+    - "CBNK"
+    - "DNTT"
+    - "PLAT"
+    - "PX"
+    - "PAYINS"
+    - "CBPPE"
+    - "DOCS"
+
+# Custom fields to extract from initiatives
+# Add any Jira custom field here - no code changes needed
+# Format: output_name: "customfield_XXXXX"
+custom_fields:
+  initiatives:
+    rag_status: "customfield_12111"           # Select field example
+    strategic_objective: "customfield_12101"  # Text field example
+    quarter: "customfield_12108"              # Required if using --quarter flag
+    owner_team: "customfield_10300"           # Team that owns/leads the initiative
+    teams_involved: "customfield_12521"
+
+# DEPRECATED: Filters moved to command-line options
+# Use --quarter and --status flags instead:
+#   python3 jira_extract.py extract --quarter "26 Q2" --status "In Progress"
+# filters:
+#   quarter: "26 Q2"  # Format: "YY QN" (e.g., "25 Q1", "25 Q2")
+
+# Validation rules for initiative fields
+validation:
+  strategic_objective:
+    valid_values:
+      - "2026_fuel_regulated"
+      - "2026_network"
+      - "2026_scale_ecom"
+      - "engineering_pillars"
+      - "beyond_strategic"
+      - "2025_increase_soc_conversion"
+      - "2025_FR_DE_payments"
+      - "2025_recurring_payments"
+      - "2025_fraud_and_risk"
+      - "2025_increase_soc_adoption"
+      - "2025_scalability_and_reliability"
+      - "2024_1 Scale iGaming and FS"
+      - "2024_2 Win eCommerce"
+      - "2024_4 Reach operating maturity"
+      - "2025_non_strategic_objective"
+
+output:
+  directory: "./data"
+  filename_pattern: "jira_extract_{timestamp}.json"

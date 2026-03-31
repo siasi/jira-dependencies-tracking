@@ -21,9 +21,16 @@ def load_team_mappings() -> Tuple[Dict[str, str], List[str], Dict[str, str], Dic
     Returns:
         Tuple of (team_mappings dict, excluded_teams list, strategic_objective_mappings dict, team_managers dict, reverse_team_mappings dict)
     """
-    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    # Try config/ directory first, then fall back to root
+    mappings_file = Path(__file__).parent / 'config' / 'team_mappings.yaml'
     if not mappings_file.exists():
-        return {}, [], {}, {}, {}
+        # Fall back to root with warning
+        root_file = Path(__file__).parent / 'team_mappings.yaml'
+        if root_file.exists():
+            print("Warning: Using team_mappings.yaml from root directory. Please move to config/")
+            mappings_file = root_file
+        else:
+            return {}, [], {}, {}, {}
 
     try:
         with open(mappings_file, 'r', encoding='utf-8') as f:
