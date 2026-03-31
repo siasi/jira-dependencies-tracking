@@ -2,6 +2,69 @@
 
 Engineering Management toolkit for Jira - extract initiatives and epics to analyze team contributions, validate planning, and track workload.
 
+## Project Structure
+
+```
+jira-em-toolkit/
+├── config/          # Configuration files
+├── lib/             # Shared toolkit utilities
+├── src/             # Core domain logic
+├── templates/       # Jinja2 templates
+├── tests/           # Test suite
+├── docs/            # Documentation
+└── data/            # Generated data (gitignored)
+```
+
+Scripts are kept in the root directory for easy access:
+- `extract.py` - Extract data from Jira API
+- `validate_planning.py` - Validate planning readiness
+- `analyze_workload.py` - Analyze team workload distribution
+- `validate_objective.py` - Validate strategic objectives
+
+## Installation
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Optional: Install as package for command aliases
+pip install -e .
+
+# Commands become available:
+jem-extract               # Data extraction from Jira
+jem-validate-planning     # Planning readiness validation
+jem-analyze-workload      # Team workload analysis
+jem-validate-objective    # Strategic objective validation
+```
+
+Or use the scripts directly:
+```bash
+python extract.py
+python validate_planning.py
+python analyze_workload.py
+python validate_objective.py
+```
+
+## Migration from v1.x
+
+If you're upgrading from an older version:
+
+**Script names have changed:**
+- `jira_extract.py` → `extract.py` (or use `jem-extract` command)
+- `validate_initiative_status.py` → `validate_planning.py` (or use `jem-validate-planning`)
+- `analyze_team_workload.py` → `analyze_workload.py` (or use `jem-analyze-workload`)
+- `validate_strategic_objective.py` → `validate_objective.py` (or use `jem-validate-objective`)
+- `validate_dependencies.py` → **Removed** (functionality included in `validate_planning.py`)
+
+**Configuration files moved:**
+```bash
+# Move your configs to config/ directory
+mv config.yaml config/jira_config.yaml
+mv team_mappings.yaml config/team_mappings.yaml
+```
+
+Scripts will check the root directory as fallback with a warning if configs aren't found in `config/`.
+
 ## Setup
 
 1. **Prerequisites:** Python 3.9+, Jira Cloud access
@@ -13,7 +76,8 @@ Engineering Management toolkit for Jira - extract initiatives and epics to analy
 
 3. **Configure:**
    ```bash
-   cp config.yaml.example config.yaml
+   cp config/jira_config.yaml.example config/jira_config.yaml
+   cp config/team_mappings.yaml.example config/team_mappings.yaml
    cp .env.example .env
    ```
 
@@ -29,11 +93,11 @@ Engineering Management toolkit for Jira - extract initiatives and epics to analy
    - In issue numbers: `INIT-1115` → Key is `INIT`
    - Browse all projects: `https://your-company.atlassian.net/jira/projects`
 
-5. **Edit config.yaml:**
+5. **Edit config/jira_config.yaml:**
    - Update `jira.instance` with your Jira URL (without https://)
    - Update `projects.initiatives` with your initiatives project key (e.g., `INIT`)
    - Update `projects.teams` with your team project keys (e.g., `["RSK", "PAY", "PLATFORM"]`)
-   - Find RAG custom field ID: `python jira_extract.py list-fields`
+   - Find RAG custom field ID: `python extract.py list-fields`
 
    Example:
    ```yaml
@@ -67,7 +131,7 @@ custom_fields:
 
 **Adding New Custom Fields:**
 
-1. Find the Jira field ID (use `python jira_extract.py list-fields` to list available fields)
+1. Find the Jira field ID (use `python extract.py list-fields` to list available fields)
 2. Add to `custom_fields.initiatives` with your desired output name
 3. Run extraction - the field will appear in the output JSON
 
@@ -107,34 +171,34 @@ To disable filtering, simply remove or comment out the `filters` section.
 
 Extract data (JSON format):
 ```bash
-python jira_extract.py extract
+python extract.py extract
 ```
 
 Extract as CSV:
 ```bash
-python jira_extract.py extract --format csv
+python extract.py extract --format csv
 ```
 
 Extract both JSON and CSV:
 ```bash
-python jira_extract.py extract --format both
+python extract.py extract --format both
 ```
 
 List custom fields:
 ```bash
-python jira_extract.py list-fields
+python extract.py list-fields
 ```
 
 Validate config:
 ```bash
-python jira_extract.py validate-config
+python extract.py validate-config
 ```
 
 ### Options
 
 ```bash
-python jira_extract.py extract --config custom.yaml --output ./report.json --verbose
-python jira_extract.py extract --format csv --output ./data/export.csv
+python extract.py extract --config custom.yaml --output ./report.json --verbose
+python extract.py extract --format csv --output ./data/export.csv
 ```
 
 **Available options:**
@@ -154,12 +218,12 @@ Capture a timestamped snapshot with a semantic label:
 
 ```bash
 # Capture baseline when plan stabilizes
-python jira_extract.py snapshot --label "2026-Q2-baseline"
+python extract.py snapshot --label "2026-Q2-baseline"
 
 # Monthly checkpoints
-python jira_extract.py snapshot --label "2026-Q2-month1"
-python jira_extract.py snapshot --label "2026-Q2-month2"
-python jira_extract.py snapshot --label "2026-Q2-end"
+python extract.py snapshot --label "2026-Q2-month1"
+python extract.py snapshot --label "2026-Q2-month2"
+python extract.py snapshot --label "2026-Q2-end"
 ```
 
 Snapshots are saved to `data/snapshots/` and include:
@@ -172,7 +236,7 @@ Snapshots are saved to `data/snapshots/` and include:
 View all captured snapshots:
 
 ```bash
-python jira_extract.py snapshots list
+python extract.py snapshots list
 ```
 
 Output shows:
@@ -185,17 +249,17 @@ Generate comparison reports between two snapshots:
 
 ```bash
 # Compare baseline vs current month (text output to terminal)
-python jira_extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
+python extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
 
 # Generate markdown report to file
-python jira_extract.py compare \
+python extract.py compare \
   --from "2026-Q2-baseline" \
   --to "2026-Q2-end" \
   --format markdown \
   --output ./reports/q2-final.md
 
 # Generate CSV export
-python jira_extract.py compare \
+python extract.py compare \
   --from "2026-Q2-baseline" \
   --to "2026-Q2-end" \
   --format csv \
@@ -266,27 +330,27 @@ custom_fields:
 
 1. Capture baseline when plan stabilizes:
    ```bash
-   python jira_extract.py snapshot --label "2026-Q2-baseline"
+   python extract.py snapshot --label "2026-Q2-baseline"
    ```
 
 2. Capture monthly checkpoints:
    ```bash
-   python jira_extract.py snapshot --label "2026-Q2-month1"
-   python jira_extract.py snapshot --label "2026-Q2-month2"
+   python extract.py snapshot --label "2026-Q2-month1"
+   python extract.py snapshot --label "2026-Q2-month2"
    ```
 
 3. Capture end-of-quarter snapshot:
    ```bash
-   python jira_extract.py snapshot --label "2026-Q2-end"
+   python extract.py snapshot --label "2026-Q2-end"
    ```
 
 4. Generate comparison reports:
    ```bash
    # Month 1 drift
-   python jira_extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
+   python extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
 
    # Final quarter report
-   python jira_extract.py compare \
+   python extract.py compare \
      --from "2026-Q2-baseline" \
      --to "2026-Q2-end" \
      --format markdown \
@@ -373,7 +437,7 @@ INIT-1485,Initiative Title,🟢,Proposed,CBPPE,CBPPE-529,Epic Title,🟡,Backlog
 **JQL syntax error / "Expecting either a value, list or function":**
 - Make sure you're using project **KEYS** (e.g., `RSK`) not project names (e.g., "Risk Team")
 - Verify project keys exist: Check URLs like `https://your-company.atlassian.net/browse/RSK-1`
-- Run `python jira_extract.py validate-config` to test configuration
+- Run `python extract.py validate-config` to test configuration
 
 **Custom field not found:**
 - Run `list-fields` to find correct field ID
@@ -394,13 +458,13 @@ Check if "Teams Involved" field matches actual teams with epics:
 
 ```bash
 # Validate latest extraction
-python validate_dependencies.py
+python validate_planning.py
 
 # Validate specific file
-python validate_dependencies.py data/jira_extract_20260319.json
+python validate_planning.py data/jira_extract_20260319.json
 
 # Validate snapshot
-python validate_dependencies.py data/snapshots/snapshot_baseline_*.json
+python validate_planning.py data/snapshots/snapshot_baseline_*.json
 ```
 
 **What it checks:**
@@ -422,7 +486,7 @@ python validate_dependencies.py data/snapshots/snapshot_baseline_*.json
 **Use in CI/CD:**
 ```bash
 # Fail build if data inconsistencies found
-python jira_extract.py extract && python validate_dependencies.py
+python extract.py extract && python validate_planning.py
 ```
 
 ### Validate Initiative Status
@@ -431,19 +495,19 @@ Validate initiative readiness for Proposed → Planned status transitions based 
 
 ```bash
 # Validate latest extraction
-python validate_initiative_status.py
+python validate_planning.py
 
 # Validate specific file
-python validate_initiative_status.py data/jira_extract_20260321.json
+python validate_planning.py data/jira_extract_20260321.json
 
 # Validate snapshot
-python validate_initiative_status.py data/snapshots/snapshot_baseline_*.json
+python validate_planning.py data/snapshots/snapshot_baseline_*.json
 
 # Only analyze initiatives with 2+ teams
-python validate_initiative_status.py --min-teams 2
+python validate_planning.py --min-teams 2
 
 # Validate snapshot with team filter
-python validate_initiative_status.py data/snapshots/snapshot_baseline_*.json --min-teams 2
+python validate_planning.py data/snapshots/snapshot_baseline_*.json --min-teams 2
 ```
 
 **Options:**
@@ -460,7 +524,7 @@ Generate copy-paste ready messages for sending bulk Slack DMs via Dust:
 
 ```bash
 # Generate Dust messages
-python validate_initiative_status.py --dust
+python validate_planning.py --dust
 
 # Output: Console preview + file in extracts/dust_messages_YYYY-MM-DD_HHMMSS.txt
 ```
