@@ -734,7 +734,7 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
                 **base,
                 'action_type': 'ready_to_planned',
                 'priority': PRIORITY['ready_to_planned'],
-                'description': 'Engineering Manager to move initiative to PLANNED status',
+                'description': 'Move initiative to PLANNED status',
                 'epic_key': None,
                 'epic_title': None,
                 'epic_rag': None
