@@ -1115,7 +1115,8 @@ def validate_initiative_status(json_file: Path, quarter: str) -> ValidationResul
                         'summary': initiative_summary,
                         'status': initiative_status,
                         'assignee': initiative_assignee,
-                        'url': initiative_url
+                        'url': initiative_url,
+                        'owner_team': initiative.get('owner_team')
                     })
 
         elif initiative_status in ['Planned', 'In Progress']:
