@@ -1104,6 +1104,7 @@ def validate_initiative_status(json_file: Path, quarter: str) -> ValidationResul
                         'status': initiative_status,
                         'assignee': initiative_assignee,
                         'url': initiative_url,
+                        'owner_team': initiative.get('owner_team'),
                         'contributing_teams': initiative.get('contributing_teams', []),
                         'issues': issues
                     })
