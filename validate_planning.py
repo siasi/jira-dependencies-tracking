@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 from lib.common_formatting import make_clickable_link
+from lib.template_renderer import get_template_environment
 
 
 class ValidationResult:
@@ -853,7 +854,6 @@ def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
     Raises:
         ValueError: If team_managers config is missing Slack IDs
     """
-    from jinja2 import Environment, FileSystemLoader, select_autoescape
     from collections import defaultdict
     from datetime import datetime
 
@@ -967,15 +967,7 @@ def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
     messages.sort(key=lambda m: m['manager_name'])
 
     # Setup Jinja2 environment
-    template_dir = Path(__file__).parent / 'templates'
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(['html', 'xml']),
-        trim_blocks=True,
-        lstrip_blocks=True
-    )
-    # Register hyperlink filter
-    env.filters['hyperlink'] = make_clickable_link
+    env = get_template_environment()
 
     # Render template
     template = env.get_template('notification_dust.j2')
@@ -1193,22 +1185,12 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
         json_file: Path to validated JSON file
         verbose: Show detailed epic and team information
     """
-    from jinja2 import Environment, FileSystemLoader, select_autoescape
-
     # Load config for template
     team_mappings = _load_team_mappings()
     team_managers = _load_team_managers()
 
     # Setup Jinja2 environment
-    template_dir = Path(__file__).parent / 'templates'
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(['html', 'xml']),
-        trim_blocks=True,
-        lstrip_blocks=True
-    )
-    # Register hyperlink filter
-    env.filters['hyperlink'] = make_clickable_link
+    env = get_template_environment()
 
     # Render template
     template = env.get_template('planning_console.j2')
@@ -1235,7 +1217,6 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     Returns:
         Markdown-formatted report string
     """
-    from jinja2 import Environment, FileSystemLoader, select_autoescape
     from datetime import datetime
 
     # Load config for template
@@ -1244,15 +1225,7 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     # Setup Jinja2 environment
-    template_dir = Path(__file__).parent / 'templates'
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(['html', 'xml']),
-        trim_blocks=True,
-        lstrip_blocks=True
-    )
-    # Register hyperlink filter
-    env.filters['hyperlink'] = make_clickable_link
+    env = get_template_environment()
 
     # Render template
     template = env.get_template('planning_markdown.j2')
