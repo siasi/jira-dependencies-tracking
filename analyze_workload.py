@@ -147,12 +147,12 @@ def normalize_team_name(team_name: str, team_mappings: Dict[str, str]) -> str:
 
 
 def load_valid_strategic_objectives() -> List[str]:
-    """Load valid strategic objective values from config.yaml.
+    """Load valid strategic objective values from config/jira_config.yaml.
 
     Returns:
         List of valid strategic objective values, or empty list if not found
     """
-    config_file = Path(__file__).parent / 'config.yaml'
+    config_file = Path(__file__).parent / 'config' / 'jira_config.yaml'
     if not config_file.exists():
         return []
 

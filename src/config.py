@@ -71,7 +71,7 @@ def load_config(config_path: str = "config.yaml") -> Config:
 
     Args:
         config_path: Path to config file (default: config.yaml)
-                    Checks config/jira_config.yaml first, then root directory
+                    Checks config/jira_config.yaml first, then root directory for backward compatibility
 
     Returns:
         Config object
@@ -82,7 +82,7 @@ def load_config(config_path: str = "config.yaml") -> Config:
     # Load environment variables from .env if present
     load_dotenv()
 
-    # Try config/ directory first, then fall back to root
+    # Try config/ directory first (new location), then fall back to root (old location)
     config_file = Path(config_path)
     if not config_file.exists() and config_path == "config.yaml":
         # Try new location first
@@ -94,6 +94,14 @@ def load_config(config_path: str = "config.yaml") -> Config:
             if Path("config.yaml").exists():
                 print("Warning: Using config.yaml from root directory. Please move to config/jira_config.yaml")
                 config_file = Path("config.yaml")
+            else:
+                # Neither location exists - provide helpful error
+                raise ConfigError(
+                    "Configuration file not found. Please run:\n"
+                    "  cp config/jira_config.yaml.example config/jira_config.yaml\n"
+                    "  cp .env.example .env\n"
+                    "Then edit both files with your Jira credentials."
+                )
 
     try:
         with open(config_file) as f:

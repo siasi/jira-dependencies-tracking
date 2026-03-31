@@ -37,7 +37,7 @@ def cli():
     "--config",
     default="config.yaml",
     help="Path to config file",
-    type=click.Path(exists=True),
+    type=click.Path(),
 )
 @click.option(
     "--output",
@@ -258,7 +258,7 @@ def extract(config: str, output: Optional[str], format: str, dry_run: bool, verb
     "--config",
     default="config.yaml",
     help="Path to config file",
-    type=click.Path(exists=True),
+    type=click.Path(),
 )
 def list_fields(config: str):
     """List all custom fields in Jira."""
@@ -279,7 +279,7 @@ def list_fields(config: str):
         for field in sorted(fields, key=lambda f: f["name"]):
             click.echo(f"  {field['id']:<25} {field['name']}")
 
-        click.echo("\nUpdate config.yaml with the field ID for RAG status.")
+        click.echo("\nUpdate config/jira_config.yaml with the field ID for RAG status.")
 
     except ConfigError as e:
         click.echo(click.style(f"Configuration error: {e}", fg="red"), err=True)
@@ -294,7 +294,7 @@ def list_fields(config: str):
     "--config",
     default="config.yaml",
     help="Path to config file",
-    type=click.Path(exists=True),
+    type=click.Path(),
 )
 def validate_config(config: str):
     """Validate configuration file."""
@@ -352,7 +352,7 @@ def validate_config(config: str):
     "--config",
     default="config.yaml",
     help="Path to config file",
-    type=click.Path(exists=True),
+    type=click.Path(),
 )
 @click.option(
     "--label",
