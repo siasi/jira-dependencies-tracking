@@ -2,6 +2,7 @@
 
 import json
 import pytest
+import yaml
 from pathlib import Path
 from validate_planning import (
     ValidationResult,
@@ -14,6 +15,7 @@ from validate_planning import (
     _load_teams_excluded_from_analysis,
     _load_team_managers,
     _validate_dust_config,
+    _load_signed_off_initiatives,
     extract_manager_actions,
     generate_dust_messages,
     find_latest_extract,
@@ -1811,7 +1813,7 @@ def test_extract_manager_actions_ready_to_planned(tmp_path):
     assert len(actions) == 1
     assert actions[0]['action_type'] == 'ready_to_planned'
     assert actions[0]['priority'] == 6
-    assert 'ready to move to PLANNED' in actions[0]['description']
+    assert 'Move initiative to PLANNED status' in actions[0]['description']
 
 
 def test_generate_dust_messages_creates_file(tmp_path):
@@ -1954,3 +1956,142 @@ def test_generate_dust_messages_multi_team_manager(tmp_path):
 
     assert console_idx < init1_idx < payins_idx < init2_idx, \
         "Initiatives should appear under their respective team headers"
+
+
+# ===== Initiative Sign-Off Exceptions Tests =====
+
+def test_load_signed_off_initiatives_missing_file():
+    """Test graceful handling when initiative_exceptions.yaml doesn't exist."""
+    # The function should return empty set when file doesn't exist
+    keys = _load_signed_off_initiatives()
+    assert isinstance(keys, set)
+    assert len(keys) == 0
+
+
+def test_signed_off_initiative_filtered_out(tmp_path):
+    """Test that signed-off initiatives are completely filtered out."""
+    # Create config with signed-off initiative
+    config_data = {
+        'signed_off_initiatives': [
+            {'key': 'INIT-1234', 'reason': 'Manager approved'}
+        ]
+    }
+
+    config_dir = Path(__file__).parent.parent / 'config'
+    test_config_file = config_dir / 'initiative_exceptions.yaml'
+    original_content = None
+
+    try:
+        # Backup original if it exists
+        if test_config_file.exists():
+            original_content = test_config_file.read_text()
+
+        # Write test config
+        with open(test_config_file, 'w') as f:
+            yaml.dump(config_data, f)
+
+        # Create test data with initiative that should be filtered
+        test_data = {
+            'initiatives': [
+                {
+                    'key': 'INIT-1234',
+                    'summary': 'Signed off initiative',
+                    'status': 'Proposed',
+                    'quarter': '26 Q2',
+                    'assignee': 'user@example.com',
+                    'strategic_objective': '2026_fuel_regulated',
+                    'teams_involved': ['Team A', 'Team B'],
+                    'owner_team': 'Team A',
+                    'contributing_teams': []  # Missing epics - would normally trigger validation
+                }
+            ],
+            'epics': []
+        }
+
+        json_file = tmp_path / 'test.json'
+        json_file.write_text(json.dumps(test_data))
+
+        result = validate_initiative_status(json_file, quarter="26 Q2")
+
+        # Initiative should not appear in ANY result category
+        assert len(result.dependency_mapping) == 0
+        assert len(result.ready_to_plan) == 0
+        assert len(result.low_confidence_completion) == 0
+        assert len(result.planned_for_quarter) == 0
+        assert len(result.planned_regressions) == 0
+        # Verify it was actually filtered (not counted as checked)
+        assert result.total_checked == 0
+    finally:
+        # Restore original config
+        if original_content is not None:
+            test_config_file.write_text(original_content)
+        elif test_config_file.exists():
+            test_config_file.unlink()
+
+
+def test_mixed_signed_off_and_normal_initiatives(tmp_path):
+    """Test that only signed-off initiatives are filtered."""
+    # Create config with one signed-off initiative
+    config_data = {
+        'signed_off_initiatives': [
+            {'key': 'INIT-1234', 'reason': 'Approved'}
+        ]
+    }
+
+    config_dir = Path(__file__).parent.parent / 'config'
+    test_config_file = config_dir / 'initiative_exceptions.yaml'
+    original_content = None
+
+    try:
+        # Backup original if it exists
+        if test_config_file.exists():
+            original_content = test_config_file.read_text()
+
+        # Write test config
+        with open(test_config_file, 'w') as f:
+            yaml.dump(config_data, f)
+
+        # Test data with two initiatives
+        test_data = {
+            'initiatives': [
+                {
+                    'key': 'INIT-1234',
+                    'summary': 'Signed off',
+                    'status': 'Proposed',
+                    'quarter': '26 Q2',
+                    'assignee': 'user@example.com',
+                    'strategic_objective': '2026_fuel_regulated',
+                    'teams_involved': ['Team A', 'Team B'],
+                    'owner_team': 'Team A',
+                    'contributing_teams': []  # Missing epics
+                },
+                {
+                    'key': 'INIT-5678',
+                    'summary': 'Normal',
+                    'status': 'Proposed',
+                    'quarter': '26 Q2',
+                    'assignee': 'user@example.com',
+                    'strategic_objective': '2026_fuel_regulated',
+                    'teams_involved': ['Team A', 'Team B'],
+                    'owner_team': 'Team A',
+                    'contributing_teams': []  # Missing epics - should trigger validation
+                }
+            ],
+            'epics': []
+        }
+
+        json_file = tmp_path / 'test.json'
+        json_file.write_text(json.dumps(test_data))
+
+        result = validate_initiative_status(json_file, quarter="26 Q2")
+
+        # INIT-1234 should be filtered out
+        # INIT-5678 should appear in dependency_mapping
+        assert len(result.dependency_mapping) == 1
+        assert result.dependency_mapping[0]['key'] == 'INIT-5678'
+    finally:
+        # Restore original config
+        if original_content is not None:
+            test_config_file.write_text(original_content)
+        elif test_config_file.exists():
+            test_config_file.unlink()

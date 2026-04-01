@@ -528,3 +528,36 @@ Some teams (i.e. Documentation team) provide supporting work and don't need to r
 teams_exempt_from_rag:
   - "DOCS"
 ```
+
+### Optional: Initiative Sign-Off Exceptions
+
+Some initiatives have intentional inconsistencies that managers have explicitly approved. To exclude these from validation reports:
+
+1. Edit `config/initiative_exceptions.yaml`:
+   ```yaml
+   signed_off_initiatives:
+     - key: "INIT-1234"
+       reason: "Team X is consultative only, no epic needed"
+       date: "2026-03-31"
+       approved_by: "@Manager Name"
+   ```
+
+2. Run validation - signed-off initiatives will be completely hidden:
+   ```bash
+   python validate_planning.py --quarter "26 Q2"
+   ```
+
+**When to use this:**
+- Team listed for awareness only (no epic needed)
+- Special cross-team arrangements
+- Manager has explicitly approved the current state
+
+**Required fields:**
+- `key`: Initiative Jira key (e.g., "INIT-1234")
+- `reason`: Explanation of why this is signed off
+
+**Optional fields:**
+- `date`: When approved (ISO format: "YYYY-MM-DD")
+- `approved_by`: Manager who approved (e.g., "@Jane Smith")
+
+**Important:** Review this file periodically to remove resolved initiatives.

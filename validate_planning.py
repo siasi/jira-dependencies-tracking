@@ -23,7 +23,7 @@ import sys
 import yaml
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Set
 
 from lib.common_formatting import make_clickable_link
 from lib.template_renderer import get_template_environment
@@ -474,6 +474,45 @@ def _load_teams_excluded_from_analysis() -> List[str]:
             return excluded_teams if excluded_teams else []
     except Exception:
         return []
+
+
+def _load_signed_off_initiatives() -> Set[str]:
+    """Load list of initiative keys that have manager sign-off.
+
+    Signed-off initiatives are completely excluded from validation reports
+    because managers have explicitly approved their current state despite
+    any inconsistencies.
+
+    Returns:
+        Set of initiative keys to skip validation (e.g., {"INIT-1234"})
+    """
+    exceptions_file = Path(__file__).parent / 'config' / 'initiative_exceptions.yaml'
+    if not exceptions_file.exists():
+        return set()
+
+    try:
+        with open(exceptions_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            signed_off = data.get('signed_off_initiatives', [])
+
+            # Extract keys from list of dicts
+            keys = set()
+            for item in signed_off:
+                if not isinstance(item, dict):
+                    continue  # Skip malformed items silently
+                if 'key' not in item:
+                    continue  # Skip items without key
+                keys.add(item['key'])
+
+            return keys
+    except yaml.YAMLError as e:
+        # Invalid YAML is a config error (fail fast)
+        print(f"Error: Invalid YAML in initiative_exceptions.yaml: {e}", file=sys.stderr)
+        sys.exit(2)
+    except Exception as e:
+        # Unexpected errors are fatal
+        print(f"Error: Could not load initiative_exceptions.yaml: {e}", file=sys.stderr)
+        sys.exit(2)
 
 
 def _load_valid_strategic_objectives() -> List[str]:
@@ -1022,6 +1061,14 @@ def validate_initiative_status(json_file: Path, quarter: str) -> ValidationResul
 
     # Track initiatives filtered out by quarter
     quarter_filtered_count = len(all_initiatives_unfiltered) - len(all_initiatives)
+
+    # Filter out signed-off initiatives (manager-approved exceptions)
+    signed_off_keys = _load_signed_off_initiatives()
+    if signed_off_keys:
+        all_initiatives = [
+            init for init in all_initiatives
+            if init['key'] not in signed_off_keys
+        ]
 
     # Load excluded teams
     excluded_teams = _load_teams_excluded_from_analysis()
