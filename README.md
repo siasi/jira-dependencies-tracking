@@ -386,6 +386,9 @@ python analyze_workload.py --min-teams 2
 # Export to markdown (Notion-compatible)
 python analyze_workload.py --markdown reports/workload_analysis.md
 
+# Generate interactive HTML dashboard
+python analyze_workload.py --html reports/workload_dashboard.html
+
 # Generate Slack messages for managers
 python analyze_workload.py --slack
 ```
@@ -395,6 +398,7 @@ python analyze_workload.py --slack
   - Focus on multi-team initiatives where coordination is critical
   - Single-team initiatives are filtered out when N > 1
 - `--markdown FILENAME` - Export detailed report to markdown format
+- `--html FILENAME` - Generate interactive HTML dashboard with charts and heatmaps
 - `--verbose` - Include verbose output with additional details
 - `--slack` - Generate Slack bulk messages for manager notifications
 
@@ -421,6 +425,34 @@ python analyze_workload.py --slack
 2. **📋 Initiative Breakdown** - Per-initiative epic distribution across teams
 3. **⚠️  Workload Warnings** - Teams significantly above/below average workload
 4. **✅ Well-Balanced Teams** - Teams with workload close to organizational average
+
+### Interactive HTML Dashboard
+
+Generate a standalone HTML file with interactive visualizations:
+
+```bash
+# Generate dashboard with auto-generated filename
+python analyze_workload.py --html
+
+# Specify custom filename
+python analyze_workload.py --html reports/workload_dashboard.html
+```
+
+**Dashboard Features:**
+- **Interactive Bar Chart** - Team workload comparison (leading vs contributing)
+  - Click bars to see initiative lists
+  - Hover for detailed metrics
+- **Heatmap Table** - Team contribution by strategic objective
+  - Color-coded by involvement level
+  - Click cells to drill down into specific initiatives
+- **Summary Statistics** - Total initiatives, active teams, top contributors
+- **Fully Standalone** - Single HTML file with embedded CSS and JavaScript (uses Chart.js CDN)
+
+**Use Cases:**
+- Share visual reports with stakeholders
+- Present workload distribution in team meetings
+- Track workload evolution over time (generate multiple snapshots)
+- Identify cross-functional collaboration patterns
 
 ### Slack Manager Notifications
 

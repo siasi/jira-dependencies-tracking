@@ -860,6 +860,112 @@ def print_markdown_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
         print("✓ All strategic objectives are valid\n")
 
 
+def generate_dashboard_csv(analysis: Dict, initiative_summaries: Dict[str, str],
+                            initiative_strategic_objectives: Dict[str, str],
+                            initiative_owner_teams: Dict[str, str],
+                            initiative_contributing_teams: Dict[str, List[str]]) -> str:
+    """Generate CSV data for the HTML dashboard.
+
+    CSV Format:
+    initiative_key,initiative_name,strategic_objective,leading_team,contributing_teams
+
+    Args:
+        analysis: Workload analysis results from analyze_workload()
+        initiative_summaries: Map of initiative key to summary
+        initiative_strategic_objectives: Map of initiative key to strategic objective
+        initiative_owner_teams: Map of initiative key to owner team
+        initiative_contributing_teams: Map of initiative key to contributing teams list
+
+    Returns:
+        CSV string with header and data rows
+    """
+    import csv
+    from io import StringIO
+
+    output = StringIO()
+    writer = csv.writer(output)
+
+    # Write header
+    writer.writerow(['initiative_key', 'initiative_name', 'strategic_objective',
+                     'leading_team', 'contributing_teams'])
+
+    # Collect all initiatives from workload analysis
+    all_initiative_keys = set()
+    for team_data in analysis['team_details'].values():
+        all_initiative_keys.update(team_data['leading'])
+        all_initiative_keys.update(team_data['contributing'])
+
+    # Write data rows
+    for init_key in sorted(all_initiative_keys):
+        name = initiative_summaries.get(init_key, '')
+        objective = initiative_strategic_objectives.get(init_key, '')
+        owner = initiative_owner_teams.get(init_key, '')
+        contrib = initiative_contributing_teams.get(init_key, [])
+        contrib_str = ','.join(contrib) if contrib else ''
+
+        writer.writerow([init_key, name, objective, owner, contrib_str])
+
+    return output.getvalue()
+
+
+def generate_html_dashboard(analysis: Dict, initiative_summaries: Dict[str, str],
+                             initiative_urls: Dict[str, str],
+                             initiative_strategic_objectives: Dict[str, str],
+                             initiative_owner_teams: Dict[str, str],
+                             initiative_contributing_teams: Dict[str, List[str]],
+                             output_file: Path,
+                             json_file: Path) -> None:
+    """Generate interactive HTML dashboard for workload analysis.
+
+    Args:
+        analysis: Workload analysis results from analyze_workload()
+        initiative_summaries: Map of initiative key to summary
+        initiative_urls: Map of initiative key to Jira URL
+        initiative_strategic_objectives: Map of initiative key to strategic objective
+        initiative_owner_teams: Map of initiative key to owner team
+        initiative_contributing_teams: Map of initiative key to contributing teams list
+        output_file: Path to save HTML file
+        json_file: Path to source JSON file (for snapshot description)
+    """
+    from lib.template_renderer import get_template_environment
+    from datetime import datetime
+
+    # Generate CSV data for the dashboard
+    csv_data = generate_dashboard_csv(
+        analysis,
+        initiative_summaries,
+        initiative_strategic_objectives,
+        initiative_owner_teams,
+        initiative_contributing_teams
+    )
+
+    # Extract Jira base URL from first initiative URL
+    jira_base_url = 'https://your-org.atlassian.net/browse/'
+    if initiative_urls:
+        first_url = next(iter(initiative_urls.values()))
+        if first_url and '/browse/' in first_url:
+            jira_base_url = first_url.split('/browse/')[0] + '/browse/'
+
+    # Generate snapshot description
+    snapshot_desc = f"Workload analysis from {json_file.name} · Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+
+    # Render template
+    env = get_template_environment()
+    template = env.get_template('workload_dashboard.j2')
+    html_output = template.render(
+        csv_data=csv_data,
+        jira_base_url=jira_base_url,
+        snapshot_description=snapshot_desc
+    )
+
+    # Write to file
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(html_output)
+
+    print(f"\n✓ HTML dashboard generated: {output_file}")
+    print(f"  Open in browser to view interactive charts and heatmaps")
+
+
 def main():
     """Main entry point."""
     import argparse
@@ -907,6 +1013,16 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
         const='auto',
         metavar='FILENAME',
         help='Export report as markdown file. '
+             'Optionally specify filename, otherwise auto-generates with timestamp.'
+    )
+
+    parser.add_argument(
+        '--html',
+        type=str,
+        nargs='?',
+        const='auto',
+        metavar='FILENAME',
+        help='Generate interactive HTML dashboard. '
              'Optionally specify filename, otherwise auto-generates with timestamp.'
     )
 
@@ -975,6 +1091,26 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
             f.write(markdown_content)
 
         print(f"\n✅ Markdown report exported to: {markdown_file}")
+
+    # Generate HTML dashboard if requested
+    if args.html:
+        if args.html == 'auto':
+            # Auto-generate filename with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            html_file = Path(f"workload_dashboard_{timestamp}.html")
+        else:
+            html_file = Path(args.html)
+
+        generate_html_dashboard(
+            analysis,
+            analysis['initiative_summaries'],
+            analysis['initiative_urls'],
+            analysis['initiative_strategic_objectives'],
+            analysis['initiative_owner_teams'],
+            analysis['initiative_contributing_teams'],
+            html_file,
+            json_file
+        )
 
 
 if __name__ == '__main__':
