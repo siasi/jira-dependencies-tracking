@@ -1,7 +1,7 @@
 ---
 title: Toolkit Consistency & Reorganization
 type: refactor
-status: active
+status: completed
 date: 2026-03-30
 origin: docs/brainstorms/2026-03-30-toolkit-consistency-brainstorm.md
 ---
