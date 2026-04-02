@@ -274,6 +274,15 @@ const OBJ_LABELS = {
   '':                               'Unassigned',
 };
 
+// ─── TEAM NAME MAPPING ───────────────────────────────────────────────────────
+// Maps project keys (PLAT, RSK) to display names (Platform Team, Risk Team)
+const TEAM_NAMES = {{ team_names_json | safe }};
+
+// Helper function to get team display name
+function getTeamName(teamKey) {
+  return TEAM_NAMES[teamKey] || teamKey;
+}
+
 // ─── PARSE CSV ───────────────────────────────────────────────────────────────
 function parseCSVLine(line) {
   const result = [];
@@ -386,7 +395,7 @@ document.getElementById('stats').innerHTML = `
   </div>
   <div class="stat-card purple">
     <div class="stat-label">Most Loaded Team</div>
-    <div class="stat-value" style="font-size:19px;padding-top:3px">${topTeam}</div>
+    <div class="stat-value" style="font-size:19px;padding-top:3px">${getTeamName(topTeam)}</div>
     <div class="stat-sub">${topL + topC} total · ${topL} led · ${topC} contributing</div>
   </div>
   <div class="stat-card orange">
@@ -401,7 +410,7 @@ const ctx = document.getElementById('workload').getContext('2d');
 new Chart(ctx, {
   type: 'bar',
   data: {
-    labels: allTeams,
+    labels: allTeams.map(t => getTeamName(t)),
     datasets: [
       {
         label: 'Leading',
@@ -430,21 +439,23 @@ new Chart(ctx, {
       if (!elements.length) return;
       const el = elements[0];
       const team = allTeams[el.index];
+      const teamName = getTeamName(team);
       const isLeading = el.datasetIndex === 0;
       const list = isLeading
         ? (teamLeading[team]?.list || [])
         : (teamContrib[team]?.list || []);
       const role = isLeading ? 'Leading' : 'Contributing';
-      showModal(`${team} · ${role}`, list);
+      showModal(`${teamName} · ${role}`, list);
     },
     plugins: {
       legend: { position: 'top', labels: { font: { size: 12 }, padding: 16 } },
       tooltip: {
         callbacks: {
           afterBody: (items) => {
-            const team = items[0].label;
-            const l = teamLeading[team]?.total || 0;
-            const c = teamContrib[team]?.total || 0;
+            // Get the team key by index (items[0].label is now display name)
+            const teamKey = allTeams[items[0].dataIndex];
+            const l = teamLeading[teamKey]?.total || 0;
+            const c = teamContrib[teamKey]?.total || 0;
             const total = l + c;
             const ratio = total > 0 ? Math.round(l / total * 100) : 0;
             return [`─────────────`, `Total: ${total}   Lead ratio: ${ratio}%  · Click to see list`];
@@ -510,7 +521,7 @@ allTeams.forEach(team => {
 
   let td = tr.insertCell();
   td.className = 'team-name';
-  td.textContent = team;
+  td.textContent = getTeamName(team);
 
   let rowTotal = 0;
 
@@ -524,7 +535,7 @@ allTeams.forEach(team => {
 
     td = tr.insertCell();
     td.style.background = cellBg(l, c);
-    td.title = `${team} / ${OBJ_LABELS[obj] !== undefined ? OBJ_LABELS[obj] : obj}\nLeading: ${l}  Contributing: ${c}`;
+    td.title = `${getTeamName(team)} / ${OBJ_LABELS[obj] !== undefined ? OBJ_LABELS[obj] : obj}\nLeading: ${l}  Contributing: ${c}`;
 
     if (total > 0) {
       const div = document.createElement('div');

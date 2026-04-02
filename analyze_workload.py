@@ -931,7 +931,8 @@ def generate_html_dashboard(analysis: Dict, initiative_summaries: Dict[str, str]
                              initiative_owner_teams: Dict[str, str],
                              initiative_contributing_teams: Dict[str, List[str]],
                              output_file: Path,
-                             json_file: Path) -> None:
+                             json_file: Path,
+                             reverse_team_mappings: Dict[str, str] = None) -> None:
     """Generate interactive HTML dashboard for workload analysis.
 
     Args:
@@ -943,6 +944,7 @@ def generate_html_dashboard(analysis: Dict, initiative_summaries: Dict[str, str]
         initiative_contributing_teams: Map of initiative key to contributing teams list
         output_file: Path to save HTML file
         json_file: Path to source JSON file (for snapshot description)
+        reverse_team_mappings: Optional mapping from project keys to display names
     """
     from lib.template_renderer import get_template_environment
     from datetime import datetime
@@ -972,13 +974,22 @@ def generate_html_dashboard(analysis: Dict, initiative_summaries: Dict[str, str]
     # Generate snapshot description
     snapshot_desc = f"Workload analysis from {json_file.name} · Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
+    # Prepare team name mapping for JavaScript (default to empty dict if not provided)
+    if reverse_team_mappings is None:
+        reverse_team_mappings = {}
+
+    # Convert to JSON string for template
+    import json as json_lib
+    team_names_json = json_lib.dumps(reverse_team_mappings)
+
     # Render template
     env = get_template_environment()
     template = env.get_template('workload_dashboard.j2')
     html_output = template.render(
         csv_data=csv_data,
         jira_base_url=jira_base_url,
-        snapshot_description=snapshot_desc
+        snapshot_description=snapshot_desc,
+        team_names_json=team_names_json
     )
 
     # Write to file
@@ -1150,7 +1161,8 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
             analysis['initiative_owner_teams'],
             analysis['initiative_contributing_teams'],
             html_file,
-            json_file
+            json_file,
+            reverse_team_mappings
         )
 
     # Export CSV if requested

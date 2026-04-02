@@ -55,3 +55,8 @@ Claude.md
 # Generated reports (may contain company data)
 /*.md
 !README.md
+/*.html
+workload_dashboard_*.html
+test_dashboard*.html
+/*.csv
+workload_analysis_*.csv
