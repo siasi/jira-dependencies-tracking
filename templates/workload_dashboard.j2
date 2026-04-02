@@ -188,6 +188,12 @@
 <div class="stats" id="stats"></div>
 
 <div class="card">
+  <div class="card-title">Most Collaborative Initiatives</div>
+  <div class="card-subtitle">Initiatives requiring coordination across multiple teams. Click to view in Jira.</div>
+  <div id="collaboration-list" style="font-size:14px;line-height:1.8"></div>
+</div>
+
+<div class="card">
   <div class="card-title">Team Workload — Leading vs Contributing</div>
   <div class="card-subtitle">Sorted by total number of initiatives. Hover for details.</div>
   <div class="chart-wrap">
@@ -422,6 +428,61 @@ document.getElementById('stats').innerHTML = `
     <div class="stat-sub">${objInitCount[topObj]} initiatives</div>
   </div>
 `;
+
+// ─── COLLABORATION COMPLEXITY ─────────────────────────────────────────────────
+// Calculate how many teams are involved in each initiative
+const initiativeTeams = {}; // initiative_key -> { leading: team, contributing: [teams], objective: obj, name: name }
+
+initiatives.forEach(row => {
+  const key = row.initiative_key;
+  const leader = row.leading_team;
+  const contribs = row.contributing_teams
+    ? row.contributing_teams.split(',').map(t => t.trim()).filter(Boolean)
+    : [];
+
+  initiativeTeams[key] = {
+    key: key,
+    name: row.initiative_name,
+    objective: row.strategic_objective,
+    leading: leader,
+    contributing: contribs,
+    totalTeams: (leader ? 1 : 0) + contribs.length
+  };
+});
+
+// Sort by total teams (descending) and take top 10
+const topCollaborative = Object.values(initiativeTeams)
+  .filter(i => i.totalTeams >= 2) // Only show initiatives with 2+ teams
+  .sort((a, b) => b.totalTeams - a.totalTeams)
+  .slice(0, 10);
+
+// Render collaboration list
+const collabHTML = topCollaborative.length > 0
+  ? topCollaborative.map((init, idx) => {
+      const teamList = [
+        init.leading ? `<strong>${getTeamName(init.leading)}</strong> (L)` : null,
+        ...init.contributing.map(t => `${getTeamName(t)} (C)`)
+      ].filter(Boolean).join(', ');
+
+      const objLabel = OBJ_LABELS[init.objective] || init.objective || 'Unassigned';
+
+      return `
+        <div style="padding:10px 0;border-bottom:1px solid #e2e8f0">
+          <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">
+            <span style="color:#718096;font-weight:600;min-width:20px">${idx + 1}.</span>
+            <a href="${JIRA_BASE}${init.key}" target="_blank" style="color:#3182ce;text-decoration:none;font-weight:500">${init.key}</a>
+            <span style="flex:1;color:#2d3748">${init.name}</span>
+            <span style="background:#edf2f7;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;color:#4a5568">${init.totalTeams} teams</span>
+          </div>
+          <div style="padding-left:28px;font-size:13px;color:#718096">
+            <span style="color:#805ad5;font-weight:500">${objLabel}</span> · ${teamList}
+          </div>
+        </div>
+      `;
+    }).join('')
+  : '<div style="padding:20px;text-align:center;color:#a0aec0">No multi-team initiatives found</div>';
+
+document.getElementById('collaboration-list').innerHTML = collabHTML;
 
 // ─── WORKLOAD BAR CHART ───────────────────────────────────────────────────────
 const ctx = document.getElementById('workload').getContext('2d');
