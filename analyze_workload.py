@@ -356,19 +356,18 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
                             has_active_epic = True
                             break
 
-                    # Only include team if they have active epics
-                    if has_active_epic:
-                        # Add to contributing teams list (regardless of excluded status for CSV export)
+                    # Only include team if they have active epics and are not excluded
+                    if has_active_epic and team_project_key not in excluded_teams:
+                        # Add to contributing teams list for CSV export
                         contributing_teams_list.append(team_project_key)
 
-                        # Count as "contributing" for non-owner teams (if not excluded)
-                        if team_project_key not in excluded_teams:
-                            workload[team_project_key]['contributing'].add(initiative_key)
+                        # Count as "contributing" for non-owner teams
+                        workload[team_project_key]['contributing'].add(initiative_key)
 
-                            # Track RAG statuses for this team's epics
-                            for epic in epics:
-                                rag_status = epic.get('rag_status')
-                                contributing_rag[team_project_key][initiative_key].append(rag_status)
+                        # Track RAG statuses for this team's epics
+                        for epic in epics:
+                            rag_status = epic.get('rag_status')
+                            contributing_rag[team_project_key][initiative_key].append(rag_status)
 
         # Store contributing teams for this initiative
         initiative_contributing_teams[initiative_key] = contributing_teams_list
@@ -1104,6 +1103,13 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
 
     # Load team mappings and exclusions
     team_mappings, excluded_teams, strategic_objective_mappings, team_managers, reverse_team_mappings = load_team_mappings()
+
+    # Normalize excluded teams to project keys (since normalize_team_name converts display names to project keys)
+    normalized_excluded_teams = []
+    for team in excluded_teams:
+        normalized = team_mappings.get(team, team)  # Convert display name to project key if mapping exists
+        normalized_excluded_teams.append(normalized)
+    excluded_teams = normalized_excluded_teams
 
     if args.verbose:
         print(f"Loaded {len(team_mappings)} team mappings")
