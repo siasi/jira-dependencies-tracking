@@ -939,6 +939,12 @@ def generate_html_dashboard(analysis: Dict, initiative_summaries: Dict[str, str]
         initiative_contributing_teams
     )
 
+    # Escape special characters in CSV data to prevent breaking JavaScript template literal
+    # Must escape backslashes first, then other special chars
+    csv_data = csv_data.replace('\\', '\\\\')  # Escape backslashes
+    csv_data = csv_data.replace('`', '\\`')    # Escape backticks
+    csv_data = csv_data.replace('${', '\\${')  # Escape template expressions
+
     # Extract Jira base URL from first initiative URL
     jira_base_url = 'https://your-org.atlassian.net/browse/'
     if initiative_urls:

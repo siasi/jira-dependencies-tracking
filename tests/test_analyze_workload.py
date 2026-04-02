@@ -2,7 +2,8 @@
 
 import pytest
 from pathlib import Path
-from analyze_workload import generate_dashboard_csv
+import tempfile
+from analyze_workload import generate_dashboard_csv, generate_html_dashboard
 
 
 def test_generate_dashboard_csv_basic():
@@ -138,3 +139,81 @@ def test_generate_dashboard_csv_empty_strategic_objective():
 
     # Check empty strategic objective is handled
     assert 'INIT-1,Initiative without objective,,TeamA,' in csv_output
+
+
+def test_generate_html_dashboard_escapes_special_chars():
+    """Test HTML generation properly escapes backticks and other special chars in CSV data."""
+    analysis = {
+        'team_details': {
+            'TeamA': {
+                'leading': ['INIT-1'],
+                'contributing': []
+            }
+        }
+    }
+
+    # Initiative name contains backticks, backslashes, and ${} that need escaping
+    initiative_summaries = {
+        'INIT-1': 'Test `backticks` and ${template} and \\backslash'
+    }
+
+    initiative_strategic_objectives = {
+        'INIT-1': '2026_scale_ecom'
+    }
+
+    initiative_owner_teams = {
+        'INIT-1': 'TeamA'
+    }
+
+    initiative_contributing_teams = {
+        'INIT-1': []
+    }
+
+    initiative_urls = {
+        'INIT-1': 'https://example.atlassian.net/browse/INIT-1'
+    }
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
+        output_file = Path(f.name)
+
+    try:
+        # Generate HTML
+        generate_html_dashboard(
+            analysis,
+            initiative_summaries,
+            initiative_urls,
+            initiative_strategic_objectives,
+            initiative_owner_teams,
+            initiative_contributing_teams,
+            output_file,
+            Path('test.json')
+        )
+
+        # Read generated HTML
+        with open(output_file, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+
+        # Verify backticks are escaped
+        assert '\\`backticks\\`' in html_content, "Backticks should be escaped"
+
+        # Verify ${} is escaped
+        assert '\\${template}' in html_content, "Template expressions should be escaped"
+
+        # Verify backslashes are double-escaped (original backslash becomes \\\\)
+        assert '\\\\backslash' in html_content, "Backslashes should be escaped"
+
+        # Verify no unescaped backticks in the RAW constant
+        import re
+        # Find the RAW constant
+        raw_match = re.search(r'const RAW = `(.+?)`;', html_content, re.DOTALL)
+        assert raw_match, "RAW constant should exist"
+        raw_content = raw_match.group(1)
+
+        # Count backticks - should have none unescaped (all should be \`)
+        unescaped_backticks = [m.start() for m in re.finditer(r'(?<!\\)`', raw_content)]
+        assert len(unescaped_backticks) == 0, f"Found unescaped backticks at positions: {unescaped_backticks}"
+
+    finally:
+        # Clean up temp file
+        if output_file.exists():
+            output_file.unlink()
