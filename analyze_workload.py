@@ -211,7 +211,21 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
     with open(json_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
-    initiatives = data.get('initiatives', [])
+    all_initiatives = data.get('initiatives', [])
+
+    # Filter initiatives: only include In Progress OR (26 Q2 AND Planned)
+    initiatives = []
+    filtered_count = 0
+    for initiative in all_initiatives:
+        status = initiative.get('status', '')
+        quarter = initiative.get('quarter', '')
+
+        if status == 'In Progress':
+            initiatives.append(initiative)
+        elif quarter == '26 Q2' and status == 'Planned':
+            initiatives.append(initiative)
+        else:
+            filtered_count += 1
 
     # Data structures for analysis
     workload = defaultdict(lambda: {'leading': set(), 'contributing': set()})
@@ -391,6 +405,8 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
         'initiatives_missing_strategic_objective': initiatives_missing_strategic_objective,
         'initiatives_invalid_strategic_objective': initiatives_invalid_strategic_objective,
         'total_initiatives': len(initiatives),
+        'total_initiatives_before_filter': len(all_initiatives),
+        'filtered_out_count': filtered_count,
         'excluded_teams': excluded_teams
     }
 

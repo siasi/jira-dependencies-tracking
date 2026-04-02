@@ -3,7 +3,8 @@
 import pytest
 from pathlib import Path
 import tempfile
-from analyze_workload import generate_dashboard_csv, generate_html_dashboard
+import json
+from analyze_workload import generate_dashboard_csv, generate_html_dashboard, analyze_workload
 
 
 def test_generate_dashboard_csv_basic():
@@ -292,3 +293,56 @@ def test_csv_export_file_creation():
         # Clean up
         if csv_file.exists():
             csv_file.unlink()
+
+
+def test_initiative_filtering_by_status_and_quarter():
+    """Test that analyze_workload filters initiatives by status and quarter."""
+    # Create test data with various status and quarter combinations
+    test_data = {
+        'initiatives': [
+            {'key': 'INIT-1', 'status': 'In Progress', 'quarter': '26 Q1', 'owner_team': 'TeamA', 'summary': 'Test 1'},
+            {'key': 'INIT-2', 'status': 'Planned', 'quarter': '26 Q2', 'owner_team': 'TeamA', 'summary': 'Test 2'},
+            {'key': 'INIT-3', 'status': 'Done', 'quarter': '26 Q2', 'owner_team': 'TeamB', 'summary': 'Test 3'},
+            {'key': 'INIT-4', 'status': 'In Progress', 'quarter': '26 Q2', 'owner_team': 'TeamB', 'summary': 'Test 4'},
+            {'key': 'INIT-5', 'status': 'Planned', 'quarter': '26 Q1', 'owner_team': 'TeamC', 'summary': 'Test 5'},
+            {'key': 'INIT-6', 'status': 'Backlog', 'quarter': '26 Q3', 'owner_team': 'TeamC', 'summary': 'Test 6'},
+        ]
+    }
+
+    # Write test data to temp JSON file
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        json_file = Path(f.name)
+        json.dump(test_data, f)
+
+    try:
+        # Run analysis
+        result = analyze_workload(json_file, {}, [], {})
+
+        # Should only include:
+        # - INIT-1: In Progress (any quarter)
+        # - INIT-2: Planned + 26 Q2
+        # - INIT-4: In Progress (any quarter)
+        # Should exclude:
+        # - INIT-3: Done (wrong status)
+        # - INIT-5: Planned but wrong quarter (26 Q1)
+        # - INIT-6: Backlog (wrong status)
+
+        assert result['total_initiatives'] == 3, "Should include 3 initiatives"
+        assert result['total_initiatives_before_filter'] == 6, "Should have 6 total before filter"
+        assert result['filtered_out_count'] == 3, "Should filter out 3 initiatives"
+
+        # Check that correct initiatives are included
+        included_keys = set(result['initiative_summaries'].keys())
+        assert 'INIT-1' in included_keys, "INIT-1 (In Progress) should be included"
+        assert 'INIT-2' in included_keys, "INIT-2 (26 Q2 + Planned) should be included"
+        assert 'INIT-4' in included_keys, "INIT-4 (In Progress) should be included"
+
+        # Check that wrong initiatives are excluded
+        assert 'INIT-3' not in included_keys, "INIT-3 (Done) should be excluded"
+        assert 'INIT-5' not in included_keys, "INIT-5 (Planned + 26 Q1) should be excluded"
+        assert 'INIT-6' not in included_keys, "INIT-6 (Backlog) should be excluded"
+
+    finally:
+        # Clean up
+        if json_file.exists():
+            json_file.unlink()
