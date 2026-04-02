@@ -194,6 +194,12 @@
 </div>
 
 <div class="card">
+  <div class="card-title">⚠️ Delivery Risk: Bottleneck Teams</div>
+  <div class="card-subtitle">Teams that many others depend on — potential blockers and coordination bottlenecks.</div>
+  <div id="bottleneck-list" style="font-size:14px;line-height:1.8"></div>
+</div>
+
+<div class="card">
   <div class="card-title">Team Workload — Leading vs Contributing</div>
   <div class="card-subtitle">Sorted by total number of initiatives. Hover for details.</div>
   <div class="chart-wrap">
@@ -483,6 +489,93 @@ const collabHTML = topCollaborative.length > 0
   : '<div style="padding:20px;text-align:center;color:#a0aec0">No multi-team initiatives found</div>';
 
 document.getElementById('collaboration-list').innerHTML = collabHTML;
+
+// ─── DELIVERY RISK BOTTLENECKS ───────────────────────────────────────────────
+// Calculate which teams have the most dependencies (other teams waiting on them)
+const teamDependencies = {}; // team -> { leadingCount, dependentTeams: Set, initiatives: [{key, name, contributors}] }
+
+allTeams.forEach(team => {
+  const leadingInits = teamLeading[team]?.list || [];
+
+  if (leadingInits.length > 0) {
+    const dependentTeams = new Set();
+    const initiativesWithDeps = [];
+
+    leadingInits.forEach(init => {
+      // Find this initiative in our data
+      const initData = initiativeTeams[init.key];
+      if (initData && initData.contributing.length > 0) {
+        initData.contributing.forEach(t => dependentTeams.add(t));
+        initiativesWithDeps.push({
+          key: init.key,
+          name: init.name,
+          contributors: initData.contributing,
+          contributorCount: initData.contributing.length
+        });
+      }
+    });
+
+    if (dependentTeams.size > 0) {
+      teamDependencies[team] = {
+        team: team,
+        leadingCount: leadingInits.length,
+        dependentTeamsCount: dependentTeams.size,
+        dependentTeams: Array.from(dependentTeams),
+        initiatives: initiativesWithDeps.sort((a, b) => b.contributorCount - a.contributorCount)
+      };
+    }
+  }
+});
+
+// Sort by number of dependent teams (descending)
+const bottleneckTeams = Object.values(teamDependencies)
+  .sort((a, b) => b.dependentTeamsCount - a.dependentTeamsCount)
+  .slice(0, 5); // Top 5 bottleneck teams
+
+// Render bottleneck list
+const bottleneckHTML = bottleneckTeams.length > 0
+  ? bottleneckTeams.map((team, idx) => {
+      const topInits = team.initiatives.slice(0, 3); // Show top 3 initiatives
+      const hasMore = team.initiatives.length > 3;
+
+      const initsHTML = topInits.map(init => {
+        const contributors = init.contributors.map(t => getTeamName(t)).join(', ');
+        return `
+          <div style="margin-left:20px;padding:4px 0;font-size:13px;color:#718096">
+            <a href="${JIRA_BASE}${init.key}" target="_blank" style="color:#3182ce;text-decoration:none">${init.key}</a>
+            <span style="color:#a0aec0">·</span>
+            <span style="color:#4a5568">${init.contributorCount} team${init.contributorCount > 1 ? 's' : ''}</span>
+            <span style="color:#a0aec0">waiting:</span>
+            <span>${contributors}</span>
+          </div>
+        `;
+      }).join('');
+
+      const moreText = hasMore ? `<div style="margin-left:20px;padding:4px 0;font-size:12px;color:#a0aec0">+ ${team.initiatives.length - 3} more initiatives</div>` : '';
+
+      const dependentList = team.dependentTeams.slice(0, 5).map(t => getTeamName(t)).join(', ');
+      const allDependents = team.dependentTeams.length > 5
+        ? `${dependentList}, +${team.dependentTeams.length - 5} more`
+        : dependentList;
+
+      return `
+        <div style="padding:12px 0;border-bottom:1px solid #e2e8f0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="background:#fed7d7;color:#c53030;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">⚠️ RISK</span>
+            <strong style="color:#2d3748;font-size:15px">${getTeamName(team.team)}</strong>
+            <span style="color:#718096">leads ${team.leadingCount} initiative${team.leadingCount > 1 ? 's' : ''}</span>
+          </div>
+          <div style="margin-left:0;padding:4px 0 8px 0;font-size:13px;color:#c05621;font-weight:500">
+            ${team.dependentTeamsCount} team${team.dependentTeamsCount > 1 ? 's' : ''} depend${team.dependentTeamsCount === 1 ? 's' : ''} on them: ${allDependents}
+          </div>
+          ${initsHTML}
+          ${moreText}
+        </div>
+      `;
+    }).join('')
+  : '<div style="padding:20px;text-align:center;color:#a0aec0">No delivery bottlenecks detected - all teams working independently</div>';
+
+document.getElementById('bottleneck-list').innerHTML = bottleneckHTML;
 
 // ─── WORKLOAD BAR CHART ───────────────────────────────────────────────────────
 const ctx = document.getElementById('workload').getContext('2d');
