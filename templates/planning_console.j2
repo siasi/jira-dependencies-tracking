@@ -5,6 +5,7 @@
 Initiative Planning Readiness Tracker
 ================================================================================
 
+Quarter: {{ result.quarter }}
 Data source: {{ json_file }}
 Filter: Multi-team initiatives only (teams >= 2)
 Total initiatives in file: {{ result.total_checked + result.total_filtered }}
@@ -149,13 +150,18 @@ Action required: Create missing epics and set initial RAG status
 {%- for epic in team_data.epics %}
          {{ epic.key|hyperlink(epic.url) }}: "{{ epic.summary }}"
 {%- endfor %}
-{%- endif %}
-       [ ] {{ team_name }} to set RAG status for {{ epics_str }}
+{%- endif -%}
+{%- set project_key = team_mappings.get(team_name, team_name) -%}
+{%- set manager_info = team_managers.get(project_key, {}) -%}
+{%- set manager_tag = manager_info.get('notion_handle', '') -%}
+{%- set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
+       [ ] {{ team_name }} to set RAG status for {{ epics_str }}{{ manager_suffix }}
 {% endfor %}
 
 {%- endif -%}
-{%- endfor -%}
-{%- endfor -%}
+{% endfor %}
+
+{% endfor -%}
 {%- else %}
 No initiatives currently in dependency mapping phase.
 
@@ -187,8 +193,19 @@ deprioritise it (move to DEPRIORITISED)
 {% endfor %}
 
 {%- endif -%}
-{%- endfor -%}
-{%- endfor -%}
+{% endfor %}
+{% set owner_team = item.get('owner_team') -%}
+{%- set manager_tag = '' -%}
+{%- if owner_team -%}
+{%- set project_key = team_mappings.get(owner_team, owner_team) -%}
+{%- set manager_info = team_managers.get(project_key, {}) -%}
+{%- set manager_tag = manager_info.get('notion_handle', '') -%}
+{%- endif -%}
+{%- set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
+   ⚠️  Action:
+       [ ] Clarify final decision (PLANNED or DEPRIORITISED){{ manager_suffix }}
+
+{% endfor -%}
 {% else %}
 No initiatives with no/low confidence for completion at this time.
 
@@ -202,8 +219,18 @@ Action required: Update status to Planned in Jira (bulk keys provided below)
 {% if result.ready_to_plan -%}
 {% for item in result.ready_to_plan -%}
 {{ item.key|hyperlink(item.url) }}: {{ item.summary }}
-{% endfor -%}
+{% set owner_team = item.get('owner_team') -%}
+{%- set manager_tag = '' -%}
+{%- if owner_team -%}
+{%- set project_key = team_mappings.get(owner_team, owner_team) -%}
+{%- set manager_info = team_managers.get(project_key, {}) -%}
+{%- set manager_tag = manager_info.get('notion_handle', '') -%}
+{%- endif -%}
+{%- set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
+   ✅ Action:
+       [ ] Move initiative to PLANNED status{{ manager_suffix }}
 
+{% endfor %}
 Bulk update - Copy these issue keys for Jira:
 {{ result.ready_to_plan|map(attribute='key')|join(',') }}
 {%- else %}
@@ -367,8 +394,12 @@ Help needed: Verify RAG status updates, confirm team commitment
 {%- for epic in team_data.epics %}
          {{ epic.key|hyperlink(epic.url) }}: "{{ epic.summary }}"
 {%- endfor %}
-{%- endif %}
-       [ ] {{ team_name }} to set RAG status for {{ epics_str }}
+{%- endif -%}
+{%- set project_key = team_mappings.get(team_name, team_name) -%}
+{%- set manager_info = team_managers.get(project_key, {}) -%}
+{%- set manager_tag = manager_info.get('notion_handle', '') -%}
+{%- set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
+       [ ] {{ team_name }} to set RAG status for {{ epics_str }}{{ manager_suffix }}
 {% endfor %}
 
 {% elif issue.type == 'red_epics' %}

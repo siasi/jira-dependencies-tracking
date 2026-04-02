@@ -1,6 +1,6 @@
 # Jira Dependencies Tracking
 
-Extract Jira initiatives and epics to analyze team contributions.
+Extract Jira initiatives and epics, perform multiple analysis and track reports and action items.
 
 ## Setup
 
@@ -13,140 +13,69 @@ Extract Jira initiatives and epics to analyze team contributions.
 
 3. **Configure:**
    ```bash
-   cp config.yaml.example config.yaml
+   cp config/jira_config.yaml.example config/jira_config.yaml
    cp .env.example .env
    ```
-
-4. **Find your project keys:**
-
-   **IMPORTANT:** Use project **KEYS**, not project names!
-
-   - Project KEY: Short code like `RSK`, `INIT`, `PAY` (use this ✅)
-   - Project Name: Full name like "Risk Team" (don't use ❌)
-
-   **Where to find project keys:**
-   - In Jira URLs: `https://your-company.atlassian.net/browse/RSK-123` → Key is `RSK`
-   - In issue numbers: `INIT-1115` → Key is `INIT`
-   - Browse all projects: `https://your-company.atlassian.net/jira/projects`
-
-5. **Edit config.yaml:**
-   - Update `jira.instance` with your Jira URL (without https://)
-   - Update `projects.initiatives` with your initiatives project key (e.g., `INIT`)
-   - Update `projects.teams` with your team project keys (e.g., `["RSK", "PAY", "PLATFORM"]`)
-   - Find RAG custom field ID: `python jira_extract.py list-fields`
-
-   Example:
-   ```yaml
-   jira:
-     instance: "company.atlassian.net"
-
-   projects:
-     initiatives: "INIT"       # Project key, not name
-     teams:
-       - "RSK"                 # Use keys like RSK, not "Risk Team"
-       - "PAY"
-       - "PLATFORM"
-   ```
-
-6. **Edit .env:**
-   - Add your Jira email
-   - Get API token from: https://id.atlassian.com/manage-profile/security/api-tokens
-
-### Custom Fields Configuration
-
-Custom fields for initiatives are configured under `custom_fields.initiatives`:
-
-```yaml
-custom_fields:
-  initiatives:
-    rag_status: "customfield_12111"      # RAG status indicator
-    quarter: "customfield_12108"          # Planning quarter
-    objective: "customfield_12101"        # Strategic objective
-    # Add any custom field here without code changes
-```
-
-**Adding New Custom Fields:**
-
-1. Find the Jira field ID (use `python jira_extract.py list-fields` to list available fields)
-2. Add to `custom_fields.initiatives` with your desired output name
-3. Run extraction - the field will appear in the output JSON
-
-**Field Types Supported:**
-- **Select fields** (e.g., RAG status) - extracted as the selected value
-- **Text fields** - extracted as-is
-- **Multi-select fields** (e.g., strategic objectives) - extracted as comma-separated values if multiple selected, or single value if only one
-
-All custom fields are optional. If a field is missing on an initiative, it will appear as `null` in the output.
-
-### Optional: Filter by Quarter
-
-To extract only initiatives for a specific quarter:
-
-1. Add the quarter custom field ID to your config:
-   ```yaml
-   custom_fields:
-     initiatives:
-       rag_status: "customfield_12111"
-       quarter: "customfield_12108"  # Add this
-   ```
-
-2. Add the filters section:
-   ```yaml
-   filters:
-     quarter: "25 Q1"  # Format: "YY QN"
-   ```
-
-When filtering is enabled:
-- Only initiatives matching the specified quarter are extracted
-- Initiatives with status "Done" are excluded
-- Epics are still extracted for all team projects, but only those linked to filtered initiatives appear in the output
-
-To disable filtering, simply remove or comment out the `filters` section.
 
 ## Usage
 
 Extract data (JSON format):
 ```bash
-python jira_extract.py extract
+python extract.py extract
 ```
+
+Validate readiness for new initiatives in the quarter and track action items for Team Managers, so that initiatives can progress to Planned status:
+```bash
+python validate_planning.py --quarter "26 Q2" --min-teams 2 --dust
+```
+
+Once Planning is done, extract data again and analyze workload per team:
+```bash
+python extract.py extract
+python analyze_workload.py
+```
+
+## Extract
+
+This tool extracts data from Jira and stores it in a local file for further analysis with other scripts.
 
 Extract as CSV:
 ```bash
-python jira_extract.py extract --format csv
+python extract.py extract --format csv
 ```
 
 Extract both JSON and CSV:
 ```bash
-python jira_extract.py extract --format both
+python extract.py extract --format both
 ```
 
 List custom fields:
 ```bash
-python jira_extract.py list-fields
+python extract.py list-fields
 ```
 
 Validate config:
 ```bash
-python jira_extract.py validate-config
+python extract.py validate-config
 ```
 
 ### Options
 
 ```bash
-python jira_extract.py extract --config custom.yaml --output ./report.json --verbose
-python jira_extract.py extract --format csv --output ./data/export.csv
+python extract.py extract --config config/custom.yaml --output ./report.json --verbose
+python extract.py extract --format csv --output ./data/export.csv
 ```
 
 **Available options:**
-- `--config PATH` - Path to config file (default: `config.yaml`)
+- `--config PATH` - Path to config file (default: `config/jira_config.yaml`)
 - `--format [json|csv|both]` - Output format (default: `json`)
 - `--output PATH` - Custom output file path
 - `--verbose` - Enable verbose output for debugging
 - `--dry-run` - Show what would be fetched without writing output
 
-## Snapshot Tracking
+## Snapshots (alpha)
 
-Track plan stability and delivery over time by capturing quarterly snapshots and comparing them. This helps engineering leadership measure plan churn, commitment drift, and delivery predictability.
+The extract.py script can also store data as snapshots to compare them. This helps engineering leadership measure plan churn, commitment drift, and delivery predictability.
 
 ### Capture Snapshots
 
@@ -154,12 +83,12 @@ Capture a timestamped snapshot with a semantic label:
 
 ```bash
 # Capture baseline when plan stabilizes
-python jira_extract.py snapshot --label "2026-Q2-baseline"
+python extract.py snapshot --label "2026-Q2-baseline"
 
 # Monthly checkpoints
-python jira_extract.py snapshot --label "2026-Q2-month1"
-python jira_extract.py snapshot --label "2026-Q2-month2"
-python jira_extract.py snapshot --label "2026-Q2-end"
+python extract.py snapshot --label "2026-Q2-month1"
+python extract.py snapshot --label "2026-Q2-month2"
+python extract.py snapshot --label "2026-Q2-end"
 ```
 
 Snapshots are saved to `data/snapshots/` and include:
@@ -172,7 +101,7 @@ Snapshots are saved to `data/snapshots/` and include:
 View all captured snapshots:
 
 ```bash
-python jira_extract.py snapshots list
+python extract.py snapshots list
 ```
 
 Output shows:
@@ -185,17 +114,17 @@ Generate comparison reports between two snapshots:
 
 ```bash
 # Compare baseline vs current month (text output to terminal)
-python jira_extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
+python extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
 
 # Generate markdown report to file
-python jira_extract.py compare \
+python extract.py compare \
   --from "2026-Q2-baseline" \
   --to "2026-Q2-end" \
   --format markdown \
   --output ./reports/q2-final.md
 
 # Generate CSV export
-python jira_extract.py compare \
+python extract.py compare \
   --from "2026-Q2-baseline" \
   --to "2026-Q2-end" \
   --format csv \
@@ -238,7 +167,7 @@ The comparison generates 5 reports (+ orphaned epics tracking):
 - Epics newly orphaned
 - Epics still orphaned
 
-### Configuration: ETA Tracking (Optional - Future Feature)
+### Configuration: ETA Tracking (Future Feature)
 
 **Note:** ETA tracking is a planned feature for future implementation. The configuration below is documented for when the feature is completed.
 
@@ -266,27 +195,27 @@ custom_fields:
 
 1. Capture baseline when plan stabilizes:
    ```bash
-   python jira_extract.py snapshot --label "2026-Q2-baseline"
+   python extract.py snapshot --label "2026-Q2-baseline"
    ```
 
 2. Capture monthly checkpoints:
    ```bash
-   python jira_extract.py snapshot --label "2026-Q2-month1"
-   python jira_extract.py snapshot --label "2026-Q2-month2"
+   python extract.py snapshot --label "2026-Q2-month1"
+   python extract.py snapshot --label "2026-Q2-month2"
    ```
 
 3. Capture end-of-quarter snapshot:
    ```bash
-   python jira_extract.py snapshot --label "2026-Q2-end"
+   python extract.py snapshot --label "2026-Q2-end"
    ```
 
 4. Generate comparison reports:
    ```bash
    # Month 1 drift
-   python jira_extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
+   python extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
 
    # Final quarter report
-   python jira_extract.py compare \
+   python extract.py compare \
      --from "2026-Q2-baseline" \
      --to "2026-Q2-end" \
      --format markdown \
@@ -298,155 +227,26 @@ custom_fields:
 - Generate comparison in < 10 seconds (for 100 initiatives, 500 epics)
 - Monthly leadership reports prepared in < 15 minutes
 
-## Output
-
-### JSON Format
-
-JSON file in `./data/` directory with:
-- Initiative → Team → Epics hierarchy
-- Status and RAG indicators
-- Completeness tracking
-- Orphaned epics (no parent initiative)
-
-### CSV Format
-
-CSV file in `./data/` directory with denormalized structure:
-- One row per epic with initiative data repeated
-- Orphaned epics included with empty initiative columns
-- UTF-8 encoding with BOM for Excel compatibility
-- **Dynamic columns based on your configured custom fields**
-
-**Column Structure:**
-
-CSV columns adapt to your `custom_fields.initiatives` configuration. The column order is:
-
-1. **Fixed initiative fields**: `initiative_key`, `initiative_summary`
-2. **Custom fields** (alphabetically sorted): Whatever you configure in `config.yaml`
-3. **Remaining fixed fields**: `initiative_status`, `team_project_key`, `epic_key`, `epic_summary`, `epic_rag_status`, `epic_status`
-
-**Example with full custom fields:**
-
-```yaml
-# config.yaml
-custom_fields:
-  initiatives:
-    quarter: "customfield_12108"
-    rag_status: "customfield_12111"
-    strategic_objective: "customfield_12101"
-```
-
-```csv
-initiative_key,initiative_summary,quarter,rag_status,strategic_objective,initiative_status,team_project_key,epic_key,epic_summary,epic_rag_status,epic_status
-INIT-1485,Initiative Title,26 Q2,🟢,growth,Proposed,CBPPE,CBPPE-529,Epic Title,🟡,Backlog
-INIT-1485,Initiative Title,26 Q2,🟢,growth,Proposed,CBPPE,CBPPE-530,Another Epic,🟢,In Progress
-,,,,,RSK,RSK-123,Orphaned Epic,🟡,Done
-```
-
-**Example with minimal custom fields:**
-
-```yaml
-# config.yaml
-custom_fields:
-  initiatives:
-    rag_status: "customfield_12111"
-```
-
-```csv
-initiative_key,initiative_summary,rag_status,initiative_status,team_project_key,epic_key,epic_summary,epic_rag_status,epic_status
-INIT-1485,Initiative Title,🟢,Proposed,CBPPE,CBPPE-529,Epic Title,🟡,Backlog
-```
-
-**Note:** Only configured custom fields appear as columns. If a field isn't in your config, it won't be in the CSV.
-
-**Excel Compatibility:**
-- CSV files use UTF-8 with BOM encoding
-- Opens correctly in Microsoft Excel, Google Sheets, and Numbers
-- Emoji characters (🟢🟡🔴) preserved
-- Special characters (commas, quotes, newlines) properly escaped
-
-## Troubleshooting
-
-**Authentication failed:**
-- Verify API token is valid
-- Check email matches Atlassian account
-
-**JQL syntax error / "Expecting either a value, list or function":**
-- Make sure you're using project **KEYS** (e.g., `RSK`) not project names (e.g., "Risk Team")
-- Verify project keys exist: Check URLs like `https://your-company.atlassian.net/browse/RSK-1`
-- Run `python jira_extract.py validate-config` to test configuration
-
-**Custom field not found:**
-- Run `list-fields` to find correct field ID
-- Update `custom_fields.rag_status` in config.yaml
-
-**Missing data:**
-- Check `extraction_status` in output JSON
-- Verify permissions to access all projects
-- Tool continues with partial data but reports issues
-
-## Data Validation
-
-Validate data consistency with the included validation tools.
-
-### Validate Team Dependencies
-
-Check if "Teams Involved" field matches actual teams with epics:
-
-```bash
-# Validate latest extraction
-python validate_dependencies.py
-
-# Validate specific file
-python validate_dependencies.py data/jira_extract_20260319.json
-
-# Validate snapshot
-python validate_dependencies.py data/snapshots/snapshot_baseline_*.json
-```
-
-**What it checks:**
-- "Teams Involved" field count vs actual teams that have epics
-- Identifies missing dependencies (teams in field but no epics)
-- Identifies teams missing from Impacted Teams (have epics but not in field)
-
-**Output:**
-- ✅ Success: All team counts match
-- ❌ Issues: Lists each initiative with mismatched counts
-  - ⚠️  Missing dependencies: Teams listed but have no epics
-  - ⚠️  Missing from Impacted Teams: Teams with epics not listed
-- Recommendations for fixing data in Jira
-
-**Exit codes:**
-- `0` - All validations passed
-- `1` - Validation issues found
-
-**Use in CI/CD:**
-```bash
-# Fail build if data inconsistencies found
-python jira_extract.py extract && python validate_dependencies.py
-```
-
-### Validate Initiative Status
+## Validate Planning
 
 Validate initiative readiness for Proposed → Planned status transitions based on epic RAG status, team dependencies, and assignee presence.
 
 ```bash
-# Validate latest extraction
-python validate_initiative_status.py
+# Validate latest extraction for Q2 2026
+python validate_planning.py --quarter "26 Q2"
 
-# Validate specific file
-python validate_initiative_status.py data/jira_extract_20260321.json
+# Validate specific file for Q2 2026
+python validate_planning.py --quarter "26 Q2" data/jira_extract_20260321.json
 
-# Validate snapshot
-python validate_initiative_status.py data/snapshots/snapshot_baseline_*.json
+# Validate snapshot with multi-team filter
+python validate_planning.py --quarter "26 Q2" --min-teams 2 data/snapshots/snapshot_baseline_*.json
 
-# Only analyze initiatives with 2+ teams
-python validate_initiative_status.py --min-teams 2
-
-# Validate snapshot with team filter
-python validate_initiative_status.py data/snapshots/snapshot_baseline_*.json --min-teams 2
+# Generate Dust notifications for Q2 2026
+python validate_planning.py --quarter "26 Q2" --dust
 ```
 
 **Options:**
+- `--quarter "YY QN"` - **Required.** Quarter to validate (e.g., "26 Q2"). Only initiatives matching this quarter will be validated.
 - `--min-teams N` - Minimum number of teams required (default: 1, analyzes all initiatives)
   - Use this to focus on multi-team initiatives only
   - Report shows total initiatives and how many were filtered out
@@ -459,8 +259,8 @@ python validate_initiative_status.py data/snapshots/snapshot_baseline_*.json --m
 Generate copy-paste ready messages for sending bulk Slack DMs via Dust:
 
 ```bash
-# Generate Dust messages
-python validate_initiative_status.py --dust
+# Generate Dust messages for Q2 2026
+python validate_planning.py --quarter "26 Q2" --dust
 
 # Output: Console preview + file in extracts/dust_messages_YYYY-MM-DD_HHMMSS.txt
 ```
@@ -471,63 +271,13 @@ python validate_initiative_status.py --dust
 - Action items organized by initiative (and by team for multi-team managers)
 - Ready to paste into Dust chatbot
 
-**Configuration:**
-
-Update `team_mappings.yaml` with Slack member IDs:
-
-```yaml
-team_managers:
-  "CBPPE":
-    notion_handle: "@Manager B "
-    slack_id: "U01F3QUHP0B"
-  "CONSOLE":
-    notion_handle: "@Manager A"
-    slack_id: "U02ABC456"
-  "PAYINS":
-    notion_handle: "@Manager A"
-    slack_id: "U02ABC456"  # Same Slack ID for all of Manager A's teams
-  # Add other teams
-```
-
-**Important:** If a manager oversees multiple teams, use the **same Slack ID** for all their teams. This ensures they receive one consolidated message with subsections for each team, rather than separate messages per team.
+**Important:** If a manager oversees multiple teams, they receive one consolidated message with subsections for each team, rather than separate messages per team.
 
 **Action Types Included:**
 1. Missing dependencies - Teams need to create epics
 2. Missing RAG status - Teams need to set RAG on epics
 3. Missing assignee - Initiatives need assignees
 4. Ready to PLANNED - Initiatives ready to move forward
-
-**Optional Configuration:**
-
-Create `team_mappings.yaml` to map friendly team names to project keys:
-
-```bash
-# Copy example and customize with your team names
-cp team_mappings.yaml.example team_mappings.yaml
-```
-
-Example:
-```yaml
-team_mappings:
-  "Engineering": "ENG"
-  "Product": "PROD"
-  "Design": "DESIGN"
-
-# Optional: Teams exempt from RAG status checking
-# Supporting teams (Integration Ops, DOCS, etc.) that don't need RAG status
-teams_exempt_from_rag:
-  - "Integration Ops"
-  - "DOCS"
-```
-
-**Note:** This file is optional. The script works without it by using display names as-is. The mapping helps identify teams when display names differ from project keys.
-
-**Teams Exempt from RAG Checking:**
-
-Some teams (like Integration Ops, DOCS) provide supporting work and don't need to report RAG status. Configure these in `teams_exempt_from_rag`:
-- They still need to create epics if listed in Teams Involved
-- Their epics won't be checked for RED/YELLOW/missing RAG status
-- Owner teams are automatically exempt (don't add them here)
 
 **What It Checks:**
 
@@ -564,3 +314,250 @@ Terminal report with four sections:
 **Design Documentation:**
 
 See [brainstorm document](docs/brainstorms/2026-03-21-initiative-status-validation-brainstorm.md) for design decisions and approach rationale.
+
+## Analyze Workload
+
+Analyze the distribution of epic work across teams to identify imbalances and ensure fair resource allocation.
+
+```bash
+# Analyze latest extraction
+python analyze_workload.py
+
+# Analyze specific file
+python analyze_workload.py data/jira_extract_20260321.json
+
+# Analyze snapshot
+python analyze_workload.py data/snapshots/snapshot_baseline_*.json
+
+# Only analyze initiatives with 2+ teams
+python analyze_workload.py --min-teams 2
+
+# Export to markdown (Notion-compatible)
+python analyze_workload.py --markdown reports/workload_analysis.md
+
+# Generate Dust messages for managers
+python analyze_workload.py --dust
+```
+
+**Options:**
+- `--min-teams N` - Minimum number of teams required (default: 1, analyzes all initiatives)
+  - Focus on multi-team initiatives where coordination is critical
+  - Single-team initiatives are filtered out when N > 1
+- `--markdown FILENAME` - Export detailed report to markdown format
+- `--verbose` - Include verbose output with additional details
+- `--dust` - Generate Dust bulk messages for manager notifications
+
+### What It Analyzes
+
+**Epic Distribution:**
+- Total epics per team across all initiatives
+- Epic count per initiative per team
+- Identifies teams with disproportionate workload
+
+**Initiative Participation:**
+- Which initiatives each team is involved in
+- Number of epics committed per initiative
+- Cross-team coordination requirements
+
+**Workload Balance:**
+- Teams with highest epic counts (potential bottlenecks)
+- Teams with lowest epic counts (potential capacity)
+- Variance in work distribution across the organization
+
+**Output Sections:**
+
+1. **📊 Team Workload Summary** - Total epics per team, sorted by workload
+2. **📋 Initiative Breakdown** - Per-initiative epic distribution across teams
+3. **⚠️  Workload Warnings** - Teams significantly above/below average workload
+4. **✅ Well-Balanced Teams** - Teams with workload close to organizational average
+
+### Dust Manager Notifications
+
+Generate workload summary messages for engineering managers:
+
+```bash
+python analyze_workload.py --dust
+```
+
+**Message Content:**
+- Team's total epic count for the period
+- Breakdown by initiative
+- Comparison to organizational average
+- Workload status (balanced, high, low)
+
+**Use Cases:**
+- **Quarterly Planning:** Validate work distribution before committing to plans
+- **Mid-Quarter Check:** Identify teams at risk of overcommitment
+- **Resource Planning:** Inform hiring and allocation decisions
+- **Leadership Reports:** Provide data for executive summaries
+
+## Advanced Configuration
+
+### How to configure the basic properties
+
+1. **Find your project keys:**
+
+   **IMPORTANT:** Use project **KEYS**, not project names!
+
+   - Project KEY: Short code like `RSK`, `INIT`, `PAY` (use this ✅)
+   - Project Name: Full name like "Risk Team" (don't use ❌)
+
+   **Where to find project keys:**
+   - In Jira URLs: `https://your-company.atlassian.net/browse/RSK-123` → Key is `RSK`
+   - In issue numbers: `INIT-1115` → Key is `INIT`
+   - Browse all projects: `https://your-company.atlassian.net/jira/projects`
+
+2. **Edit config/jira_config.yaml:**
+   - Update `jira.instance` with your Jira URL (without https://)
+   - Update `projects.initiatives` with your initiatives project key (e.g., `INIT`)
+   - Update `projects.teams` with your team project keys (e.g., `["RSK", "PAY", "PLATFORM"]`)
+   - Find RAG custom field ID: `python extract.py list-fields`
+
+   Example:
+   ```yaml
+   jira:
+     instance: "company.atlassian.net"
+
+   projects:
+     initiatives: "INIT"       # Project key, not name
+     teams:
+       - "RSK"                 # Use keys like RSK, not "Risk Team"
+       - "PAY"
+       - "PLATFORM"
+   ```
+
+3. **Edit .env:**
+   - Add your Jira email
+   - Get API token from: https://id.atlassian.com/manage-profile/security/api-tokens
+
+### Custom Fields Configuration
+
+Custom fields for initiatives are configured under `custom_fields.initiatives`:
+
+```yaml
+custom_fields:
+  initiatives:
+    rag_status: "customfield_12111"      # RAG status indicator
+    quarter: "customfield_12108"          # Planning quarter
+    objective: "customfield_12101"        # Strategic objective
+    # Add any custom field here without code changes
+```
+
+**Adding New Custom Fields:**
+
+1. Find the Jira field ID (use `python extract.py list-fields` to list available fields)
+2. Add to `custom_fields.initiatives` with your desired output name
+3. Run extraction - the field will appear in the output JSON
+
+**Field Types Supported:**
+- **Select fields** (e.g., RAG status) - extracted as the selected value
+- **Text fields** - extracted as-is
+- **Multi-select fields** (e.g., strategic objectives) - extracted as comma-separated values if multiple selected, or single value if only one
+
+All custom fields are optional. If a field is missing on an initiative, it will appear as `null` in the output.
+
+### User Id Configuration
+
+Update `config/team_mappings.yaml` with Slack member IDs:
+
+```yaml
+team_managers:
+  "CBPPE":
+    notion_handle: "@Thom Gray"
+    slack_id: "U01F3QUH30B"
+  "CONSOLE":
+    notion_handle: "@Antony Red"
+    slack_id: "U02ABC453"
+  "PAYINS":
+    notion_handle: "@Thom Gray"
+    slack_id: "U01F3QUH30B"  # Same Slack ID for all of Karina's teams
+```
+
+### Optional: Filter by Quarter
+
+To extract only initiatives for a specific quarter:
+
+1. Add the quarter custom field ID to your config:
+   ```yaml
+   custom_fields:
+     initiatives:
+       rag_status: "customfield_12111"
+       quarter: "customfield_12108"  # Add this
+   ```
+
+2. Add the filters section:
+   ```yaml
+   filters:
+     quarter: "25 Q1"  # Format: "YY QN"
+   ```
+
+When filtering is enabled:
+- Only initiatives matching the specified quarter are extracted
+- Initiatives with status "Done" are excluded
+- Epics are still extracted for all team projects, but only those linked to filtered initiatives appear in the output
+
+To disable filtering, simply remove or comment out the `filters` section.
+
+### Optional: Team Names
+
+Create `config/team_mappings.yaml` to map friendly team names to project keys:
+
+```bash
+# Copy example and customize with your team names
+cp config/team_mappings.yaml.example config/team_mappings.yaml
+```
+
+Example:
+```yaml
+team_mappings:
+  "Engineering": "ENG"
+  "Product": "PROD"
+  "Design": "DESIGN"
+```
+
+**Note:** This file is optional. The script works without it by using display names as-is. The mapping helps identify teams when display names differ from project keys.
+
+### Optional: Teams exempt from RAG status checking
+
+Some teams (i.e. Documentation team) provide supporting work and don't need to report RAG status. Configure these in `teams_exempt_from_rag`:
+- They still need to create epics if listed in Teams Involved
+- Their epics won't be checked for RED/YELLOW/missing RAG status
+- Owner teams are automatically exempt (don't add them here)
+
+```yaml
+teams_exempt_from_rag:
+  - "DOCS"
+```
+
+### Optional: Initiative Sign-Off Exceptions
+
+Some initiatives have intentional inconsistencies that managers have explicitly approved. To exclude these from validation reports:
+
+1. Edit `config/initiative_exceptions.yaml`:
+   ```yaml
+   signed_off_initiatives:
+     - key: "INIT-1234"
+       reason: "Team X is consultative only, no epic needed"
+       date: "2026-03-31"
+       approved_by: "@Manager Name"
+   ```
+
+2. Run validation - signed-off initiatives will be completely hidden:
+   ```bash
+   python validate_planning.py --quarter "26 Q2"
+   ```
+
+**When to use this:**
+- Team listed for awareness only (no epic needed)
+- Special cross-team arrangements
+- Manager has explicitly approved the current state
+
+**Required fields:**
+- `key`: Initiative Jira key (e.g., "INIT-1234")
+- `reason`: Explanation of why this is signed off
+
+**Optional fields:**
+- `date`: When approved (ISO format: "YYYY-MM-DD")
+- `approved_by`: Manager who approved (e.g., "@Jane Smith")
+
+**Important:** Review this file periodically to remove resolved initiatives.

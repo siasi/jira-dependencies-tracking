@@ -10,7 +10,10 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Set, Tuple
 from collections import defaultdict
+from datetime import datetime
 import yaml
+
+from lib.common_formatting import make_clickable_link
 
 
 def load_team_mappings() -> Tuple[Dict[str, str], List[str], Dict[str, str], Dict[str, Dict[str, str]], Dict[str, str]]:
@@ -19,9 +22,16 @@ def load_team_mappings() -> Tuple[Dict[str, str], List[str], Dict[str, str], Dic
     Returns:
         Tuple of (team_mappings dict, excluded_teams list, strategic_objective_mappings dict, team_managers dict, reverse_team_mappings dict)
     """
-    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    # Try config/ directory first, then fall back to root
+    mappings_file = Path(__file__).parent / 'config' / 'team_mappings.yaml'
     if not mappings_file.exists():
-        return {}, [], {}, {}, {}
+        # Fall back to root with warning
+        root_file = Path(__file__).parent / 'team_mappings.yaml'
+        if root_file.exists():
+            print("Warning: Using team_mappings.yaml from root directory. Please move to config/")
+            mappings_file = root_file
+        else:
+            return {}, [], {}, {}, {}
 
     try:
         with open(mappings_file, 'r', encoding='utf-8') as f:
@@ -56,33 +66,6 @@ def load_team_mappings() -> Tuple[Dict[str, str], List[str], Dict[str, str], Dic
     except Exception as e:
         print(f"Warning: Could not load team mappings: {e}", file=sys.stderr)
         return {}, [], {}, {}, {}
-
-
-def make_clickable_link(text: str, url: str) -> str:
-    """Create a clickable hyperlink for terminal output.
-
-    Uses ANSI escape codes supported by modern terminals:
-    - iTerm2 (macOS)
-    - Terminal.app (macOS 10.14+)
-    - GNOME Terminal (Linux)
-    - Windows Terminal
-    - VS Code integrated terminal
-    - Alacritty, Kitty, and other modern terminals
-
-    Note: In terminals without hyperlink support, the text will display normally
-    without the link functionality.
-
-    Args:
-        text: The text to display
-        url: The URL to link to
-
-    Returns:
-        ANSI-formatted string with hyperlink
-    """
-    if not url:
-        return text
-    # ANSI escape code format: \033]8;;URL\033\\TEXT\033]8;;\033\\
-    return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
 
 
 def get_rag_circle(rag_status: str) -> str:
@@ -164,12 +147,12 @@ def normalize_team_name(team_name: str, team_mappings: Dict[str, str]) -> str:
 
 
 def load_valid_strategic_objectives() -> List[str]:
-    """Load valid strategic objective values from config.yaml.
+    """Load valid strategic objective values from config/jira_config.yaml.
 
     Returns:
         List of valid strategic objective values, or empty list if not found
     """
-    config_file = Path(__file__).parent / 'config.yaml'
+    config_file = Path(__file__).parent / 'config' / 'jira_config.yaml'
     if not config_file.exists():
         return []
 
@@ -919,8 +902,12 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
 
     parser.add_argument(
         '--markdown',
-        action='store_true',
-        help='Output report in markdown format instead of console format'
+        type=str,
+        nargs='?',
+        const='auto',
+        metavar='FILENAME',
+        help='Export report as markdown file. '
+             'Optionally specify filename, otherwise auto-generates with timestamp.'
     )
 
     args = parser.parse_args()
@@ -957,12 +944,37 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
     # Analyze workload
     analysis = analyze_workload(json_file, team_mappings, excluded_teams, strategic_objective_mappings)
 
-    # Print report
+    # Print console report
+    print_workload_report(analysis, team_managers=team_managers, reverse_team_mappings=reverse_team_mappings,
+                         verbose=args.verbose)
+
+    # Generate markdown export if requested
     if args.markdown:
-        print_markdown_report(analysis, team_managers=team_managers, reverse_team_mappings=reverse_team_mappings)
-    else:
-        print_workload_report(analysis, team_managers=team_managers, reverse_team_mappings=reverse_team_mappings,
-                             verbose=args.verbose)
+        if args.markdown == 'auto':
+            # Auto-generate filename with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            markdown_file = Path(f"workload_analysis_report_{timestamp}.md")
+        else:
+            markdown_file = Path(args.markdown)
+
+        # Capture markdown output to string
+        import io
+        markdown_buffer = io.StringIO()
+        original_stdout = sys.stdout
+        sys.stdout = markdown_buffer
+
+        try:
+            print_markdown_report(analysis, team_managers=team_managers, reverse_team_mappings=reverse_team_mappings)
+        finally:
+            sys.stdout = original_stdout
+
+        markdown_content = markdown_buffer.getvalue()
+
+        # Write to file
+        with open(markdown_file, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+
+        print(f"\n✅ Markdown report exported to: {markdown_file}")
 
 
 if __name__ == '__main__':

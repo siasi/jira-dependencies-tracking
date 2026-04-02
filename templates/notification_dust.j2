@@ -23,6 +23,8 @@ You have {{ message.total_actions }} action item{% if message.total_actions != 1
 :red_circle: Missing strategic objective - {{ action.description }}
 {% elif action.action_type == 'invalid_strategic_objective' -%}
 :red_circle: Invalid strategic objective - {{ action.description }}
+{% elif action.action_type == 'clarify_decision' -%}
+:thinking_face: {{ action.description }}
 {% elif action.action_type == 'ready_to_planned' -%}
 :rocket: {{ action.description }}
 {% endif %}

@@ -1,1 +1,1 @@
-"""Tests for jira-dependencies-tracking."""
+"""Tests for jira-em-toolkit."""

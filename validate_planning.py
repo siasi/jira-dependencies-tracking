@@ -23,7 +23,10 @@ import sys
 import yaml
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Set
+
+from lib.common_formatting import make_clickable_link
+from lib.template_renderer import get_template_environment
 
 
 class ValidationResult:
@@ -42,6 +45,7 @@ class ValidationResult:
         self.planned_regressions: List[Dict[str, Any]] = []
         self.ignored_statuses: List[Dict[str, Any]] = []
         # Metadata
+        self.quarter: Optional[str] = None
         self.total_checked = 0
         self.total_filtered = 0
 
@@ -51,33 +55,6 @@ class ValidationResult:
         return (len(self.dependency_mapping) > 0 or
                 len(self.low_confidence_completion) > 0 or
                 len(self.planned_regressions) > 0)
-
-
-def make_clickable_link(text: str, url: str) -> str:
-    """Create a clickable hyperlink for terminal output.
-
-    Uses ANSI escape codes supported by modern terminals:
-    - iTerm2 (macOS)
-    - Terminal.app (macOS 10.14+)
-    - GNOME Terminal (Linux)
-    - Windows Terminal
-    - VS Code integrated terminal
-    - Alacritty, Kitty, and other modern terminals
-
-    Note: In terminals without hyperlink support, the text will display normally
-    without the link functionality.
-
-    Args:
-        text: The text to display
-        url: The URL to link to
-
-    Returns:
-        ANSI-formatted string with hyperlink
-    """
-    if not url:
-        return text
-    # ANSI escape code format: \033]8;;URL\033\\TEXT\033]8;;\033\\
-    return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
 
 
 def _is_discovery_initiative(initiative: dict) -> bool:
@@ -384,7 +361,7 @@ def _load_team_mappings() -> Dict[str, str]:
     Returns:
         Dict mapping display names to project keys, or empty dict if file not found
     """
-    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    mappings_file = Path(__file__).parent / 'config' / 'team_mappings.yaml'
     if not mappings_file.exists():
         return {}
 
@@ -410,7 +387,7 @@ def _load_team_managers() -> Dict[str, Dict[str, Optional[str]]]:
 
         Handles legacy string format for backward compatibility.
     """
-    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    mappings_file = Path(__file__).parent / 'config' / 'team_mappings.yaml'
     if not mappings_file.exists():
         return {}
 
@@ -466,7 +443,7 @@ def _load_teams_exempt_from_rag() -> List[str]:
     Returns:
         List of project keys for teams that don't require RAG status, or empty list if not found
     """
-    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    mappings_file = Path(__file__).parent / 'config' / 'team_mappings.yaml'
     if not mappings_file.exists():
         return []
 
@@ -486,7 +463,7 @@ def _load_teams_excluded_from_analysis() -> List[str]:
     Returns:
         List of team names for teams whose initiatives should be filtered out, or empty list if not found
     """
-    mappings_file = Path(__file__).parent / 'team_mappings.yaml'
+    mappings_file = Path(__file__).parent / 'config' / 'team_mappings.yaml'
     if not mappings_file.exists():
         return []
 
@@ -499,13 +476,52 @@ def _load_teams_excluded_from_analysis() -> List[str]:
         return []
 
 
+def _load_signed_off_initiatives() -> Set[str]:
+    """Load list of initiative keys that have manager sign-off.
+
+    Signed-off initiatives are completely excluded from validation reports
+    because managers have explicitly approved their current state despite
+    any inconsistencies.
+
+    Returns:
+        Set of initiative keys to skip validation (e.g., {"INIT-1234"})
+    """
+    exceptions_file = Path(__file__).parent / 'config' / 'initiative_exceptions.yaml'
+    if not exceptions_file.exists():
+        return set()
+
+    try:
+        with open(exceptions_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            signed_off = data.get('signed_off_initiatives', [])
+
+            # Extract keys from list of dicts
+            keys = set()
+            for item in signed_off:
+                if not isinstance(item, dict):
+                    continue  # Skip malformed items silently
+                if 'key' not in item:
+                    continue  # Skip items without key
+                keys.add(item['key'])
+
+            return keys
+    except yaml.YAMLError as e:
+        # Invalid YAML is a config error (fail fast)
+        print(f"Error: Invalid YAML in initiative_exceptions.yaml: {e}", file=sys.stderr)
+        sys.exit(2)
+    except Exception as e:
+        # Unexpected errors are fatal
+        print(f"Error: Could not load initiative_exceptions.yaml: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
 def _load_valid_strategic_objectives() -> List[str]:
-    """Load valid strategic objective values from config.yaml.
+    """Load valid strategic objective values from config/jira_config.yaml.
 
     Returns:
         List of valid strategic objective values, or empty list if not found
     """
-    config_file = Path(__file__).parent / 'config.yaml'
+    config_file = Path(__file__).parent / 'config' / 'jira_config.yaml'
     if not config_file.exists():
         return []
 
@@ -596,6 +612,7 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
     - 'missing_assignee': Initiative needs assignee
     - 'missing_strategic_objective': Initiative needs strategic objective set
     - 'invalid_strategic_objective': Initiative has invalid strategic objective value
+    - 'clarify_decision': Initiative with low confidence needs decision (PLANNED or DEPRIORITISED)
     - 'ready_to_planned': Initiative ready to move to PLANNED status
 
     Priority ordering (1=highest):
@@ -604,7 +621,8 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
     3. invalid_strategic_objective (blocks planning)
     4. missing_dependencies (blocks execution)
     5. missing_rag (blocks visibility)
-    6. ready_to_planned (informational)
+    6. clarify_decision (requires discussion)
+    7. ready_to_planned (informational)
     """
     actions = []
     team_mappings = _load_team_mappings()
@@ -617,7 +635,8 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
         'invalid_strategic_objective': 3,
         'missing_dependencies': 4,
         'missing_rag': 5,
-        'ready_to_planned': 6
+        'clarify_decision': 6,
+        'ready_to_planned': 7
     }
 
     # Helper to build base initiative context
@@ -757,7 +776,26 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
                 **base,
                 'action_type': 'ready_to_planned',
                 'priority': PRIORITY['ready_to_planned'],
-                'description': 'All criteria met - ready to move to PLANNED',
+                'description': 'Move initiative to PLANNED status',
+                'epic_key': None,
+                'epic_title': None,
+                'epic_rag': None
+            }
+            _add_manager_info(action, owner_key, owner_team)
+            actions.append(action)
+
+    # Section 2b: low_confidence_completion (Proposed initiatives with low confidence)
+    for initiative in result.low_confidence_completion:
+        base = _base_context(initiative, 'low_confidence_completion')
+        owner_team = initiative.get('owner_team')
+
+        if owner_team:
+            owner_key = team_mappings.get(owner_team, owner_team)
+            action = {
+                **base,
+                'action_type': 'clarify_decision',
+                'priority': PRIORITY['clarify_decision'],
+                'description': 'Clarify final decision (PLANNED or DEPRIORITISED)',
                 'epic_key': None,
                 'epic_title': None,
                 'epic_rag': None
@@ -878,7 +916,6 @@ def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
     Raises:
         ValueError: If team_managers config is missing Slack IDs
     """
-    from jinja2 import Environment, FileSystemLoader, select_autoescape
     from collections import defaultdict
     from datetime import datetime
 
@@ -992,18 +1029,10 @@ def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
     messages.sort(key=lambda m: m['manager_name'])
 
     # Setup Jinja2 environment
-    template_dir = Path(__file__).parent / 'templates'
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(['html', 'xml']),
-        trim_blocks=True,
-        lstrip_blocks=True
-    )
-    # Register hyperlink filter
-    env.filters['hyperlink'] = make_clickable_link
+    env = get_template_environment()
 
     # Render template
-    template = env.get_template('dust.j2')
+    template = env.get_template('notification_dust.j2')
     output = template.render(messages=messages)
 
     # Print to console
@@ -1026,14 +1055,15 @@ def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
     print(f"Total action items: {sum(m['total_actions'] for m in messages)}")
 
 
-def validate_initiative_status(json_file: Path) -> ValidationResult:
+def validate_initiative_status(json_file: Path, quarter: str) -> ValidationResult:
     """Validate initiative readiness for Proposed → Planned transition.
 
-    Only validates multi-team initiatives (teams_involved >= 2).
+    Only validates multi-team initiatives (teams_involved >= 2) for the specified quarter.
     Single-team initiatives are tracked in ignored_statuses.
 
     Args:
         json_file: Path to JSON file from jira_extract.py or snapshot
+        quarter: Quarter to validate (e.g., "26 Q2")
 
     Returns:
         ValidationResult with categorized findings
@@ -1042,7 +1072,25 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
         data = json.load(f)
 
     result = ValidationResult()
-    all_initiatives = data.get('initiatives', [])
+    result.quarter = quarter  # Store quarter for reporting
+    all_initiatives_unfiltered = data.get('initiatives', [])
+
+    # Filter by quarter first
+    all_initiatives = [
+        init for init in all_initiatives_unfiltered
+        if init.get('quarter') == quarter
+    ]
+
+    # Track initiatives filtered out by quarter
+    quarter_filtered_count = len(all_initiatives_unfiltered) - len(all_initiatives)
+
+    # Filter out signed-off initiatives (manager-approved exceptions)
+    signed_off_keys = _load_signed_off_initiatives()
+    if signed_off_keys:
+        all_initiatives = [
+            init for init in all_initiatives
+            if init['key'] not in signed_off_keys
+        ]
 
     # Load excluded teams
     excluded_teams = _load_teams_excluded_from_analysis()
@@ -1125,6 +1173,7 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
                         'status': initiative_status,
                         'assignee': initiative_assignee,
                         'url': initiative_url,
+                        'owner_team': initiative.get('owner_team'),
                         'contributing_teams': initiative.get('contributing_teams', []),
                         'issues': issues
                     })
@@ -1136,7 +1185,8 @@ def validate_initiative_status(json_file: Path) -> ValidationResult:
                         'summary': initiative_summary,
                         'status': initiative_status,
                         'assignee': initiative_assignee,
-                        'url': initiative_url
+                        'url': initiative_url,
+                        'owner_team': initiative.get('owner_team')
                     })
 
         elif initiative_status in ['Planned', 'In Progress']:
@@ -1218,25 +1268,15 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
         json_file: Path to validated JSON file
         verbose: Show detailed epic and team information
     """
-    from jinja2 import Environment, FileSystemLoader, select_autoescape
-
     # Load config for template
     team_mappings = _load_team_mappings()
     team_managers = _load_team_managers()
 
     # Setup Jinja2 environment
-    template_dir = Path(__file__).parent / 'templates'
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(['html', 'xml']),
-        trim_blocks=True,
-        lstrip_blocks=True
-    )
-    # Register hyperlink filter
-    env.filters['hyperlink'] = make_clickable_link
+    env = get_template_environment()
 
     # Render template
-    template = env.get_template('console.j2')
+    template = env.get_template('planning_console.j2')
     output = template.render(
         result=result,
         json_file=json_file,
@@ -1260,7 +1300,6 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     Returns:
         Markdown-formatted report string
     """
-    from jinja2 import Environment, FileSystemLoader, select_autoescape
     from datetime import datetime
 
     # Load config for template
@@ -1269,18 +1308,10 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     # Setup Jinja2 environment
-    template_dir = Path(__file__).parent / 'templates'
-    env = Environment(
-        loader=FileSystemLoader(template_dir),
-        autoescape=select_autoescape(['html', 'xml']),
-        trim_blocks=True,
-        lstrip_blocks=True
-    )
-    # Register hyperlink filter
-    env.filters['hyperlink'] = make_clickable_link
+    env = get_template_environment()
 
     # Render template
-    template = env.get_template('markdown.j2')
+    template = env.get_template('planning_markdown.j2')
     output = template.render(
         result=result,
         json_file=json_file,
@@ -1352,6 +1383,12 @@ def main():
         action='store_true',
         help='Generate Dust bulk messages for manager notifications'
     )
+    parser.add_argument(
+        '--quarter',
+        required=True,
+        type=str,
+        help='Quarter to validate (e.g., "26 Q2"). Only initiatives matching this quarter will be validated.'
+    )
 
     args = parser.parse_args()
 
@@ -1371,7 +1408,7 @@ def main():
 
     # Run validation
     try:
-        result = validate_initiative_status(json_file)
+        result = validate_initiative_status(json_file, quarter=args.quarter)
 
         # Print console report
         print_validation_report(result, json_file, verbose=args.verbose)
