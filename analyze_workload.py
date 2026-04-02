@@ -1032,6 +1032,16 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
              'Optionally specify filename, otherwise auto-generates with timestamp.'
     )
 
+    parser.add_argument(
+        '--csv',
+        type=str,
+        nargs='?',
+        const='auto',
+        metavar='FILENAME',
+        help='Export initiative analysis as CSV file. '
+             'Optionally specify filename, otherwise auto-generates with timestamp.'
+    )
+
     args = parser.parse_args()
 
     # Determine which JSON file to use
@@ -1117,6 +1127,30 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
             html_file,
             json_file
         )
+
+    # Export CSV if requested
+    if args.csv:
+        if args.csv == 'auto':
+            # Auto-generate filename with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            csv_file = Path(f"workload_analysis_{timestamp}.csv")
+        else:
+            csv_file = Path(args.csv)
+
+        # Generate CSV data
+        csv_data = generate_dashboard_csv(
+            analysis,
+            analysis['initiative_summaries'],
+            analysis['initiative_strategic_objectives'],
+            analysis['initiative_owner_teams'],
+            analysis['initiative_contributing_teams']
+        )
+
+        # Write to file
+        with open(csv_file, 'w', encoding='utf-8') as f:
+            f.write(csv_data)
+
+        print(f"\n✅ CSV exported to: {csv_file}")
 
 
 if __name__ == '__main__':

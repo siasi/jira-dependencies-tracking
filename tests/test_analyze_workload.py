@@ -217,3 +217,78 @@ def test_generate_html_dashboard_escapes_special_chars():
         # Clean up temp file
         if output_file.exists():
             output_file.unlink()
+
+
+def test_csv_export_file_creation():
+    """Test CSV export creates a valid file."""
+    analysis = {
+        'team_details': {
+            'TeamA': {
+                'leading': ['INIT-1', 'INIT-2'],
+                'contributing': []
+            },
+            'TeamB': {
+                'leading': [],
+                'contributing': ['INIT-1']
+            }
+        }
+    }
+
+    initiative_summaries = {
+        'INIT-1': 'First initiative',
+        'INIT-2': 'Second initiative'
+    }
+
+    initiative_strategic_objectives = {
+        'INIT-1': '2026_scale_ecom',
+        'INIT-2': 'engineering_pillars'
+    }
+
+    initiative_owner_teams = {
+        'INIT-1': 'TeamA',
+        'INIT-2': 'TeamA'
+    }
+
+    initiative_contributing_teams = {
+        'INIT-1': ['TeamB'],
+        'INIT-2': []
+    }
+
+    csv_output = generate_dashboard_csv(
+        analysis,
+        initiative_summaries,
+        initiative_strategic_objectives,
+        initiative_owner_teams,
+        initiative_contributing_teams
+    )
+
+    # Write to temp file
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        csv_file = Path(f.name)
+        f.write(csv_output)
+
+    try:
+        # Verify file exists and is readable
+        assert csv_file.exists(), "CSV file should exist"
+
+        # Read and verify content
+        with open(csv_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+
+        # Check header
+        assert lines[0].strip() == 'initiative_key,initiative_name,strategic_objective,leading_team,contributing_teams'
+
+        # Check data rows exist
+        assert len(lines) >= 3, "Should have header + at least 2 data rows"
+
+        # Verify data content
+        content = ''.join(lines)
+        assert 'INIT-1' in content
+        assert 'INIT-2' in content
+        assert 'First initiative' in content
+        assert 'Second initiative' in content
+
+    finally:
+        # Clean up
+        if csv_file.exists():
+            csv_file.unlink()

@@ -383,6 +383,9 @@ python analyze_workload.py data/snapshots/snapshot_baseline_*.json
 # Only analyze initiatives with 2+ teams
 python analyze_workload.py --min-teams 2
 
+# Export to CSV
+python analyze_workload.py --csv reports/workload.csv
+
 # Export to markdown (Notion-compatible)
 python analyze_workload.py --markdown reports/workload_analysis.md
 
@@ -397,6 +400,7 @@ python analyze_workload.py --slack
 - `--min-teams N` - Minimum number of teams required (default: 1, analyzes all initiatives)
   - Focus on multi-team initiatives where coordination is critical
   - Single-team initiatives are filtered out when N > 1
+- `--csv FILENAME` - Export initiative analysis as CSV file (auto-generates filename if omitted)
 - `--markdown FILENAME` - Export detailed report to markdown format
 - `--html FILENAME` - Generate interactive HTML dashboard with charts and heatmaps
 - `--verbose` - Include verbose output with additional details
