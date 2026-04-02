@@ -206,6 +206,7 @@
       <li><strong>Workload:</strong> Darker cells = more initiatives; spot overloaded teams quickly</li>
       <li><strong>Collaboration:</strong> Teams in same column need to coordinate; C-only teams depend on others</li>
       <li><strong>Risk:</strong> Single team per objective = bottleneck; only C's (no L's) = missing ownership</li>
+      <li><strong>Multi-objective initiatives:</strong> Striped cells contain initiatives spanning multiple objectives (counted in each objective column)</li>
       <li><strong>Click any cell</strong> to see which specific initiatives that team is involved in</li>
     </ul>
   </div>
@@ -214,6 +215,7 @@
     <div class="legend-item"><span class="legend-dot" style="background:#2b6cb0"></span>Leading</div>
     <div class="legend-item"><span class="legend-dot" style="background:#276749"></span>Contributing</div>
     <div class="legend-item"><span class="legend-dot" style="background:#553c9a"></span>Both</div>
+    <div class="legend-item"><span class="legend-dot" style="background:linear-gradient(45deg, #cbd5e0 25%, transparent 25%, transparent 50%, #cbd5e0 50%, #cbd5e0 75%, transparent 75%, transparent); background-size:6px 6px;"></span>Multi-objective</div>
     <div class="legend-item" style="color:#a0aec0">Cell colour intensity = total involvement</div>
   </div>
   <div class="heatmap-scroll">
@@ -342,23 +344,39 @@ function parseCSV(text) {
 const initiatives = parseCSV(RAW);
 
 // ─── PROCESS DATA ────────────────────────────────────────────────────────────
-// Each entry: { total, list: [{key,name}], byObj: { obj: [{key,name}] } }
+// Each entry: { total, list: [{key,name}], byObj: { obj: [{key,name,isMultiObj}] } }
 const teamLeading  = {};
 const teamContrib  = {};
-const objInitCount = {}; // obj -> number of initiatives
+const objInitCount = {}; // obj -> number of unique initiatives (not double-counted)
+const multiObjInitiatives = new Set(); // Track initiatives with multiple objectives
 
 initiatives.forEach(row => {
-  const obj  = row.strategic_objective;
-  const init = { key: row.initiative_key, name: row.initiative_name };
-  objInitCount[obj] = (objInitCount[obj] || 0) + 1;
+  const objRaw = row.strategic_objective || '';
+  // Split comma-separated objectives (e.g., "engineering_pillars, 2026_fuel_regulated")
+  const objectives = objRaw.split(',').map(o => o.trim()).filter(Boolean);
+  const isMultiObj = objectives.length > 1;
+
+  if (isMultiObj) {
+    multiObjInitiatives.add(row.initiative_key);
+  }
+
+  const init = { key: row.initiative_key, name: row.initiative_name, isMultiObj };
+
+  // Count each initiative only once (in first objective for counting purposes)
+  const primaryObj = objectives[0] || objRaw;
+  objInitCount[primaryObj] = (objInitCount[primaryObj] || 0) + 1;
 
   const leader = row.leading_team;
   if (leader) {
     if (!teamLeading[leader]) teamLeading[leader] = { total: 0, list: [], byObj: {} };
     teamLeading[leader].total++;
     teamLeading[leader].list.push(init);
-    if (!teamLeading[leader].byObj[obj]) teamLeading[leader].byObj[obj] = [];
-    teamLeading[leader].byObj[obj].push(init);
+
+    // Add to each objective this initiative belongs to
+    objectives.forEach(obj => {
+      if (!teamLeading[leader].byObj[obj]) teamLeading[leader].byObj[obj] = [];
+      teamLeading[leader].byObj[obj].push(init);
+    });
   }
 
   const contribs = row.contributing_teams
@@ -368,8 +386,12 @@ initiatives.forEach(row => {
     if (!teamContrib[team]) teamContrib[team] = { total: 0, list: [], byObj: {} };
     teamContrib[team].total++;
     teamContrib[team].list.push(init);
-    if (!teamContrib[team].byObj[obj]) teamContrib[team].byObj[obj] = [];
-    teamContrib[team].byObj[obj].push(init);
+
+    // Add to each objective this initiative belongs to
+    objectives.forEach(obj => {
+      if (!teamContrib[team].byObj[obj]) teamContrib[team].byObj[obj] = [];
+      teamContrib[team].byObj[obj].push(init);
+    });
   });
 });
 
@@ -705,9 +727,19 @@ allTeams.forEach(team => {
     const total = l + c;
     rowTotal += total;
 
+    // Check if any initiative in this cell has multiple objectives
+    const hasMultiObj = [...lList, ...cList].some(init => init.isMultiObj);
+
     td = tr.insertCell();
     td.style.background = cellBg(l, c);
-    td.title = `${getTeamName(team)} / ${OBJ_LABELS[obj] !== undefined ? OBJ_LABELS[obj] : obj}\nLeading: ${l}  Contributing: ${c}`;
+
+    // Add visual indicator for multi-objective cells
+    if (hasMultiObj) {
+      td.style.backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.15) 3px, rgba(255,255,255,0.15) 6px)';
+      td.title = `${getTeamName(team)} / ${OBJ_LABELS[obj] !== undefined ? OBJ_LABELS[obj] : obj}\nLeading: ${l}  Contributing: ${c}\n⚠️ Includes multi-objective initiatives (counted in multiple columns)`;
+    } else {
+      td.title = `${getTeamName(team)} / ${OBJ_LABELS[obj] !== undefined ? OBJ_LABELS[obj] : obj}\nLeading: ${l}  Contributing: ${c}`;
+    }
 
     if (total > 0) {
       const div = document.createElement('div');
