@@ -374,7 +374,13 @@ const multiObjInitiatives = new Set(); // Track initiatives with multiple object
 initiatives.forEach(row => {
   const objRaw = row.strategic_objective || '';
   // Split comma-separated objectives (e.g., "engineering_pillars, 2026_fuel_regulated")
-  const objectives = objRaw.split(',').map(o => o.trim()).filter(Boolean);
+  let objectives = objRaw.split(',').map(o => o.trim()).filter(Boolean);
+
+  // If no objectives after filtering, treat as empty/unassigned (empty string)
+  if (objectives.length === 0) {
+    objectives = [''];
+  }
+
   const isMultiObj = objectives.length > 1;
 
   if (isMultiObj) {
@@ -389,7 +395,7 @@ initiatives.forEach(row => {
   };
 
   // Count each initiative only once (in first objective for counting purposes)
-  const primaryObj = objectives[0] || objRaw;
+  const primaryObj = objectives[0];
   objInitCount[primaryObj] = (objInitCount[primaryObj] || 0) + 1;
 
   const leader = row.leading_team;
