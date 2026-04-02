@@ -195,7 +195,7 @@ def normalize_teams_involved(teams_involved: Any) -> List[str]:
 
 
 def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_teams: List[str],
-                     strategic_objective_mappings: Dict[str, str]) -> Dict:
+                     strategic_objective_mappings: Dict[str, str], quarter: str) -> Dict:
     """Analyze team workload from extraction data.
 
     Args:
@@ -203,6 +203,7 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
         team_mappings: Mapping from display names to project keys
         excluded_teams: List of teams to exclude from analysis
         strategic_objective_mappings: Mapping from old strategic objectives to current ones
+        quarter: Quarter to analyze (e.g., "26 Q2")
 
     Returns:
         Dict with workload analysis results
@@ -213,16 +214,16 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
 
     all_initiatives = data.get('initiatives', [])
 
-    # Filter initiatives: only include In Progress OR (26 Q2 AND Planned)
+    # Filter initiatives: only include In Progress OR (matching quarter AND Planned)
     initiatives = []
     filtered_count = 0
     for initiative in all_initiatives:
         status = initiative.get('status', '')
-        quarter = initiative.get('quarter', '')
+        initiative_quarter = initiative.get('quarter', '')
 
         if status == 'In Progress':
             initiatives.append(initiative)
-        elif quarter == '26 Q2' and status == 'Planned':
+        elif initiative_quarter == quarter and status == 'Planned':
             initiatives.append(initiative)
         else:
             filtered_count += 1
@@ -1058,6 +1059,14 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
              'Optionally specify filename, otherwise auto-generates with timestamp.'
     )
 
+    parser.add_argument(
+        '--quarter',
+        required=True,
+        type=str,
+        help='Quarter to analyze (e.g., "26 Q2"). Only initiatives with status="In Progress" '
+             'or (quarter=QUARTER and status="Planned") will be analyzed.'
+    )
+
     args = parser.parse_args()
 
     # Determine which JSON file to use
@@ -1090,7 +1099,7 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
             print(f"Loaded {len(team_managers)} team managers")
 
     # Analyze workload
-    analysis = analyze_workload(json_file, team_mappings, excluded_teams, strategic_objective_mappings)
+    analysis = analyze_workload(json_file, team_mappings, excluded_teams, strategic_objective_mappings, args.quarter)
 
     # Print console report
     print_workload_report(analysis, team_managers=team_managers, reverse_team_mappings=reverse_team_mappings,

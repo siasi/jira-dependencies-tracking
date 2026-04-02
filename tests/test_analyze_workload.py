@@ -315,8 +315,8 @@ def test_initiative_filtering_by_status_and_quarter():
         json.dump(test_data, f)
 
     try:
-        # Run analysis
-        result = analyze_workload(json_file, {}, [], {})
+        # Run analysis with quarter='26 Q2'
+        result = analyze_workload(json_file, {}, [], {}, quarter='26 Q2')
 
         # Should only include:
         # - INIT-1: In Progress (any quarter)

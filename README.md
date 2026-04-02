@@ -371,32 +371,33 @@ See [brainstorm document](docs/brainstorms/2026-03-21-initiative-status-validati
 Analyze the distribution of epic work across teams to identify imbalances and ensure fair resource allocation.
 
 ```bash
-# Analyze latest extraction
-python analyze_workload.py
+# Analyze latest extraction for Q2 2026
+python analyze_workload.py --quarter "26 Q2"
 
 # Analyze specific file
-python analyze_workload.py data/jira_extract_20260321.json
+python analyze_workload.py data/jira_extract_20260321.json --quarter "26 Q2"
 
 # Analyze snapshot
-python analyze_workload.py data/snapshots/snapshot_baseline_*.json
+python analyze_workload.py data/snapshots/snapshot_baseline_*.json --quarter "26 Q2"
 
 # Only analyze initiatives with 2+ teams
-python analyze_workload.py --min-teams 2
+python analyze_workload.py --quarter "26 Q2" --min-teams 2
 
 # Export to CSV
-python analyze_workload.py --csv reports/workload.csv
+python analyze_workload.py --quarter "26 Q2" --csv reports/workload.csv
 
 # Export to markdown (Notion-compatible)
-python analyze_workload.py --markdown reports/workload_analysis.md
+python analyze_workload.py --quarter "26 Q2" --markdown reports/workload_analysis.md
 
 # Generate interactive HTML dashboard
-python analyze_workload.py --html reports/workload_dashboard.html
+python analyze_workload.py --quarter "26 Q2" --html reports/workload_dashboard.html
 
 # Generate Slack messages for managers
-python analyze_workload.py --slack
+python analyze_workload.py --quarter "26 Q2" --slack
 ```
 
 **Options:**
+- `--quarter QUARTER` - **Required.** Quarter to analyze (e.g., "26 Q2"). Only initiatives with status="In Progress" or (quarter=QUARTER and status="Planned") are analyzed.
 - `--min-teams N` - Minimum number of teams required (default: 1, analyzes all initiatives)
   - Focus on multi-team initiatives where coordination is critical
   - Single-team initiatives are filtered out when N > 1
