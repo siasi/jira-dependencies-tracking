@@ -63,3 +63,54 @@ teams_exempt_from_rag:
 
   # Add more exempt teams as needed
   # - "PROJECT_KEY"
+
+# Teams to exclude from workload analysis (OPTIONAL)
+# Used by analyze_workload.py to filter out teams with different work patterns
+#
+# Use cases:
+# - DevOps and Integration Ops (different workload patterns than product teams)
+# - Infrastructure and operations teams
+# - Teams that don't follow standard initiative-based planning
+#
+# Format:
+#   - "Team Display Name"
+#
+# Note: These teams are excluded from workload metrics but still included
+# in planning validation (they still need epics if listed in Teams Involved).
+teams_excluded_from_workload_analysis:
+  - "IT"
+  - "Security Engineering"
+  - "DevOps"
+  - "Integration Ops"
+
+  # Add more excluded teams as needed
+  # - "Team Display Name"
+
+# Teams to exclude from validation checks (OPTIONAL)
+# Used by validate_planning.py to filter out teams that don't create epics
+#
+# Use cases:
+# - Teams that don't follow the standard epic creation process
+# - External or consulting teams
+# - Legacy or deprecated teams
+#
+# Format:
+#   - "Team Display Name"
+#
+# Note: These teams are excluded from epic validation checks entirely.
+teams_excluded_from_validation:
+  - "IT"
+  - "Security Engineering"
+
+  # Add more excluded teams as needed
+  # - "Team Display Name"
+
+# DEPRECATED: Use teams_excluded_from_workload_analysis or teams_excluded_from_validation instead
+# This is kept for backward compatibility. If the specific lists above are not defined,
+# scripts will fall back to this list.
+teams_excluded_from_analysis:
+  - "IT"
+  - "Security Engineering"
+
+  # Add more excluded teams as needed (but prefer using specific lists above)
+  # - "Team Display Name"

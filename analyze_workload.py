@@ -37,7 +37,12 @@ def load_team_mappings() -> Tuple[Dict[str, str], List[str], Dict[str, str], Dic
         with open(mappings_file, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
             team_mappings = data.get('team_mappings', {})
-            excluded_teams = data.get('teams_excluded_from_analysis', [])
+
+            # Load workload-specific exclusions with fallback to generic list
+            excluded_teams = data.get('teams_excluded_from_workload_analysis')
+            if excluded_teams is None:
+                excluded_teams = data.get('teams_excluded_from_analysis', [])
+
             strategic_objective_mappings = data.get('strategic_objective_mappings', {})
             raw_managers = data.get('team_managers', {})
 

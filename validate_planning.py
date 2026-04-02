@@ -458,7 +458,7 @@ def _load_teams_exempt_from_rag() -> List[str]:
 
 
 def _load_teams_excluded_from_analysis() -> List[str]:
-    """Load list of teams to exclude from analysis entirely.
+    """Load list of teams to exclude from validation checks.
 
     Returns:
         List of team names for teams whose initiatives should be filtered out, or empty list if not found
@@ -470,7 +470,12 @@ def _load_teams_excluded_from_analysis() -> List[str]:
     try:
         with open(mappings_file, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
-            excluded_teams = data.get('teams_excluded_from_analysis', [])
+
+            # Load validation-specific exclusions with fallback to generic list
+            excluded_teams = data.get('teams_excluded_from_validation')
+            if excluded_teams is None:
+                excluded_teams = data.get('teams_excluded_from_analysis', [])
+
             return excluded_teams if excluded_teams else []
     except Exception:
         return []

@@ -617,6 +617,43 @@ teams_exempt_from_rag:
   - "DOCS"
 ```
 
+### Optional: Team Exclusions
+
+Different scripts have different exclusion needs. Configure separate exclusion lists for each use case:
+
+#### Workload Analysis Exclusions
+
+Teams with different workload patterns (DevOps, Integration Ops) should be excluded from workload analysis but included in validation:
+
+```yaml
+teams_excluded_from_workload_analysis:
+  - "IT"
+  - "Security Engineering"
+  - "DevOps"
+  - "Integration Ops"
+```
+
+**Used by:** `analyze_workload.py`
+
+**Why:** These teams have different work patterns than product delivery teams and would skew workload metrics.
+
+#### Validation Exclusions
+
+Teams that don't follow standard epic creation process should be excluded from planning validation:
+
+```yaml
+teams_excluded_from_validation:
+  - "IT"
+  - "Security Engineering"
+  - "SecOps"
+```
+
+**Used by:** `validate_planning.py`
+
+**Why:** These teams don't need to create epics when listed in Teams Involved.
+
+**Backward compatibility:** If you don't specify these lists, scripts will fall back to `teams_excluded_from_analysis` (deprecated).
+
 ### Optional: Initiative Sign-Off Exceptions
 
 Some initiatives have intentional inconsistencies that managers have explicitly approved. To exclude these from validation reports:
