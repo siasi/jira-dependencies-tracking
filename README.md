@@ -48,7 +48,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture docum
 3. **Configure:**
    ```bash
    cp config/jira_config.yaml.example config/jira_config.yaml
-   cp .env.example .env
+   cp config/.env.example config/.env
    ```
 
 4. **(Optional) Install as package:**

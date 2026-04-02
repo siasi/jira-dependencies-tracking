@@ -1,5 +1,7 @@
 # Environment and credentials
 .env
+config/.env
+!config/.env.example
 config.yaml
 team_mappings.yaml
 config/*.yaml

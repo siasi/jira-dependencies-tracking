@@ -80,7 +80,23 @@ def load_config(config_path: str = "config.yaml") -> Config:
         ConfigError: If config is invalid
     """
     # Load environment variables from .env if present
-    load_dotenv()
+    # Try config/.env first (new location), then root .env (backward compatibility)
+    config_env = Path("config") / ".env"
+    root_env = Path(".env")
+
+    if config_env.exists():
+        load_dotenv(config_env)
+    elif root_env.exists():
+        import warnings
+        warnings.warn(
+            "Using .env from root directory. Please move to config/.env",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        load_dotenv(root_env)
+    else:
+        # No .env file, try loading from environment anyway
+        load_dotenv()
 
     # Try config/ directory first (new location), then fall back to root (old location)
     config_file = Path(config_path)
@@ -99,7 +115,7 @@ def load_config(config_path: str = "config.yaml") -> Config:
                 raise ConfigError(
                     "Configuration file not found. Please run:\n"
                     "  cp config/jira_config.yaml.example config/jira_config.yaml\n"
-                    "  cp .env.example .env\n"
+                    "  cp config/.env.example config/.env\n"
                     "Then edit both files with your Jira credentials."
                 )
 
@@ -118,7 +134,7 @@ def load_config(config_path: str = "config.yaml") -> Config:
     if not email:
         raise ConfigError(
             "JIRA_EMAIL environment variable required. "
-            "Create .env file or export JIRA_EMAIL=your-email@company.com"
+            "Create config/.env file or export JIRA_EMAIL=your-email@company.com"
         )
 
     if not api_token:
