@@ -1,6 +1,40 @@
-# Jira Dependencies Tracking
+# Jira EM Toolkit
 
-Extract Jira initiatives and epics, perform multiple analysis and track reports and action items.
+Engineering manager toolkit for Jira initiative and epic analysis, planning validation, and workload tracking.
+
+## Project Structure
+
+```
+jira-em-toolkit/
+├── config/          # Configuration files
+│   ├── jira_config.yaml        # Jira connection and project settings
+│   ├── team_mappings.yaml      # Team and manager information
+│   ├── initiative_exceptions.yaml  # Manager-approved exceptions
+│   └── *.yaml.example          # Example configs
+├── lib/             # Shared toolkit utilities
+│   ├── common_formatting.py    # Hyperlink formatting
+│   ├── template_renderer.py    # Jinja2 rendering
+│   └── file_utils.py          # File discovery
+├── src/             # Core domain logic
+│   ├── config.py              # Configuration loading
+│   ├── jira_client.py         # Jira API wrapper
+│   ├── fetcher.py             # Data fetching
+│   ├── builder.py             # Hierarchy building
+│   ├── output.py              # JSON/CSV output
+│   ├── snapshot.py            # Snapshot management
+│   ├── comparator.py          # Snapshot comparison
+│   └── reports.py             # Report generation
+├── templates/       # Jinja2 templates
+├── tests/           # Test suite
+├── docs/            # Documentation
+├── data/            # Output directory (gitignored)
+├── extract.py                 # Data extraction
+├── validate_planning.py       # Planning validation
+├── analyze_workload.py        # Workload analysis
+└── README.md
+```
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture documentation.
 
 ## Setup
 
@@ -15,6 +49,23 @@ Extract Jira initiatives and epics, perform multiple analysis and track reports 
    ```bash
    cp config/jira_config.yaml.example config/jira_config.yaml
    cp .env.example .env
+   ```
+
+4. **(Optional) Install as package:**
+   ```bash
+   pip install -e .
+
+   # Scripts available as commands:
+   jem-extract               # Data extraction from Jira
+   jem-validate-planning     # Planning readiness validation
+   jem-analyze-workload      # Team workload analysis
+   ```
+
+   Or use the scripts directly from the root directory:
+   ```bash
+   python extract.py
+   python validate_planning.py
+   python analyze_workload.py
    ```
 
 ## Usage

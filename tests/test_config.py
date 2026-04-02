@@ -69,18 +69,18 @@ def test_filters_dataclass():
 
 
 def test_validate_filters_requires_quarter_field():
-    """Test that filters.quarter requires custom_fields['quarter']."""
-    from src.config import Config, JiraConfig, ProjectsConfig, Filters, OutputConfig, ConfigError
+    """Test that filters.quarter emits deprecation warning."""
+    from src.config import Config, JiraConfig, ProjectsConfig, Filters, OutputConfig
 
-    # Should raise error when filters.quarter is set but custom_fields['quarter'] is not
-    with pytest.raises(ConfigError, match="Quarter filtering requires custom_fields.initiatives.quarter"):
-        config = Config(
-            jira=JiraConfig(instance="test.atlassian.net", email="test@example.com", api_token="test-token"),
-            projects=ProjectsConfig(initiatives="INIT", teams=["TEAM1"]),
-            custom_fields={"rag_status": "customfield_12111"},  # No quarter field
-            output=OutputConfig(directory="./data", filename_pattern="test_{timestamp}.json"),
-            filters=Filters(quarter="25 Q1")  # But filter is set
-        )
+    # Should emit deprecation warning when filters.quarter is set
+    config = Config(
+        jira=JiraConfig(instance="test.atlassian.net", email="test@example.com", api_token="test-token"),
+        projects=ProjectsConfig(initiatives="INIT", teams=["TEAM1"]),
+        custom_fields={"rag_status": "customfield_12111"},  # No quarter field
+        output=OutputConfig(directory="./data", filename_pattern="test_{timestamp}.json"),
+        filters=Filters(quarter="25 Q1")  # But filter is set
+    )
+    with pytest.warns(DeprecationWarning, match="Filters in config.yaml are deprecated"):
         config.validate()
 
 
