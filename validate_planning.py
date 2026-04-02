@@ -612,6 +612,7 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
     - 'missing_assignee': Initiative needs assignee
     - 'missing_strategic_objective': Initiative needs strategic objective set
     - 'invalid_strategic_objective': Initiative has invalid strategic objective value
+    - 'clarify_decision': Initiative with low confidence needs decision (PLANNED or DEPRIORITISED)
     - 'ready_to_planned': Initiative ready to move to PLANNED status
 
     Priority ordering (1=highest):
@@ -620,7 +621,8 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
     3. invalid_strategic_objective (blocks planning)
     4. missing_dependencies (blocks execution)
     5. missing_rag (blocks visibility)
-    6. ready_to_planned (informational)
+    6. clarify_decision (requires discussion)
+    7. ready_to_planned (informational)
     """
     actions = []
     team_mappings = _load_team_mappings()
@@ -633,7 +635,8 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
         'invalid_strategic_objective': 3,
         'missing_dependencies': 4,
         'missing_rag': 5,
-        'ready_to_planned': 6
+        'clarify_decision': 6,
+        'ready_to_planned': 7
     }
 
     # Helper to build base initiative context
@@ -774,6 +777,25 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
                 'action_type': 'ready_to_planned',
                 'priority': PRIORITY['ready_to_planned'],
                 'description': 'Move initiative to PLANNED status',
+                'epic_key': None,
+                'epic_title': None,
+                'epic_rag': None
+            }
+            _add_manager_info(action, owner_key, owner_team)
+            actions.append(action)
+
+    # Section 2b: low_confidence_completion (Proposed initiatives with low confidence)
+    for initiative in result.low_confidence_completion:
+        base = _base_context(initiative, 'low_confidence_completion')
+        owner_team = initiative.get('owner_team')
+
+        if owner_team:
+            owner_key = team_mappings.get(owner_team, owner_team)
+            action = {
+                **base,
+                'action_type': 'clarify_decision',
+                'priority': PRIORITY['clarify_decision'],
+                'description': 'Clarify final decision (PLANNED or DEPRIORITISED)',
                 'epic_key': None,
                 'epic_title': None,
                 'epic_rag': None

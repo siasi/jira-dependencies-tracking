@@ -1829,8 +1829,30 @@ def test_extract_manager_actions_ready_to_planned(tmp_path):
     # Should have ready_to_planned action
     assert len(actions) == 1
     assert actions[0]['action_type'] == 'ready_to_planned'
-    assert actions[0]['priority'] == 6
+    assert actions[0]['priority'] == 7
     assert 'Move initiative to PLANNED status' in actions[0]['description']
+
+
+def test_extract_manager_actions_clarify_decision(tmp_path):
+    """Test extraction of clarify decision actions for low confidence initiatives."""
+    result = ValidationResult()
+    result.low_confidence_completion = [{
+        'key': 'INIT-9999',
+        'summary': 'Low Confidence Initiative',
+        'status': 'Proposed',
+        'owner_team': 'Console',
+        'url': 'https://test.com/INIT-9999',
+        'contributing_teams': [],
+        'issues': []
+    }]
+
+    actions = extract_manager_actions(result)
+
+    # Should have clarify_decision action
+    assert len(actions) == 1
+    assert actions[0]['action_type'] == 'clarify_decision'
+    assert actions[0]['priority'] == 6
+    assert 'Clarify final decision (PLANNED or DEPRIORITISED)' in actions[0]['description']
 
 
 def test_generate_dust_messages_creates_file(tmp_path):
@@ -1976,6 +1998,37 @@ def test_generate_dust_messages_multi_team_manager(tmp_path):
 
 
 # ===== Initiative Sign-Off Exceptions Tests =====
+
+def test_generate_dust_messages_includes_clarify_decision(tmp_path):
+    """Test Dust messages include clarify decision actions for low confidence initiatives."""
+    result = ValidationResult()
+    result.low_confidence_completion = [{
+        'key': 'INIT-8888',
+        'summary': 'Low Confidence Initiative',
+        'status': 'Proposed',
+        'owner_team': 'Console',
+        'url': 'https://test.com/INIT-8888',
+        'contributing_teams': [],
+        'issues': []
+    }]
+
+    # Capture output
+    import io
+    import sys
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+
+    try:
+        generate_dust_messages(result, tmp_path)
+        output = sys.stdout.getvalue()
+    finally:
+        sys.stdout = old_stdout
+
+    # Verify clarify decision action appears in output
+    assert 'INIT-8888' in output
+    assert 'Clarify final decision (PLANNED or DEPRIORITISED)' in output
+    assert ':thinking_face:' in output
+
 
 def test_load_signed_off_initiatives_returns_set():
     """Test that _load_signed_off_initiatives returns a set."""
