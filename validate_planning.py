@@ -417,8 +417,8 @@ def _load_team_managers() -> Dict[str, Dict[str, Optional[str]]]:
         return {}
 
 
-def _validate_dust_config(team_managers: Dict[str, Dict]) -> None:
-    """Validate all teams have Slack IDs for Dust messaging.
+def _validate_slack_config(team_managers: Dict[str, Dict]) -> None:
+    """Validate all teams have Slack IDs for Slack messaging.
 
     Args:
         team_managers: Dict of team manager info from _load_team_managers()
@@ -580,7 +580,7 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
 
     This function flattens the hierarchical ValidationResult into a list of
     individual action items, each annotated with all metadata needed for
-    any output format (console, markdown, Dust, etc.).
+    any output format (console, markdown, Slack, etc.).
 
     Args:
         result: Validation result containing categorized initiatives
@@ -903,8 +903,8 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
     return actions
 
 
-def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
-    """Generate Dust-compatible bulk messages for engineering managers.
+def generate_slack_messages(result: ValidationResult, output_dir: Path) -> None:
+    """Generate Slack-compatible bulk messages for engineering managers.
 
     Extracts action items from validation result, groups by manager,
     and renders using Jinja2 template. Outputs to console and file.
@@ -921,7 +921,7 @@ def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
 
     # Validate configuration
     team_managers = _load_team_managers()
-    _validate_dust_config(team_managers)
+    _validate_slack_config(team_managers)
 
     # Extract actions
     actions = extract_manager_actions(result)
@@ -1032,25 +1032,25 @@ def generate_dust_messages(result: ValidationResult, output_dir: Path) -> None:
     env = get_template_environment()
 
     # Render template
-    template = env.get_template('notification_dust.j2')
+    template = env.get_template('notification_slack.j2')
     output = template.render(messages=messages)
 
     # Print to console
     print("\n" + "="*60)
-    print("DUST BULK MESSAGES")
+    print("SLACK BULK MESSAGES")
     print("="*60)
-    print("\nCopy the text below and paste into Dust chatbot:\n")
+    print("\nCopy the text below and paste into Slack or bulk messaging tool:\n")
     print(output)
     print("="*60)
 
     # Save to file
     timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-    output_file = output_dir / f'dust_messages_{timestamp}.txt'
+    output_file = output_dir / f'slack_messages_{timestamp}.txt'
 
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(output)
 
-    print(f"\nDust messages saved to: {output_file}")
+    print(f"\nSlack messages saved to: {output_file}")
     print(f"Total managers: {len(messages)}")
     print(f"Total action items: {sum(m['total_actions'] for m in messages)}")
 
@@ -1379,9 +1379,9 @@ def main():
              'Optionally specify filename, otherwise auto-generates with timestamp.'
     )
     parser.add_argument(
-        '--dust',
+        '--slack',
         action='store_true',
-        help='Generate Dust bulk messages for manager notifications'
+        help='Generate Slack bulk messages for manager notifications'
     )
     parser.add_argument(
         '--quarter',
@@ -1433,10 +1433,10 @@ def main():
 
             print(f"\n✅ Markdown report exported to: {markdown_file}")
 
-        # Generate Dust messages if requested
-        if args.dust:
+        # Generate Slack messages if requested
+        if args.slack:
             output_dir = json_file.parent
-            generate_dust_messages(result, output_dir)
+            generate_slack_messages(result, output_dir)
 
         # Always exit successfully (validation issues are informational, not failures)
         sys.exit(0)

@@ -14,10 +14,10 @@ from validate_planning import (
     _is_discovery_initiative,
     _load_teams_excluded_from_analysis,
     _load_team_managers,
-    _validate_dust_config,
+    _validate_slack_config,
     _load_signed_off_initiatives,
     extract_manager_actions,
-    generate_dust_messages,
+    generate_slack_messages,
     find_latest_extract,
     print_validation_report,
     generate_markdown_report
@@ -1753,8 +1753,8 @@ def test_load_team_managers_dict_format():
         assert isinstance(managers['CBPPE']['slack_id'], str)
 
 
-def test_validate_dust_config_all_ids_present():
-    """Test _validate_dust_config() passes when all IDs present."""
+def test_validate_slack_config_all_ids_present():
+    """Test _validate_slack_config() passes when all IDs present."""
     team_managers = {
         "CBPPE": {
             "notion_handle": "@Test",
@@ -1763,11 +1763,11 @@ def test_validate_dust_config_all_ids_present():
     }
     
     # Should not raise
-    _validate_dust_config(team_managers)
+    _validate_slack_config(team_managers)
 
 
-def test_validate_dust_config_missing_ids():
-    """Test _validate_dust_config() raises when IDs missing."""
+def test_validate_slack_config_missing_ids():
+    """Test _validate_slack_config() raises when IDs missing."""
     team_managers = {
         "CBPPE": {
             "notion_handle": "@Test",
@@ -1780,7 +1780,7 @@ def test_validate_dust_config_missing_ids():
     }
     
     with pytest.raises(ValueError) as exc_info:
-        _validate_dust_config(team_managers)
+        _validate_slack_config(team_managers)
     
     assert "Missing Slack IDs" in str(exc_info.value)
     assert "CBPPE" in str(exc_info.value)
@@ -1855,8 +1855,8 @@ def test_extract_manager_actions_clarify_decision(tmp_path):
     assert 'Clarify final decision (PLANNED or DEPRIORITISED)' in actions[0]['description']
 
 
-def test_generate_dust_messages_creates_file(tmp_path):
-    """Test Dust messages are saved to timestamped file."""
+def test_generate_slack_messages_creates_file(tmp_path):
+    """Test Slack messages are saved to timestamped file."""
     result = ValidationResult()
     result.dependency_mapping = [{
         'key': 'INIT-1234',
@@ -1876,22 +1876,22 @@ def test_generate_dust_messages_creates_file(tmp_path):
     sys.stdout = io.StringIO()
     
     try:
-        generate_dust_messages(result, tmp_path)
+        generate_slack_messages(result, tmp_path)
         output = sys.stdout.getvalue()
     finally:
         sys.stdout = old_stdout
     
     # Check file was created
-    dust_files = list(tmp_path.glob('dust_messages_*.txt'))
-    assert len(dust_files) == 1
+    slack_files = list(tmp_path.glob('slack_messages_*.txt'))
+    assert len(slack_files) == 1
     
     # Check console output
-    assert "DUST BULK MESSAGES" in output
+    assert "SLACK BULK MESSAGES" in output
     assert "Recipient:" in output
 
 
-def test_generate_dust_messages_groups_by_manager(tmp_path):
-    """Test Dust messages group actions by manager correctly."""
+def test_generate_slack_messages_groups_by_manager(tmp_path):
+    """Test Slack messages group actions by manager correctly."""
     result = ValidationResult()
     result.dependency_mapping = [
         {
@@ -1919,13 +1919,13 @@ def test_generate_dust_messages_groups_by_manager(tmp_path):
     sys.stdout = io.StringIO()
     
     try:
-        generate_dust_messages(result, tmp_path)
+        generate_slack_messages(result, tmp_path)
     finally:
         sys.stdout = old_stdout
     
     # Read generated file
-    dust_files = list(tmp_path.glob('dust_messages_*.txt'))
-    content = dust_files[0].read_text()
+    slack_files = list(tmp_path.glob('slack_messages_*.txt'))
+    content = slack_files[0].read_text()
     
     # Should have one recipient block for Console manager
     # Use actual Slack ID from config, not mock value
@@ -1937,7 +1937,7 @@ def test_generate_dust_messages_groups_by_manager(tmp_path):
     assert 'INIT-2' in content
 
 
-def test_generate_dust_messages_multi_team_manager(tmp_path):
+def test_generate_slack_messages_multi_team_manager(tmp_path):
     """Test manager with multiple teams gets one message with team subsections."""
     result = ValidationResult()
     result.dependency_mapping = [
@@ -1966,13 +1966,13 @@ def test_generate_dust_messages_multi_team_manager(tmp_path):
     sys.stdout = io.StringIO()
 
     try:
-        generate_dust_messages(result, tmp_path)
+        generate_slack_messages(result, tmp_path)
     finally:
         sys.stdout = old_stdout
 
     # Read generated file
-    dust_files = list(tmp_path.glob('dust_messages_*.txt'))
-    content = dust_files[0].read_text()
+    slack_files = list(tmp_path.glob('slack_messages_*.txt'))
+    content = slack_files[0].read_text()
 
     # Manager manages both Console and Payins, should have ONE recipient block
     # Use actual Slack ID from config, not mock value
@@ -1999,8 +1999,8 @@ def test_generate_dust_messages_multi_team_manager(tmp_path):
 
 # ===== Initiative Sign-Off Exceptions Tests =====
 
-def test_generate_dust_messages_includes_clarify_decision(tmp_path):
-    """Test Dust messages include clarify decision actions for low confidence initiatives."""
+def test_generate_slack_messages_includes_clarify_decision(tmp_path):
+    """Test Slack messages include clarify decision actions for low confidence initiatives."""
     result = ValidationResult()
     result.low_confidence_completion = [{
         'key': 'INIT-8888',
@@ -2019,7 +2019,7 @@ def test_generate_dust_messages_includes_clarify_decision(tmp_path):
     sys.stdout = io.StringIO()
 
     try:
-        generate_dust_messages(result, tmp_path)
+        generate_slack_messages(result, tmp_path)
         output = sys.stdout.getvalue()
     finally:
         sys.stdout = old_stdout

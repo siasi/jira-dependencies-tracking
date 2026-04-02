@@ -1,4 +1,4 @@
-{# Dust bulk message template for engineering manager notifications #}
+{# Slack bulk message template for engineering manager notifications #}
 {# Input: messages (list of dicts with manager_name, slack_id, teams) #}
 {% for message in messages -%}
 Recipient: {{ message.slack_id }}

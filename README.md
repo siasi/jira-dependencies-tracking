@@ -77,7 +77,7 @@ python extract.py extract
 
 Validate readiness for new initiatives in the quarter and track action items for Team Managers, so that initiatives can progress to Planned status:
 ```bash
-python validate_planning.py --quarter "26 Q2" --min-teams 2 --dust
+python validate_planning.py --quarter "26 Q2" --min-teams 2 --slack
 ```
 
 Once Planning is done, extract data again and analyze workload per team:
@@ -292,8 +292,8 @@ python validate_planning.py --quarter "26 Q2" data/jira_extract_20260321.json
 # Validate snapshot with multi-team filter
 python validate_planning.py --quarter "26 Q2" --min-teams 2 data/snapshots/snapshot_baseline_*.json
 
-# Generate Dust notifications for Q2 2026
-python validate_planning.py --quarter "26 Q2" --dust
+# Generate Slack notifications for Q2 2026
+python validate_planning.py --quarter "26 Q2" --slack
 ```
 
 **Options:**
@@ -303,24 +303,24 @@ python validate_planning.py --quarter "26 Q2" --dust
   - Report shows total initiatives and how many were filtered out
 - `--markdown FILENAME` - Export report to markdown format (Notion-compatible)
 - `--verbose` - Include verbose output with additional details
-- `--dust` - Generate Dust bulk messages for manager notifications
+- `--slack` - Generate Slack bulk messages for manager notifications
 
-### Dust Manager Notifications
+### Slack Manager Notifications
 
-Generate copy-paste ready messages for sending bulk Slack DMs via Dust:
+Generate copy-paste ready messages for sending bulk Slack DMs:
 
 ```bash
-# Generate Dust messages for Q2 2026
-python validate_planning.py --quarter "26 Q2" --dust
+# Generate Slack messages for Q2 2026
+python validate_planning.py --quarter "26 Q2" --slack
 
-# Output: Console preview + file in extracts/dust_messages_YYYY-MM-DD_HHMMSS.txt
+# Output: Console preview + file in extracts/slack_messages_YYYY-MM-DD_HHMMSS.txt
 ```
 
 **Message Format:**
 - Grouped by engineering manager
 - Each message includes Slack member ID (Recipient:)
 - Action items organized by initiative (and by team for multi-team managers)
-- Ready to paste into Dust chatbot
+- Ready to paste into Slack or bulk messaging tool
 
 **Important:** If a manager oversees multiple teams, they receive one consolidated message with subsections for each team, rather than separate messages per team.
 
@@ -386,8 +386,8 @@ python analyze_workload.py --min-teams 2
 # Export to markdown (Notion-compatible)
 python analyze_workload.py --markdown reports/workload_analysis.md
 
-# Generate Dust messages for managers
-python analyze_workload.py --dust
+# Generate Slack messages for managers
+python analyze_workload.py --slack
 ```
 
 **Options:**
@@ -396,7 +396,7 @@ python analyze_workload.py --dust
   - Single-team initiatives are filtered out when N > 1
 - `--markdown FILENAME` - Export detailed report to markdown format
 - `--verbose` - Include verbose output with additional details
-- `--dust` - Generate Dust bulk messages for manager notifications
+- `--slack` - Generate Slack bulk messages for manager notifications
 
 ### What It Analyzes
 
@@ -422,12 +422,12 @@ python analyze_workload.py --dust
 3. **⚠️  Workload Warnings** - Teams significantly above/below average workload
 4. **✅ Well-Balanced Teams** - Teams with workload close to organizational average
 
-### Dust Manager Notifications
+### Slack Manager Notifications
 
 Generate workload summary messages for engineering managers:
 
 ```bash
-python analyze_workload.py --dust
+python analyze_workload.py --slack
 ```
 
 **Message Content:**
