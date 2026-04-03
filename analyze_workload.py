@@ -1011,11 +1011,11 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
 
                 # If initiative has owner, show it
                 if first_action['action_type'] != 'missing_owner':
-                    # Find any action with owner info
-                    for action in init_actions:
-                        if action['responsible_team']:
-                            print(f"   Owner: {action['responsible_team']}")
-                            break
+                    # Get actual owner from initiative_owner_teams
+                    owner_key = initiative_owner_teams.get(init_key, '')
+                    if owner_key:
+                        owner_display = reverse_team_mappings.get(owner_key, owner_key)
+                        print(f"   Owner: {owner_display}")
 
                 # Print each action for this initiative
                 for action in init_actions:
