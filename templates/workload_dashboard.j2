@@ -506,7 +506,7 @@ document.getElementById('stats').innerHTML = `
   <div class="stat-card orange">
     <div class="stat-label">Work Type Split</div>
     <div class="stat-value">${engPct}% / ${100 - engPct}%</div>
-    <div class="stat-sub">${totalEngCount} engineering · ${totalProdCount} product</div>
+    <div class="stat-sub">${totalEngCount} eng · ${totalProdCount} prod · Top: ${OBJ_LABELS[topObj] || topObj} (${objInitCount[topObj]})</div>
   </div>
 `;
 
