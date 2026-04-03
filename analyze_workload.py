@@ -73,6 +73,22 @@ def load_team_mappings() -> Tuple[Dict[str, str], List[str], Dict[str, str], Dic
         return {}, [], {}, {}, {}
 
 
+def is_discovery_initiative(initiative: Dict) -> bool:
+    """Check if an initiative is a discovery initiative.
+
+    Discovery initiatives (prefixed with [Discovery]) are exempt from
+    certain validation checks like missing epics.
+
+    Args:
+        initiative: Initiative dict with 'summary' field
+
+    Returns:
+        True if summary starts with "[Discovery]", False otherwise
+    """
+    summary = initiative.get('summary', '')
+    return summary.startswith('[Discovery]')
+
+
 def get_rag_circle(rag_status: str) -> str:
     """Get colored circle emoji for RAG status.
 
@@ -322,6 +338,8 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
         # Check for missing epics based on teams_involved field
         # Only report as "without epics" if there are contributing teams expected but missing epics
         # (excluding the owner team, who doesn't need to create an epic)
+        # Discovery initiatives are exempt from epic checks
+        is_discovery = is_discovery_initiative(initiative)
         teams_involved = normalize_teams_involved(initiative.get('teams_involved'))
         teams_with_epics = {
             tc['team_project_key']
@@ -329,8 +347,8 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
             if tc.get('epics')
         }
 
-        # Check for epic count mismatch (only if owner is not in excluded teams)
-        if teams_involved and (not normalized_owner or normalized_owner not in excluded_teams):
+        # Check for epic count mismatch (only if owner is not in excluded teams and not a discovery initiative)
+        if not is_discovery and teams_involved and (not normalized_owner or normalized_owner not in excluded_teams):
             # Skip if teams_involved only contains the owner team
             non_owner_teams = [t for t in teams_involved if t != owner_team]
             if not non_owner_teams:
