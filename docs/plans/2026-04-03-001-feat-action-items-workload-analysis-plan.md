@@ -272,14 +272,23 @@ INIT-1491: <https://truelayer.atlassian.net/browse/INIT-1491>
 
 **Files to create:**
 - `lib/manager_info.py`
+- `lib/jira_url.py` (NEW - sanitization)
 
 **Files to modify:**
 - `validate_planning.py`
 - `analyze_workload.py`
+- `templates/notification_slack.j2`
 
 **Tasks:**
 
-1. **Create lib/manager_info.py**
+1. **Sanitize hardcoded company-specific data (SECURITY)**
+   - Extract `get_jira_base_url()` from analyze_workload.py to `lib/jira_url.py`
+   - Update validate_planning.py to use shared function (lines 653)
+   - Fix template to use passed epic_url instead of constructing URL (line 21)
+   - Update all scripts to pass epic URLs in action data
+   - Verify no hardcoded company URLs remain in any Python files or templates
+
+2. **Create lib/manager_info.py**
    ```python
    """Manager information loading and validation."""
    from pathlib import Path
@@ -543,11 +552,13 @@ INIT-1491: <https://truelayer.atlassian.net/browse/INIT-1491>
 
 ### Phase 1: Action Items in analyze_workload.py
 - [x] `--show-quality` displays action items in checkbox format
-- [x] Manager Notion handles appear in action items (e.g., "@Ariel Rehano")
+- [x] Manager Notion handles appear in action items (e.g., "@Manager Name")
 - [x] Action items grouped by initiative with priority sorting
 - [x] `--slack` flag generates Slack message file in `data/` directory
 - [x] Slack messages grouped by manager with correct structure
 - [x] Console output shows summary: "Total managers: X, Total action items: Y"
+- [x] Sanitized docstrings and code to remove company-specific data
+- [x] Added get_jira_base_url() to read from config instead of hardcoding
 
 ### Phase 2: Shared Manager Info Module
 - [ ] `lib/manager_info.py` created with load/validate functions
