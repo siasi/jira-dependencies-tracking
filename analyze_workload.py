@@ -246,6 +246,12 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
     initiative_owner_teams = {}  # Map initiative key to owner team
     initiative_contributing_teams = {}  # Map initiative key to list of contributing teams
 
+    # Engineering vs Product work tracking
+    engineering_led_count = 0
+    product_led_count = 0
+    team_engineering_work = defaultdict(lambda: {'leading': set(), 'contributing': set()})  # Track engineering work per team
+    team_product_work = defaultdict(lambda: {'leading': set(), 'contributing': set()})  # Track product work per team
+
     # Load valid strategic objectives for validation
     valid_strategic_objectives = load_valid_strategic_objectives()
 
@@ -266,6 +272,13 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
         if mapped_objective and strategic_objective_mappings:
             mapped_objective = strategic_objective_mappings.get(strategic_objective, strategic_objective)
         initiative_strategic_objectives[initiative_key] = mapped_objective
+
+        # Classify as engineering-led or product-led
+        is_engineering_led = mapped_objective == 'engineering_pillars'
+        if is_engineering_led:
+            engineering_led_count += 1
+        else:
+            product_led_count += 1
 
         # Normalize owner team
         normalized_owner = normalize_team_name(owner_team, team_mappings)
@@ -299,6 +312,12 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
             # Count as "leading" if not excluded
             if normalized_owner not in excluded_teams:
                 workload[normalized_owner]['leading'].add(initiative_key)
+
+                # Track engineering vs product work for leading team
+                if is_engineering_led:
+                    team_engineering_work[normalized_owner]['leading'].add(initiative_key)
+                else:
+                    team_product_work[normalized_owner]['leading'].add(initiative_key)
 
         # Check for missing epics based on teams_involved field
         # Only report as "without epics" if there are contributing teams expected but missing epics
@@ -364,6 +383,12 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
                         # Count as "contributing" for non-owner teams
                         workload[team_project_key]['contributing'].add(initiative_key)
 
+                        # Track engineering vs product work for contributing team
+                        if is_engineering_led:
+                            team_engineering_work[team_project_key]['contributing'].add(initiative_key)
+                        else:
+                            team_product_work[team_project_key]['contributing'].add(initiative_key)
+
                         # Track RAG statuses for this team's epics
                         for epic in epics:
                             rag_status = epic.get('rag_status')
@@ -396,6 +421,27 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
             'contributing': contributing_list
         }
 
+    # Calculate engineering vs product stats per team
+    team_work_type_stats = {}
+    for team in workload.keys():
+        eng_leading = len(team_engineering_work[team]['leading'])
+        eng_contributing = len(team_engineering_work[team]['contributing'])
+        prod_leading = len(team_product_work[team]['leading'])
+        prod_contributing = len(team_product_work[team]['contributing'])
+
+        team_work_type_stats[team] = {
+            'engineering': {
+                'leading': eng_leading,
+                'contributing': eng_contributing,
+                'total': eng_leading + eng_contributing
+            },
+            'product': {
+                'leading': prod_leading,
+                'contributing': prod_contributing,
+                'total': prod_leading + prod_contributing
+            }
+        }
+
     return {
         'team_stats': team_stats,
         'team_details': team_details,
@@ -412,6 +458,9 @@ def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_te
         'total_initiatives': len(initiatives),
         'total_initiatives_before_filter': len(all_initiatives),
         'filtered_out_count': filtered_count,
+        'engineering_led_count': engineering_led_count,
+        'product_led_count': product_led_count,
+        'team_work_type_stats': team_work_type_stats,
         'excluded_teams': excluded_teams
     }
 
@@ -483,6 +532,16 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
     if excluded_teams:
         print(f"Excluded teams: {', '.join(excluded_teams)}")
 
+    # Engineering vs Product Distribution
+    engineering_led_count = analysis.get('engineering_led_count', 0)
+    product_led_count = analysis.get('product_led_count', 0)
+    if engineering_led_count + product_led_count > 0:
+        eng_pct = round(engineering_led_count / (engineering_led_count + product_led_count) * 100)
+        prod_pct = round(product_led_count / (engineering_led_count + product_led_count) * 100)
+        print(f"\nWork Type Distribution:")
+        print(f"  Engineering-led (engineering_pillars): {engineering_led_count} initiatives ({eng_pct}%)")
+        print(f"  Product-led (all other objectives):    {product_led_count} initiatives ({prod_pct}%)")
+
     # Initiative Analysis - CSV Export
     print("\n" + "-" * 70)
     print("Initiative Analysis (CSV format):")
@@ -524,8 +583,16 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
     )
 
     if sorted_teams:
+        team_work_type_stats = analysis.get('team_work_type_stats', {})
         for team, stats in sorted_teams:
-            print(f"{team}: {stats['total']} total ({stats['leading']} leading, {stats['contributing']} contributing)")
+            eng_prod_str = ""
+            if team in team_work_type_stats:
+                eng_total = team_work_type_stats[team]['engineering']['total']
+                prod_total = team_work_type_stats[team]['product']['total']
+                if eng_total + prod_total > 0:
+                    eng_pct = round(eng_total / (eng_total + prod_total) * 100)
+                    eng_prod_str = f" | {eng_total} eng ({eng_pct}%), {prod_total} prod"
+            print(f"{team}: {stats['total']} total ({stats['leading']} leading, {stats['contributing']} contributing){eng_prod_str}")
     else:
         print("No teams found in analysis.")
 

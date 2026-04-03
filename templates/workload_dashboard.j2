@@ -189,6 +189,14 @@
 <div class="stats" id="stats"></div>
 
 <div class="card">
+  <div class="card-title">Work Type Distribution — Engineering vs Product</div>
+  <div class="card-subtitle">Engineering-led initiatives have strategic_objective = "engineering_pillars"</div>
+  <div class="chart-wrap" style="height: 300px;">
+    <canvas id="workTypeChart"></canvas>
+  </div>
+</div>
+
+<div class="card">
   <div class="card-title">Team Workload — Leading vs Contributing</div>
   <div class="card-subtitle">Sorted by total number of initiatives. Hover for details.</div>
   <div class="chart-wrap">
@@ -466,6 +474,19 @@ const topObj   = allObjs[0];
 const topL     = teamLeading[topTeam]?.total || 0;
 const topC     = teamContrib[topTeam]?.total || 0;
 
+// Calculate engineering vs product totals
+let totalEngCount = 0;
+let totalProdCount = 0;
+initiatives.forEach(row => {
+  const obj = row.strategic_objective || '';
+  if (obj === 'engineering_pillars') {
+    totalEngCount++;
+  } else {
+    totalProdCount++;
+  }
+});
+const engPct = initiatives.length > 0 ? Math.round(totalEngCount / initiatives.length * 100) : 0;
+
 document.getElementById('stats').innerHTML = `
   <div class="stat-card blue">
     <div class="stat-label">Total Initiatives</div>
@@ -483,9 +504,9 @@ document.getElementById('stats').innerHTML = `
     <div class="stat-sub">${topL + topC} total · ${topL} led · ${topC} contributing</div>
   </div>
   <div class="stat-card orange">
-    <div class="stat-label">Top Strategic Objective</div>
-    <div class="stat-value" style="font-size:15px;padding-top:5px">${OBJ_LABELS[topObj] || topObj}</div>
-    <div class="stat-sub">${objInitCount[topObj]} initiatives</div>
+    <div class="stat-label">Work Type Split</div>
+    <div class="stat-value">${engPct}% / ${100 - engPct}%</div>
+    <div class="stat-sub">${totalEngCount} engineering · ${totalProdCount} product</div>
   </div>
 `;
 
@@ -630,6 +651,103 @@ const bottleneckHTML = bottleneckTeams.length > 0
   : '<div style="padding:20px;text-align:center;color:#a0aec0">No delivery bottlenecks detected - all teams working independently</div>';
 
 document.getElementById('bottleneck-list').innerHTML = bottleneckHTML;
+
+// ─── WORK TYPE DISTRIBUTION CHART (Engineering vs Product) ───────────────────
+// Calculate engineering vs product counts for each team
+const teamWorkType = {};
+allTeams.forEach(team => {
+  let engCount = 0;
+  let prodCount = 0;
+
+  // Count leading initiatives
+  const leadingInits = teamLeading[team]?.list || [];
+  leadingInits.forEach(init => {
+    const initData = initiatives.find(row => row.initiative_key === init.key);
+    if (initData) {
+      const obj = initData.strategic_objective || '';
+      if (obj === 'engineering_pillars') {
+        engCount++;
+      } else {
+        prodCount++;
+      }
+    }
+  });
+
+  // Count contributing initiatives
+  const contribInits = teamContrib[team]?.list || [];
+  contribInits.forEach(init => {
+    const initData = initiatives.find(row => row.initiative_key === init.key);
+    if (initData) {
+      const obj = initData.strategic_objective || '';
+      if (obj === 'engineering_pillars') {
+        engCount++;
+      } else {
+        prodCount++;
+      }
+    }
+  });
+
+  teamWorkType[team] = { engineering: engCount, product: prodCount };
+});
+
+// Sort teams by total initiatives for consistent ordering
+const sortedTeamsForWorkType = [...allTeams];
+
+const workTypeCtx = document.getElementById('workTypeChart').getContext('2d');
+new Chart(workTypeCtx, {
+  type: 'bar',
+  data: {
+    labels: sortedTeamsForWorkType.map(t => getTeamName(t)),
+    datasets: [
+      {
+        label: 'Engineering-led',
+        data: sortedTeamsForWorkType.map(t => teamWorkType[t]?.engineering || 0),
+        backgroundColor: '#805ad5',
+        borderRadius: 3,
+        borderSkipped: false,
+      },
+      {
+        label: 'Product-led',
+        data: sortedTeamsForWorkType.map(t => teamWorkType[t]?.product || 0),
+        backgroundColor: '#38a169',
+        borderRadius: 3,
+        borderSkipped: false,
+      }
+    ]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top', labels: { font: { size: 12 }, padding: 16 } },
+      tooltip: {
+        callbacks: {
+          afterBody: (items) => {
+            const teamKey = sortedTeamsForWorkType[items[0].dataIndex];
+            const eng = teamWorkType[teamKey]?.engineering || 0;
+            const prod = teamWorkType[teamKey]?.product || 0;
+            const total = eng + prod;
+            const engPct = total > 0 ? Math.round(eng / total * 100) : 0;
+            return [`─────────────`, `Total: ${total}   Engineering: ${engPct}%`];
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        stacked: true,
+        grid: { color: '#e2e8f0' },
+        ticks: { font: { size: 11 } }
+      },
+      y: {
+        stacked: true,
+        grid: { display: false },
+        ticks: { font: { size: 11 } }
+      }
+    }
+  }
+});
 
 // ─── WORKLOAD BAR CHART ───────────────────────────────────────────────────────
 const ctx = document.getElementById('workload').getContext('2d');
