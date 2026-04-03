@@ -495,7 +495,8 @@ def find_latest_extract() -> Path:
 
 
 def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str]] = None,
-                         reverse_team_mappings: Dict[str, str] = None, verbose: bool = False) -> None:
+                         reverse_team_mappings: Dict[str, str] = None, verbose: bool = False,
+                         show_quality: bool = False) -> None:
     """Print workload analysis report to console.
 
     Args:
@@ -503,6 +504,7 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
         team_managers: Mapping of team keys to manager information
         reverse_team_mappings: Mapping of project keys to display names
         verbose: If True, show detailed list of initiatives per team
+        show_quality: If True, show detailed data quality issues
     """
     if team_managers is None:
         team_managers = {}
@@ -655,90 +657,103 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
             else:
                 print(f"\nContributing: None")
 
-    # Issues section
-    print("\n" + "-" * 70)
-    print("Issues:")
-    print("-" * 70)
+    # Data Quality section
+    # Count total issues
+    total_issues = (
+        len(initiatives_without_owner) +
+        len(initiatives_without_epics) +
+        len(initiatives_missing_strategic_objective) +
+        len(initiatives_invalid_strategic_objective)
+    )
 
-    # Initiatives without owner
-    if initiatives_without_owner:
-        print(f"\nInitiatives without owner_team: {len(initiatives_without_owner)}")
-        for init in initiatives_without_owner:
-            # Truncate long summaries
-            summary = init['summary']
-            if len(summary) > 60:
-                summary = summary[:57] + "..."
-            # Make key clickable
-            url = initiative_urls.get(init['key'], '')
-            clickable_key = make_clickable_link(init['key'], url)
-            print(f"  - {clickable_key}: \"{summary}\"")
-    else:
-        print("\n✓ All initiatives have owner_team")
+    if show_quality:
+        # Show detailed issues section
+        print("\n" + "-" * 70)
+        print("Data Quality Issues:")
+        print("-" * 70)
 
-    # Initiatives with missing epics (from contributing teams)
-    if initiatives_without_epics:
-        print(f"\nInitiatives with missing contributing epics: {len(initiatives_without_epics)}")
-        for init in initiatives_without_epics:
-            # Truncate long summaries
-            summary = init['summary']
-            if len(summary) > 45:
-                summary = summary[:42] + "..."
-            owner = init.get('owner_team', 'None')
-            missing_teams = init.get('missing_teams', [])
-            # Get team display name
-            owner_display = reverse_team_mappings.get(owner, owner)
-            # Make key clickable
-            url = initiative_urls.get(init['key'], '')
-            clickable_key = make_clickable_link(init['key'], url)
-            print(f"  - {clickable_key} (owner: {owner_display}): \"{summary}\"")
-            if missing_teams:
-                print(f"    Missing epics from: {', '.join(missing_teams)}")
-    else:
-        print("\n✓ All contributing teams have created their epics")
+        # Initiatives without owner
+        if initiatives_without_owner:
+            print(f"\nInitiatives without owner_team: {len(initiatives_without_owner)}")
+            for init in initiatives_without_owner:
+                # Truncate long summaries
+                summary = init['summary']
+                if len(summary) > 60:
+                    summary = summary[:57] + "..."
+                # Make key clickable
+                url = initiative_urls.get(init['key'], '')
+                clickable_key = make_clickable_link(init['key'], url)
+                print(f"  - {clickable_key}: \"{summary}\"")
+        else:
+            print("\n✓ All initiatives have owner_team")
 
-    # Initiatives with missing strategic objective
-    if initiatives_missing_strategic_objective:
-        print(f"\nInitiatives without strategic objective: {len(initiatives_missing_strategic_objective)}")
-        for init in initiatives_missing_strategic_objective:
-            # Truncate long summaries
-            summary = init['summary']
-            if len(summary) > 50:
-                summary = summary[:47] + "..."
-            owner = init.get('owner_team', 'None')
-            # Get team display name
-            owner_display = reverse_team_mappings.get(owner, owner)
-            # Get manager info
-            manager_info = team_managers.get(owner, {})
-            manager_handle = manager_info.get('notion_handle', '')
-            manager_display = f" {manager_handle}" if manager_handle else ""
-            # Make key clickable
-            url = initiative_urls.get(init['key'], '')
-            clickable_key = make_clickable_link(init['key'], url)
-            print(f"  - {clickable_key} (owner: {owner_display}{manager_display}): \"{summary}\"")
-    else:
-        print("\n✓ All initiatives have strategic objective set")
+        # Initiatives with missing epics (from contributing teams)
+        if initiatives_without_epics:
+            print(f"\nInitiatives with missing contributing epics: {len(initiatives_without_epics)}")
+            for init in initiatives_without_epics:
+                # Truncate long summaries
+                summary = init['summary']
+                if len(summary) > 45:
+                    summary = summary[:42] + "..."
+                owner = init.get('owner_team', 'None')
+                missing_teams = init.get('missing_teams', [])
+                # Get team display name
+                owner_display = reverse_team_mappings.get(owner, owner)
+                # Make key clickable
+                url = initiative_urls.get(init['key'], '')
+                clickable_key = make_clickable_link(init['key'], url)
+                print(f"  - {clickable_key} (owner: {owner_display}): \"{summary}\"")
+                if missing_teams:
+                    print(f"    Missing epics from: {', '.join(missing_teams)}")
+        else:
+            print("\n✓ All contributing teams have created their epics")
 
-    # Initiatives with invalid strategic objective
-    if initiatives_invalid_strategic_objective:
-        print(f"\nInitiatives with invalid strategic objective: {len(initiatives_invalid_strategic_objective)}")
-        for init in initiatives_invalid_strategic_objective:
-            # Truncate long summaries
-            summary = init['summary']
-            if len(summary) > 40:
-                summary = summary[:37] + "..."
-            owner = init.get('owner_team', 'None')
-            current = init['current_value']
-            # Get manager info
-            manager_info = team_managers.get(owner, {})
-            manager_handle = manager_info.get('notion_handle', '')
-            manager_display = f" {manager_handle}" if manager_handle else ""
-            # Make key clickable
-            url = initiative_urls.get(init['key'], '')
-            clickable_key = make_clickable_link(init['key'], url)
-            print(f"  - {clickable_key} (owner: {owner}{manager_display}): \"{summary}\"")
-            print(f"    Current value: \"{current}\"")
-    else:
-        print("\n✓ All strategic objectives are valid")
+        # Initiatives with missing strategic objective
+        if initiatives_missing_strategic_objective:
+            print(f"\nInitiatives without strategic objective: {len(initiatives_missing_strategic_objective)}")
+            for init in initiatives_missing_strategic_objective:
+                # Truncate long summaries
+                summary = init['summary']
+                if len(summary) > 50:
+                    summary = summary[:47] + "..."
+                owner = init.get('owner_team', 'None')
+                # Get team display name
+                owner_display = reverse_team_mappings.get(owner, owner)
+                # Get manager info
+                manager_info = team_managers.get(owner, {})
+                manager_handle = manager_info.get('notion_handle', '')
+                manager_display = f" {manager_handle}" if manager_handle else ""
+                # Make key clickable
+                url = initiative_urls.get(init['key'], '')
+                clickable_key = make_clickable_link(init['key'], url)
+                print(f"  - {clickable_key} (owner: {owner_display}{manager_display}): \"{summary}\"")
+        else:
+            print("\n✓ All initiatives have strategic objective set")
+
+        # Initiatives with invalid strategic objective
+        if initiatives_invalid_strategic_objective:
+            print(f"\nInitiatives with invalid strategic objective: {len(initiatives_invalid_strategic_objective)}")
+            for init in initiatives_invalid_strategic_objective:
+                # Truncate long summaries
+                summary = init['summary']
+                if len(summary) > 40:
+                    summary = summary[:37] + "..."
+                owner = init.get('owner_team', 'None')
+                current = init['current_value']
+                # Get manager info
+                manager_info = team_managers.get(owner, {})
+                manager_handle = manager_info.get('notion_handle', '')
+                manager_display = f" {manager_handle}" if manager_handle else ""
+                # Make key clickable
+                url = initiative_urls.get(init['key'], '')
+                clickable_key = make_clickable_link(init['key'], url)
+                print(f"  - {clickable_key} (owner: {owner}{manager_display}): \"{summary}\"")
+                print(f"    Current value: \"{current}\"")
+        else:
+            print("\n✓ All strategic objectives are valid")
+    elif total_issues > 0:
+        # Show summary line if issues exist but flag is not set
+        print(f"\n⚠️  Data Quality: {total_issues} issue{'s' if total_issues != 1 else ''} detected - Run with --show-quality for details")
 
     print("\n" + "=" * 70 + "\n")
 
@@ -1112,6 +1127,12 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
     )
 
     parser.add_argument(
+        '--show-quality',
+        action='store_true',
+        help='Show detailed data quality issues (missing owner, missing epics, missing objectives)'
+    )
+
+    parser.add_argument(
         '--markdown',
         type=str,
         nargs='?',
@@ -1192,7 +1213,7 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
 
     # Print console report
     print_workload_report(analysis, team_managers=team_managers, reverse_team_mappings=reverse_team_mappings,
-                         verbose=args.verbose)
+                         verbose=args.verbose, show_quality=args.show_quality)
 
     # Generate markdown export if requested
     if args.markdown:
