@@ -544,35 +544,6 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
         print(f"  Engineering-led (engineering_pillars): {engineering_led_count} initiatives ({eng_pct}%)")
         print(f"  Product-led (all other objectives):    {product_led_count} initiatives ({prod_pct}%)")
 
-    # Initiative Analysis - CSV Export
-    print("\n" + "-" * 70)
-    print("Initiative Analysis (CSV format):")
-    print("-" * 70)
-    print("initiative_key,initiative_name,strategic_objective,leading_team,contributing_teams")
-
-    # Get all initiative keys and sort them
-    all_initiative_keys = sorted(initiative_summaries.keys())
-
-    for init_key in all_initiative_keys:
-        leading_team = initiative_owner_teams.get(init_key, '')
-
-        # Skip initiatives owned by excluded teams
-        if leading_team in excluded_teams:
-            continue
-
-        init_name = initiative_summaries.get(init_key, '').replace('"', '""')  # Escape quotes
-        strategic_obj = initiative_strategic_objectives.get(init_key, '').replace('"', '""')
-        contributing = initiative_contributing_teams.get(init_key, [])
-
-        # Format contributing teams: comma-separated in double quotes, or empty quotes if none
-        if contributing:
-            contributing_str = f'"{",".join(contributing)}"'
-        else:
-            contributing_str = '""'
-
-        # Print CSV row with all fields properly quoted
-        print(f'{init_key},"{init_name}","{strategic_obj}",{leading_team},{contributing_str}')
-
     print("\n" + "-" * 70)
     print("Team Analysis (sorted by total initiatives, descending):")
     print("-" * 70)
