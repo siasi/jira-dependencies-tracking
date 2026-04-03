@@ -494,6 +494,327 @@ def find_latest_extract() -> Path:
     return max(all_files, key=lambda p: p.stat().st_mtime)
 
 
+def extract_workload_actions(analysis: Dict, team_managers: Dict[str, Dict[str, str]],
+                             reverse_team_mappings: Dict[str, str]) -> List[Dict[str, Any]]:
+    """Extract action items from workload analysis data quality issues.
+
+    This function flattens the data quality issues into a list of
+    individual action items, each annotated with all metadata needed for
+    any output format (console, markdown, Slack, etc.).
+
+    Args:
+        analysis: Results from analyze_workload()
+        team_managers: Mapping of team keys to manager information
+        reverse_team_mappings: Mapping of project keys to display names
+
+    Returns:
+        List of action item dictionaries with structure:
+        {
+            'initiative_key': 'INIT-1234',
+            'initiative_title': 'Project Alpha',
+            'initiative_status': 'In Progress',
+            'initiative_url': 'https://truelayer.atlassian.net/browse/INIT-1234',
+            'section': 'data_quality',
+            'action_type': 'missing_owner',
+            'priority': 1,  # lower = higher priority
+            'responsible_team': 'CBP',
+            'responsible_team_key': 'CBPPE',
+            'responsible_manager_name': 'Ariel Rehano',
+            'responsible_manager_notion': '@Ariel Rehano',
+            'responsible_manager_slack_id': 'U03HN9A9XGA',
+            'description': 'Set owner_team for initiative',
+            'epic_key': None,
+            'epic_title': None,
+            'epic_rag': None
+        }
+
+    Action types included:
+    - 'missing_owner': Initiative needs owner_team set
+    - 'missing_strategic_objective': Initiative needs strategic objective
+    - 'invalid_strategic_objective': Initiative has invalid strategic objective value
+    - 'missing_epics': Team needs to create epic
+
+    Priority ordering (1=highest):
+    1. missing_owner (blocks everything)
+    2. missing_strategic_objective (blocks planning)
+    3. invalid_strategic_objective (blocks planning)
+    4. missing_epics (blocks execution)
+    """
+    actions = []
+
+    # Priority mapping
+    PRIORITY = {
+        'missing_owner': 1,
+        'missing_strategic_objective': 2,
+        'invalid_strategic_objective': 3,
+        'missing_epics': 4
+    }
+
+    # Helper to build base initiative context
+    def _base_context(initiative: Dict, section: str) -> Dict:
+        return {
+            'initiative_key': initiative['key'],
+            'initiative_title': initiative['summary'],
+            'initiative_status': initiative.get('status', 'Unknown'),
+            'initiative_url': f"https://truelayer.atlassian.net/browse/{initiative['key']}",
+            'section': section
+        }
+
+    # Helper to add manager info
+    def _add_manager_info(action: Dict, team_key: str, team_display: str) -> Dict:
+        manager_info = team_managers.get(team_key, {})
+        action['responsible_team'] = team_display
+        action['responsible_team_key'] = team_key
+        action['responsible_manager_name'] = manager_info.get('notion_handle', '').strip('@').strip()
+        action['responsible_manager_notion'] = manager_info.get('notion_handle', '')
+        action['responsible_manager_slack_id'] = manager_info.get('slack_id')
+        return action
+
+    # Extract data from analysis
+    initiatives_without_owner = analysis.get('initiatives_without_owner', [])
+    initiatives_missing_strategic_objective = analysis.get('initiatives_missing_strategic_objective', [])
+    initiatives_invalid_strategic_objective = analysis.get('initiatives_invalid_strategic_objective', [])
+    initiatives_without_epics = analysis.get('initiatives_without_epics', [])
+
+    # Process initiatives without owner
+    for initiative in initiatives_without_owner:
+        base = _base_context(initiative, 'data_quality')
+        action = {
+            **base,
+            'action_type': 'missing_owner',
+            'priority': PRIORITY['missing_owner'],
+            'description': 'Set owner_team for initiative',
+            'epic_key': None,
+            'epic_title': None,
+            'epic_rag': None
+        }
+        # No specific team responsible - this is a general action
+        # Use empty team info
+        action['responsible_team'] = ''
+        action['responsible_team_key'] = ''
+        action['responsible_manager_name'] = ''
+        action['responsible_manager_notion'] = ''
+        action['responsible_manager_slack_id'] = None
+        actions.append(action)
+
+    # Process initiatives with missing strategic objective
+    for initiative in initiatives_missing_strategic_objective:
+        base = _base_context(initiative, 'data_quality')
+        owner_team = initiative.get('owner_team', '')
+        owner_display = reverse_team_mappings.get(owner_team, owner_team)
+
+        action = {
+            **base,
+            'action_type': 'missing_strategic_objective',
+            'priority': PRIORITY['missing_strategic_objective'],
+            'description': 'Set strategic objective',
+            'epic_key': None,
+            'epic_title': None,
+            'epic_rag': None
+        }
+        _add_manager_info(action, owner_team, owner_display)
+        actions.append(action)
+
+    # Process initiatives with invalid strategic objective
+    for initiative in initiatives_invalid_strategic_objective:
+        base = _base_context(initiative, 'data_quality')
+        owner_team = initiative.get('owner_team', '')
+        owner_display = reverse_team_mappings.get(owner_team, owner_team)
+
+        action = {
+            **base,
+            'action_type': 'invalid_strategic_objective',
+            'priority': PRIORITY['invalid_strategic_objective'],
+            'description': 'Fix invalid strategic objective value',
+            'epic_key': None,
+            'epic_title': None,
+            'epic_rag': None,
+            'current_value': initiative.get('current_value', '')
+        }
+        _add_manager_info(action, owner_team, owner_display)
+        actions.append(action)
+
+    # Process initiatives with missing epics
+    for initiative in initiatives_without_epics:
+        base = _base_context(initiative, 'data_quality')
+        owner_team = initiative.get('owner_team', '')
+        missing_teams = initiative.get('missing_teams', [])
+
+        # Create an action for each missing team
+        for team in missing_teams:
+            team_display = reverse_team_mappings.get(team, team)
+            action = {
+                **base,
+                'action_type': 'missing_epics',
+                'priority': PRIORITY['missing_epics'],
+                'description': 'Create epic',
+                'epic_key': None,
+                'epic_title': None,
+                'epic_rag': None
+            }
+            _add_manager_info(action, team, team_display)
+            actions.append(action)
+
+    # Sort by priority (1=highest)
+    actions.sort(key=lambda x: x['priority'])
+
+    return actions
+
+
+def generate_workload_slack_messages(analysis: Dict, team_managers: Dict[str, Dict[str, str]],
+                                     reverse_team_mappings: Dict[str, str], output_dir: Path) -> None:
+    """Generate Slack-compatible bulk messages for workload quality action items.
+
+    Extracts action items from workload analysis, groups by manager,
+    and renders using Jinja2 template. Outputs to console and file.
+
+    Args:
+        analysis: Workload analysis results from analyze_workload()
+        team_managers: Mapping of team keys to manager information
+        reverse_team_mappings: Mapping of project keys to display names
+        output_dir: Directory to save output file (typically data/)
+
+    Raises:
+        ValueError: If team_managers config is missing Slack IDs
+    """
+    from collections import defaultdict
+    from datetime import datetime
+    from lib.template_renderer import get_template_environment
+
+    # Validate configuration
+    def _validate_slack_config(team_managers: Dict[str, Dict]) -> None:
+        """Validate all teams have slack_id configured."""
+        missing_slack_ids = []
+        for team_key, info in team_managers.items():
+            if not info.get('slack_id'):
+                missing_slack_ids.append(team_key)
+
+        if missing_slack_ids:
+            raise ValueError(
+                f"The following teams are missing slack_id in team_mappings.yaml: "
+                f"{', '.join(missing_slack_ids)}\n"
+                f"Add slack_id for each team before generating Slack messages."
+            )
+
+    _validate_slack_config(team_managers)
+
+    # Extract actions
+    actions = extract_workload_actions(analysis, team_managers, reverse_team_mappings)
+
+    if not actions:
+        print("\nNo action items to generate Slack messages for.")
+        return
+
+    # Group by manager Slack ID → teams → initiatives
+    manager_groups = defaultdict(lambda: {
+        'manager_name': None,
+        'slack_id': None,
+        'teams': defaultdict(lambda: {
+            'team_name': None,
+            'team_key': None,
+            'initiatives': defaultdict(lambda: {
+                'key': None,
+                'title': None,
+                'url': None,
+                'actions': []
+            })
+        })
+    })
+
+    for action in actions:
+        slack_id = action['responsible_manager_slack_id']
+        if not slack_id:
+            # Skip actions for managers without Slack ID (e.g., missing owner)
+            continue
+
+        manager_name = action['responsible_manager_name']
+        team_key = action['responsible_team_key']
+        team_name = action['responsible_team']
+        initiative_key = action['initiative_key']
+
+        # Initialize manager entry
+        if manager_groups[slack_id]['slack_id'] is None:
+            manager_groups[slack_id]['manager_name'] = manager_name
+            manager_groups[slack_id]['slack_id'] = slack_id
+
+        # Initialize team entry
+        if manager_groups[slack_id]['teams'][team_key]['team_key'] is None:
+            manager_groups[slack_id]['teams'][team_key]['team_name'] = team_name
+            manager_groups[slack_id]['teams'][team_key]['team_key'] = team_key
+
+        # Initialize initiative entry
+        team_initiatives = manager_groups[slack_id]['teams'][team_key]['initiatives']
+        if team_initiatives[initiative_key]['key'] is None:
+            team_initiatives[initiative_key]['key'] = initiative_key
+            team_initiatives[initiative_key]['title'] = action['initiative_title']
+            team_initiatives[initiative_key]['url'] = action['initiative_url']
+
+        # Add action to initiative
+        team_initiatives[initiative_key]['actions'].append({
+            'action_type': action['action_type'],
+            'description': action['description'],
+            'epic_key': action.get('epic_key'),
+            'epic_title': action.get('epic_title'),
+            'priority': action['priority'],
+            'current_value': action.get('current_value')  # For invalid_strategic_objective
+        })
+
+    # Convert to template-friendly structure
+    messages = []
+    for slack_id, manager_data in manager_groups.items():
+        teams = []
+        total_actions = 0
+        total_initiatives = 0
+
+        for team_key, team_data in manager_data['teams'].items():
+            initiatives = []
+            for init_key, init_data in team_data['initiatives'].items():
+                # Sort actions by priority
+                sorted_actions = sorted(init_data['actions'], key=lambda x: x['priority'])
+                initiatives.append({
+                    'key': init_key,
+                    'title': init_data['title'],
+                    'url': init_data['url'],
+                    'actions': sorted_actions
+                })
+                total_actions += len(sorted_actions)
+                total_initiatives += 1
+
+            teams.append({
+                'team_name': team_data['team_name'],
+                'team_key': team_data['team_key'],
+                'initiatives': initiatives
+            })
+
+        messages.append({
+            'manager_name': manager_data['manager_name'],
+            'slack_id': slack_id,
+            'total_actions': total_actions,
+            'total_initiatives': total_initiatives,
+            'teams': teams
+        })
+
+    # Render template
+    env = get_template_environment()
+    template = env.get_template('notification_slack.j2')
+    output = template.render(messages=messages)
+
+    # Print to console
+    print("\n" + "=" * 60)
+    print("Slack Messages for Workload Quality Action Items")
+    print("=" * 60 + "\n")
+    print(output)
+
+    # Save to file
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+    output_file = output_dir / f'slack_messages_workload_{timestamp}.txt'
+    output_file.write_text(output)
+
+    print(f"\nSlack messages saved to: {output_file}")
+    print(f"Total managers: {len(messages)}")
+    print(f"Total action items: {sum(m['total_actions'] for m in messages)}")
+
+
 def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str]] = None,
                          reverse_team_mappings: Dict[str, str] = None, verbose: bool = False,
                          show_quality: bool = False) -> None:
@@ -628,7 +949,7 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
             else:
                 print(f"\nContributing: None")
 
-    # Data Quality section
+    # Data Quality section with action items
     # Count total issues
     total_issues = (
         len(initiatives_without_owner) +
@@ -638,90 +959,74 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
     )
 
     if show_quality:
-        # Show detailed issues section
+        # Extract action items from data quality issues
+        actions = extract_workload_actions(analysis, team_managers, reverse_team_mappings)
+
+        # Show detailed issues section with action items
         print("\n" + "-" * 70)
         print("Data Quality Issues:")
         print("-" * 70)
 
-        # Initiatives without owner
-        if initiatives_without_owner:
-            print(f"\nInitiatives without owner_team: {len(initiatives_without_owner)}")
-            for init in initiatives_without_owner:
-                # Truncate long summaries
-                summary = init['summary']
-                if len(summary) > 60:
-                    summary = summary[:57] + "..."
-                # Make key clickable
-                url = initiative_urls.get(init['key'], '')
-                clickable_key = make_clickable_link(init['key'], url)
-                print(f"  - {clickable_key}: \"{summary}\"")
-        else:
-            print("\n✓ All initiatives have owner_team")
+        if actions:
+            # Group actions by initiative
+            from collections import defaultdict
+            actions_by_initiative = defaultdict(list)
+            for action in actions:
+                actions_by_initiative[action['initiative_key']].append(action)
 
-        # Initiatives with missing epics (from contributing teams)
-        if initiatives_without_epics:
-            print(f"\nInitiatives with missing contributing epics: {len(initiatives_without_epics)}")
-            for init in initiatives_without_epics:
-                # Truncate long summaries
-                summary = init['summary']
-                if len(summary) > 45:
-                    summary = summary[:42] + "..."
-                owner = init.get('owner_team', 'None')
-                missing_teams = init.get('missing_teams', [])
-                # Get team display name
-                owner_display = reverse_team_mappings.get(owner, owner)
-                # Make key clickable
-                url = initiative_urls.get(init['key'], '')
-                clickable_key = make_clickable_link(init['key'], url)
-                print(f"  - {clickable_key} (owner: {owner_display}): \"{summary}\"")
-                if missing_teams:
-                    print(f"    Missing epics from: {', '.join(missing_teams)}")
-        else:
-            print("\n✓ All contributing teams have created their epics")
+            # Process each initiative
+            for init_key in sorted(actions_by_initiative.keys()):
+                init_actions = sorted(actions_by_initiative[init_key], key=lambda x: x['priority'])
+                first_action = init_actions[0]
 
-        # Initiatives with missing strategic objective
-        if initiatives_missing_strategic_objective:
-            print(f"\nInitiatives without strategic objective: {len(initiatives_missing_strategic_objective)}")
-            for init in initiatives_missing_strategic_objective:
-                # Truncate long summaries
-                summary = init['summary']
-                if len(summary) > 50:
-                    summary = summary[:47] + "..."
-                owner = init.get('owner_team', 'None')
-                # Get team display name
-                owner_display = reverse_team_mappings.get(owner, owner)
-                # Get manager info
-                manager_info = team_managers.get(owner, {})
-                manager_handle = manager_info.get('notion_handle', '')
-                manager_display = f" {manager_handle}" if manager_handle else ""
-                # Make key clickable
-                url = initiative_urls.get(init['key'], '')
-                clickable_key = make_clickable_link(init['key'], url)
-                print(f"  - {clickable_key} (owner: {owner_display}{manager_display}): \"{summary}\"")
-        else:
-            print("\n✓ All initiatives have strategic objective set")
+                # Print initiative header
+                clickable_key = make_clickable_link(init_key, first_action['initiative_url'])
+                title = first_action['initiative_title']
+                if len(title) > 70:
+                    title = title[:67] + "..."
 
-        # Initiatives with invalid strategic objective
-        if initiatives_invalid_strategic_objective:
-            print(f"\nInitiatives with invalid strategic objective: {len(initiatives_invalid_strategic_objective)}")
-            for init in initiatives_invalid_strategic_objective:
-                # Truncate long summaries
-                summary = init['summary']
-                if len(summary) > 40:
-                    summary = summary[:37] + "..."
-                owner = init.get('owner_team', 'None')
-                current = init['current_value']
-                # Get manager info
-                manager_info = team_managers.get(owner, {})
-                manager_handle = manager_info.get('notion_handle', '')
-                manager_display = f" {manager_handle}" if manager_handle else ""
-                # Make key clickable
-                url = initiative_urls.get(init['key'], '')
-                clickable_key = make_clickable_link(init['key'], url)
-                print(f"  - {clickable_key} (owner: {owner}{manager_display}): \"{summary}\"")
-                print(f"    Current value: \"{current}\"")
+                print(f"\n{clickable_key}: {title}")
+
+                # If initiative has owner, show it
+                if first_action['action_type'] != 'missing_owner':
+                    # Find any action with owner info
+                    for action in init_actions:
+                        if action['responsible_team']:
+                            print(f"   Owner: {action['responsible_team']}")
+                            break
+
+                # Print each action for this initiative
+                for action in init_actions:
+                    action_type = action['action_type']
+
+                    if action_type == 'missing_owner':
+                        print("\n   ⚠️  Missing owner_team - Action:")
+                        print("       [ ] Set the owner_team for the initiative")
+
+                    elif action_type == 'missing_strategic_objective':
+                        manager_mention = f" {action['responsible_manager_notion']}" if action['responsible_manager_notion'] else ""
+                        print("\n   ⚠️  Missing strategic objective - Action:")
+                        print(f"       [ ] Set strategic objective{manager_mention}")
+
+                    elif action_type == 'invalid_strategic_objective':
+                        manager_mention = f" {action['responsible_manager_notion']}" if action['responsible_manager_notion'] else ""
+                        current_value = action.get('current_value', '')
+                        print("\n   ⚠️  Invalid strategic objective - Action:")
+                        print(f"       [ ] Fix invalid strategic objective value{manager_mention}")
+                        if current_value:
+                            print(f"       Current value: \"{current_value}\"")
+
+                    elif action_type == 'missing_epics':
+                        team_display = action['responsible_team']
+                        team_key = action['responsible_team_key']
+                        manager_mention = f" {action['responsible_manager_notion']}" if action['responsible_manager_notion'] else ""
+                        print(f"\n   ⚠️  Missing dependencies - Action:")
+                        print(f"       [ ] {team_display} ({team_key}) to create epic{manager_mention}")
+
+            print(f"\n{len(actions)} action item{'s' if len(actions) != 1 else ''} found across {len(actions_by_initiative)} initiative{'s' if len(actions_by_initiative) != 1 else ''}")
         else:
-            print("\n✓ All strategic objectives are valid")
+            print("\n✓ No data quality issues found")
+
     elif total_issues > 0:
         # Show summary line if issues exist but flag is not set
         print(f"\n⚠️  Data Quality: {total_issues} issue{'s' if total_issues != 1 else ''} detected - Run with --show-quality for details")
@@ -1104,6 +1409,12 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
     )
 
     parser.add_argument(
+        '--slack',
+        action='store_true',
+        help='Generate Slack bulk messages for workload quality action items'
+    )
+
+    parser.add_argument(
         '--markdown',
         type=str,
         nargs='?',
@@ -1185,6 +1496,12 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
     # Print console report
     print_workload_report(analysis, team_managers=team_managers, reverse_team_mappings=reverse_team_mappings,
                          verbose=args.verbose, show_quality=args.show_quality)
+
+    # Generate Slack messages if requested
+    if args.slack:
+        output_dir = Path('data')
+        output_dir.mkdir(exist_ok=True)
+        generate_workload_slack_messages(analysis, team_managers, reverse_team_mappings, output_dir)
 
     # Generate markdown export if requested
     if args.markdown:

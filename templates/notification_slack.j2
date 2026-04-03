@@ -13,16 +13,18 @@ You have {{ message.total_actions }} action item{% if message.total_actions != 1
 {% for initiative in team.initiatives -%}
 {{ initiative.key }}: <{{ initiative.url }}>
 {% for action in initiative.actions -%}
-{% if action.action_type == 'missing_dependencies' -%}
+{% if action.action_type == 'missing_owner' -%}
+:raising_hand: Missing owner - {{ action.description }}
+{% elif action.action_type == 'missing_dependencies' or action.action_type == 'missing_epics' -%}
 :warning: Missing dependencies - {{ action.description }}
 {% elif action.action_type == 'missing_rag' -%}
 :warning: Missing RAG status - {{ action.description }}{% if action.epic_key %} on <https://truelayer.atlassian.net/browse/{{ action.epic_key }}>{% endif %}
 {% elif action.action_type == 'missing_assignee' -%}
 :raising_hand: Missing assignee - {{ action.description }}
 {% elif action.action_type == 'missing_strategic_objective' -%}
-:red_circle: Missing strategic objective - {{ action.description }}
+:dart: Missing strategic objective - {{ action.description }}
 {% elif action.action_type == 'invalid_strategic_objective' -%}
-:red_circle: Invalid strategic objective - {{ action.description }}
+:warning: Invalid strategic objective - {{ action.description }}{% if action.current_value %} (current: "{{ action.current_value }}"){% endif %}
 {% elif action.action_type == 'clarify_decision' -%}
 :thinking_face: {{ action.description }}
 {% elif action.action_type == 'ready_to_planned' -%}
