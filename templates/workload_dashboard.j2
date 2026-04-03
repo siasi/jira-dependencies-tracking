@@ -494,9 +494,9 @@ document.getElementById('stats').innerHTML = `
     <div class="stat-sub">tracked this snapshot</div>
   </div>
   <div class="stat-card green">
-    <div class="stat-label">Active Teams</div>
-    <div class="stat-value">${allTeams.length}</div>
-    <div class="stat-sub">${Object.keys(teamLeading).length} leading at least one initiative</div>
+    <div class="stat-label">Work Type Split</div>
+    <div class="stat-value">${engPct}% / ${100 - engPct}%</div>
+    <div class="stat-sub">${totalEngCount} engineering · ${totalProdCount} product</div>
   </div>
   <div class="stat-card purple">
     <div class="stat-label">Most Loaded Team</div>
@@ -504,9 +504,9 @@ document.getElementById('stats').innerHTML = `
     <div class="stat-sub">${topL + topC} total · ${topL} led · ${topC} contributing</div>
   </div>
   <div class="stat-card orange">
-    <div class="stat-label">Work Type Split</div>
-    <div class="stat-value">${engPct}% / ${100 - engPct}%</div>
-    <div class="stat-sub">${totalEngCount} engineering · ${totalProdCount} product</div>
+    <div class="stat-label">Top Strategic Objective</div>
+    <div class="stat-value" style="font-size:15px;padding-top:5px">${OBJ_LABELS[topObj] || topObj}</div>
+    <div class="stat-sub">${objInitCount[topObj]} initiatives</div>
   </div>
 `;
 
