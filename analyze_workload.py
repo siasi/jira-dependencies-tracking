@@ -635,14 +635,20 @@ def extract_workload_actions(analysis: Dict, team_managers: Dict[str, Dict[str, 
         actions.append(action)
 
     # Process initiatives with missing epics
+    # Create forward mapping (display_name → project_key) for team lookup
+    forward_team_mappings = {v: k for k, v in reverse_team_mappings.items()}
+
     for initiative in initiatives_without_epics:
         base = _base_context(initiative, 'data_quality')
         owner_team = initiative.get('owner_team', '')
         missing_teams = initiative.get('missing_teams', [])
 
         # Create an action for each missing team
-        for team in missing_teams:
-            team_display = reverse_team_mappings.get(team, team)
+        for team_display_name in missing_teams:
+            # Convert display name to project key for manager lookup
+            team_key = forward_team_mappings.get(team_display_name, team_display_name)
+            team_display = team_display_name
+
             action = {
                 **base,
                 'action_type': 'missing_epics',
@@ -652,7 +658,7 @@ def extract_workload_actions(analysis: Dict, team_managers: Dict[str, Dict[str, 
                 'epic_title': None,
                 'epic_rag': None
             }
-            _add_manager_info(action, team, team_display)
+            _add_manager_info(action, team_key, team_display)
             actions.append(action)
 
     # Sort by priority (1=highest)
@@ -705,6 +711,9 @@ def generate_workload_slack_messages(analysis: Dict, team_managers: Dict[str, Di
         print("\nNo action items to generate Slack messages for.")
         return
 
+    # Track skipped actions for reporting
+    skipped_actions = []
+
     # Group by manager Slack ID → teams → initiatives
     manager_groups = defaultdict(lambda: {
         'manager_name': None,
@@ -724,7 +733,8 @@ def generate_workload_slack_messages(analysis: Dict, team_managers: Dict[str, Di
     for action in actions:
         slack_id = action['responsible_manager_slack_id']
         if not slack_id:
-            # Skip actions for managers without Slack ID (e.g., missing owner)
+            # Track skipped actions for reporting
+            skipped_actions.append(action)
             continue
 
         manager_name = action['responsible_manager_name']
@@ -813,6 +823,18 @@ def generate_workload_slack_messages(analysis: Dict, team_managers: Dict[str, Di
     print(f"\nSlack messages saved to: {output_file}")
     print(f"Total managers: {len(messages)}")
     print(f"Total action items: {sum(m['total_actions'] for m in messages)}")
+
+    # Report skipped actions
+    if skipped_actions:
+        print(f"\n⚠️  Skipped {len(skipped_actions)} action item{'s' if len(skipped_actions) != 1 else ''} (no Slack ID configured):")
+        # Group by reason
+        missing_owner_count = sum(1 for a in skipped_actions if a['action_type'] == 'missing_owner')
+        teams_without_slack = set(a['responsible_team_key'] for a in skipped_actions if a['responsible_team_key'])
+
+        if missing_owner_count > 0:
+            print(f"  - {missing_owner_count} initiative{'s' if missing_owner_count != 1 else ''} without owner_team")
+        if teams_without_slack:
+            print(f"  - Teams not in team_managers.yaml: {', '.join(sorted(teams_without_slack))}")
 
 
 def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str]] = None,
