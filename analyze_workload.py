@@ -6,6 +6,7 @@ distinguishing between leading (owner) and contributing (has epics).
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Set, Tuple
@@ -14,6 +15,36 @@ from datetime import datetime
 import yaml
 
 from lib.common_formatting import make_clickable_link
+
+
+def get_jira_base_url() -> str:
+    """Get Jira base URL from config or environment variable.
+
+    Returns:
+        Jira base URL (e.g., 'https://company.atlassian.net')
+    """
+    # Try environment variable first
+    if env_url := os.getenv('JIRA_BASE_URL'):
+        return env_url.rstrip('/')
+
+    # Fall back to config file
+    config_file = Path(__file__).parent / 'config' / 'jira_config.yaml'
+    if config_file.exists():
+        try:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+                if instance := config.get('jira', {}).get('instance'):
+                    # Instance may have trailing slash, normalize it
+                    base = instance.rstrip('/')
+                    # Add https:// if not present
+                    if not base.startswith('http'):
+                        base = f'https://{base}'
+                    return base
+        except Exception:
+            pass
+
+    # Fallback to generic placeholder for safety
+    return 'https://your-company.atlassian.net'
 
 
 def load_team_mappings() -> Tuple[Dict[str, str], List[str], Dict[str, str], Dict[str, Dict[str, str]], Dict[str, str]]:
@@ -528,18 +559,18 @@ def extract_workload_actions(analysis: Dict, team_managers: Dict[str, Dict[str, 
     Returns:
         List of action item dictionaries with structure:
         {
-            'initiative_key': 'INIT-1234',
-            'initiative_title': 'Project Alpha',
+            'initiative_key': 'INIT-XXXX',
+            'initiative_title': 'Initiative Title',
             'initiative_status': 'In Progress',
-            'initiative_url': 'https://truelayer.atlassian.net/browse/INIT-1234',
+            'initiative_url': 'https://company.atlassian.net/browse/INIT-XXXX',
             'section': 'data_quality',
             'action_type': 'missing_owner',
             'priority': 1,  # lower = higher priority
-            'responsible_team': 'CBP',
-            'responsible_team_key': 'CBPPE',
-            'responsible_manager_name': 'Ariel Rehano',
-            'responsible_manager_notion': '@Ariel Rehano',
-            'responsible_manager_slack_id': 'U03HN9A9XGA',
+            'responsible_team': 'Team Display Name',
+            'responsible_team_key': 'TEAMKEY',
+            'responsible_manager_name': 'Manager Name',
+            'responsible_manager_notion': '@Manager Name',
+            'responsible_manager_slack_id': 'UXXXXXXXXXX',
             'description': 'Set owner_team for initiative',
             'epic_key': None,
             'epic_title': None,
@@ -569,12 +600,13 @@ def extract_workload_actions(analysis: Dict, team_managers: Dict[str, Dict[str, 
     }
 
     # Helper to build base initiative context
+    jira_base_url = get_jira_base_url()
     def _base_context(initiative: Dict, section: str) -> Dict:
         return {
             'initiative_key': initiative['key'],
             'initiative_title': initiative['summary'],
             'initiative_status': initiative.get('status', 'Unknown'),
-            'initiative_url': f"https://truelayer.atlassian.net/browse/{initiative['key']}",
+            'initiative_url': f"{jira_base_url}/browse/{initiative['key']}",
             'section': section
         }
 
