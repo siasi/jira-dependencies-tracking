@@ -1340,7 +1340,8 @@ def generate_html_dashboard(analysis: dict[str, Any], initiative_summaries: dict
                              initiative_contributing_teams: dict[str, list[str]],
                              output_file: Path,
                              json_file: Path,
-                             reverse_team_mappings: dict[str, str] = None) -> None:
+                             reverse_team_mappings: dict[str, str] = None,
+                             team_work_type_stats: dict[str, dict[str, Any]] = None) -> None:
     """Generate interactive HTML dashboard for workload analysis.
 
     Args:
@@ -1353,6 +1354,7 @@ def generate_html_dashboard(analysis: dict[str, Any], initiative_summaries: dict
         output_file: Path to save HTML file
         json_file: Path to source JSON file (for snapshot description)
         reverse_team_mappings: Optional mapping from project keys to display names
+        team_work_type_stats: Optional mapping of team to work type statistics
     """
     from lib.template_renderer import get_template_environment
     from datetime import datetime
@@ -1386,9 +1388,14 @@ def generate_html_dashboard(analysis: dict[str, Any], initiative_summaries: dict
     if reverse_team_mappings is None:
         reverse_team_mappings = {}
 
-    # Convert to JSON string for template
+    # Prepare team work type stats (default to empty dict if not provided)
+    if team_work_type_stats is None:
+        team_work_type_stats = {}
+
+    # Convert to JSON strings for template
     import json as json_lib
     team_names_json = json_lib.dumps(reverse_team_mappings)
+    team_work_type_stats_json = json_lib.dumps(team_work_type_stats)
 
     # Render template
     env = get_template_environment()
@@ -1397,7 +1404,8 @@ def generate_html_dashboard(analysis: dict[str, Any], initiative_summaries: dict
         csv_data=csv_data,
         jira_base_url=jira_base_url,
         snapshot_description=snapshot_desc,
-        team_names_json=team_names_json
+        team_names_json=team_names_json,
+        team_work_type_stats_json=team_work_type_stats_json
     )
 
     # Write to file
@@ -1595,7 +1603,8 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
             analysis['initiative_contributing_teams'],
             html_file,
             json_file,
-            reverse_team_mappings
+            reverse_team_mappings,
+            analysis.get('team_work_type_stats', {})
         )
 
     # Export CSV if requested

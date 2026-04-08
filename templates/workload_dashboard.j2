@@ -190,7 +190,7 @@
 
 <div class="card">
   <div class="card-title">Work Type Distribution — Engineering vs Product</div>
-  <div class="card-subtitle">Engineering-led initiatives have strategic_objective = "engineering_pillars"</div>
+  <div class="card-subtitle">Shows engineering work (strategic_objective = "engineering_pillars") vs product work for each team. Leading + Contributing combined.</div>
   <div class="chart-wrap" style="height: 300px;">
     <canvas id="workTypeChart"></canvas>
   </div>
@@ -344,6 +344,10 @@ function getTeamName(teamKey) {
   return TEAM_NAMES[teamKey] || teamKey;
 }
 
+// ─── WORK TYPE STATS (from server) ──────────────────────────────────────────
+// Pre-calculated engineering vs product work per team
+const TEAM_WORK_TYPE_STATS = {{ team_work_type_stats_json | safe }};
+
 // ─── PARSE CSV ───────────────────────────────────────────────────────────────
 function parseCSVLine(line) {
   const result = [];
@@ -474,18 +478,15 @@ const topObj   = allObjs[0];
 const topL     = teamLeading[topTeam]?.total || 0;
 const topC     = teamContrib[topTeam]?.total || 0;
 
-// Calculate engineering vs product totals
+// Calculate engineering vs product totals from server-side data
 let totalEngCount = 0;
 let totalProdCount = 0;
-initiatives.forEach(row => {
-  const obj = row.strategic_objective || '';
-  if (obj === 'engineering_pillars') {
-    totalEngCount++;
-  } else {
-    totalProdCount++;
-  }
+Object.values(TEAM_WORK_TYPE_STATS).forEach(stats => {
+  totalEngCount += stats.engineering.total || 0;
+  totalProdCount += stats.product.total || 0;
 });
-const engPct = initiatives.length > 0 ? Math.round(totalEngCount / initiatives.length * 100) : 0;
+const totalWorkCount = totalEngCount + totalProdCount;
+const engPct = totalWorkCount > 0 ? Math.round(totalEngCount / totalWorkCount * 100) : 0;
 
 document.getElementById('stats').innerHTML = `
   <div class="stat-card blue">
@@ -653,41 +654,19 @@ const bottleneckHTML = bottleneckTeams.length > 0
 document.getElementById('bottleneck-list').innerHTML = bottleneckHTML;
 
 // ─── WORK TYPE DISTRIBUTION CHART (Engineering vs Product) ───────────────────
-// Calculate engineering vs product counts for each team
+// Use server-calculated work type stats instead of calculating client-side
 const teamWorkType = {};
 allTeams.forEach(team => {
-  let engCount = 0;
-  let prodCount = 0;
-
-  // Count leading initiatives
-  const leadingInits = teamLeading[team]?.list || [];
-  leadingInits.forEach(init => {
-    const initData = initiatives.find(row => row.initiative_key === init.key);
-    if (initData) {
-      const obj = initData.strategic_objective || '';
-      if (obj === 'engineering_pillars') {
-        engCount++;
-      } else {
-        prodCount++;
-      }
-    }
-  });
-
-  // Count contributing initiatives
-  const contribInits = teamContrib[team]?.list || [];
-  contribInits.forEach(init => {
-    const initData = initiatives.find(row => row.initiative_key === init.key);
-    if (initData) {
-      const obj = initData.strategic_objective || '';
-      if (obj === 'engineering_pillars') {
-        engCount++;
-      } else {
-        prodCount++;
-      }
-    }
-  });
-
-  teamWorkType[team] = { engineering: engCount, product: prodCount };
+  const stats = TEAM_WORK_TYPE_STATS[team];
+  if (stats) {
+    teamWorkType[team] = {
+      engineering: stats.engineering.total || 0,
+      product: stats.product.total || 0
+    };
+  } else {
+    // Fallback for teams without stats
+    teamWorkType[team] = { engineering: 0, product: 0 };
+  }
 });
 
 // Sort teams by total initiatives for consistent ordering
