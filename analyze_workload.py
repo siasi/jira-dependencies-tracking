@@ -15,36 +15,7 @@ from datetime import datetime
 import yaml
 
 from lib.common_formatting import make_clickable_link
-
-
-def get_jira_base_url() -> str:
-    """Get Jira base URL from config or environment variable.
-
-    Returns:
-        Jira base URL (e.g., 'https://company.atlassian.net')
-    """
-    # Try environment variable first
-    if env_url := os.getenv('JIRA_BASE_URL'):
-        return env_url.rstrip('/')
-
-    # Fall back to config file
-    config_file = Path(__file__).parent / 'config' / 'jira_config.yaml'
-    if config_file.exists():
-        try:
-            with open(config_file, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
-                if instance := config.get('jira', {}).get('instance'):
-                    # Instance may have trailing slash, normalize it
-                    base = instance.rstrip('/')
-                    # Add https:// if not present
-                    if not base.startswith('http'):
-                        base = f'https://{base}'
-                    return base
-        except Exception:
-            pass
-
-    # Fallback to generic placeholder for safety
-    return 'https://your-company.atlassian.net'
+from lib.config_utils import get_jira_base_url
 
 
 def load_team_mappings() -> Tuple[Dict[str, str], List[str], Dict[str, str], Dict[str, Dict[str, str]], Dict[str, str]]:
@@ -857,7 +828,7 @@ def generate_workload_slack_messages(analysis: Dict, team_managers: Dict[str, Di
     # Render template
     env = get_template_environment()
     template = env.get_template('notification_slack.j2')
-    output = template.render(messages=messages)
+    output = template.render(messages=messages, jira_base_url=get_jira_base_url())
 
     # Print to console
     print("\n" + "=" * 60)

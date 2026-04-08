@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Set
 
 from lib.common_formatting import make_clickable_link
+from lib.config_utils import get_jira_base_url
 from lib.template_renderer import get_template_environment
 
 
@@ -596,7 +597,7 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
             'initiative_key': 'INIT-1234',
             'initiative_title': 'Project Alpha',
             'initiative_status': 'Planned',
-            'initiative_url': 'https://truelayer.atlassian.net/browse/INIT-1234',
+            'initiative_url': 'https://company.atlassian.net/browse/INIT-1234',
             'section': 'planned_regressions',  # which report section
             'action_type': 'missing_dependencies',
             'priority': 1,  # lower = higher priority
@@ -645,12 +646,13 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
     }
 
     # Helper to build base initiative context
+    jira_base_url = get_jira_base_url()
     def _base_context(initiative: Dict, section: str) -> Dict:
         return {
             'initiative_key': initiative['key'],
             'initiative_title': initiative['summary'],
             'initiative_status': initiative.get('status', 'Unknown'),
-            'initiative_url': f"https://truelayer.atlassian.net/browse/{initiative['key']}",
+            'initiative_url': f"{jira_base_url}/browse/{initiative['key']}",
             'section': section
         }
 
@@ -1038,7 +1040,7 @@ def generate_slack_messages(result: ValidationResult, output_dir: Path) -> None:
 
     # Render template
     template = env.get_template('notification_slack.j2')
-    output = template.render(messages=messages)
+    output = template.render(messages=messages, jira_base_url=get_jira_base_url())
 
     # Print to console
     print("\n" + "="*60)

@@ -18,7 +18,7 @@ You have {{ message.total_actions }} action item{% if message.total_actions != 1
 {% elif action.action_type == 'missing_dependencies' or action.action_type == 'missing_epics' -%}
 :warning: Missing dependencies - {{ action.description }}
 {% elif action.action_type == 'missing_rag' -%}
-:warning: Missing RAG status - {{ action.description }}{% if action.epic_key %} on <https://truelayer.atlassian.net/browse/{{ action.epic_key }}>{% endif %}
+:warning: Missing RAG status - {{ action.description }}{% if action.epic_key %} on <{{ jira_base_url }}/browse/{{ action.epic_key }}>{% endif %}
 {% elif action.action_type == 'missing_assignee' -%}
 :raising_hand: Missing assignee - {{ action.description }}
 {% elif action.action_type == 'missing_strategic_objective' -%}
