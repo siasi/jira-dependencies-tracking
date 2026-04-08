@@ -26,6 +26,7 @@
     border-top: 3px solid #e2e8f0;
   }
   .stat-card.blue  { border-top-color: #3182ce; }
+  .stat-card.cyan  { border-top-color: #0891b2; }
   .stat-card.green { border-top-color: #38a169; }
   .stat-card.purple{ border-top-color: #805ad5; }
   .stat-card.orange{ border-top-color: #dd6b20; }
@@ -488,11 +489,20 @@ Object.values(TEAM_WORK_TYPE_STATS).forEach(stats => {
 const totalWorkCount = totalEngCount + totalProdCount;
 const engPct = totalWorkCount > 0 ? Math.round(totalEngCount / totalWorkCount * 100) : 0;
 
+// Calculate average initiatives per team
+const activeTeams = allTeams.length;
+const avgInitiativesPerTeam = activeTeams > 0 ? (initiatives.length / activeTeams).toFixed(1) : 0;
+
 document.getElementById('stats').innerHTML = `
   <div class="stat-card blue">
     <div class="stat-label">Total Initiatives</div>
     <div class="stat-value">${initiatives.length}</div>
     <div class="stat-sub">tracked this snapshot</div>
+  </div>
+  <div class="stat-card cyan">
+    <div class="stat-label">Avg per Team</div>
+    <div class="stat-value">${avgInitiativesPerTeam}</div>
+    <div class="stat-sub">${activeTeams} active teams</div>
   </div>
   <div class="stat-card green">
     <div class="stat-label">Work Type Split</div>
