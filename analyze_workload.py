@@ -892,24 +892,42 @@ def print_workload_report(analysis: dict[str, Any], team_managers: dict[str, dic
     total_initiatives = analysis['total_initiatives']
     excluded_teams = analysis['excluded_teams']
 
+    # Compute dashboard metrics for KPIs
+    metrics = compute_dashboard_metrics(
+        analysis,
+        initiative_summaries,
+        initiative_urls,
+        initiative_strategic_objectives,
+        initiative_owner_teams,
+        initiative_contributing_teams,
+        reverse_team_mappings
+    )
+
+    kpis = metrics['kpis']
+
     # Header
     print("\n" + "=" * 70)
     print("Team Workload Report")
     print("=" * 70)
-    print(f"\nTotal initiatives analyzed: {total_initiatives}")
+
+    # KPI Section
+    print("\n" + "-" * 70)
+    print("KEY PERFORMANCE INDICATORS")
+    print("-" * 70)
+    print(f"Total Initiatives:          {kpis['total_initiatives']}")
+    print(f"Active Teams:               {kpis['active_teams']}")
+    print(f"Average per Team:           {kpis['avg_per_team']}")
+    print(f"\nWork Type Distribution:     {kpis['engineering_count']} Engineering · {kpis['product_count']} Product")
+    eng_pct = round(kpis['engineering_count'] / kpis['total_initiatives'] * 100) if kpis['total_initiatives'] > 0 else 0
+    prod_pct = 100 - eng_pct
+    print(f"                            ({eng_pct}% Engineering · {prod_pct}% Product)")
+    print(f"\nMost Loaded Team:           {kpis['most_loaded_display_name']}")
+    print(f"                            {kpis['most_loaded_count']} total · {kpis['most_loaded_leading']} led · {kpis['most_loaded_contributing']} contributing")
+    print(f"\nTop Strategic Objective:    {kpis['top_objective_label']}")
+    print(f"                            {kpis['top_objective_count']} initiatives")
 
     if excluded_teams:
-        print(f"Excluded teams: {', '.join(excluded_teams)}")
-
-    # Engineering vs Product Distribution
-    engineering_led_count = analysis.get('engineering_led_count', 0)
-    product_led_count = analysis.get('product_led_count', 0)
-    if engineering_led_count + product_led_count > 0:
-        eng_pct = round(engineering_led_count / (engineering_led_count + product_led_count) * 100)
-        prod_pct = round(product_led_count / (engineering_led_count + product_led_count) * 100)
-        print(f"\nWork Type Distribution:")
-        print(f"  Engineering-led (engineering_pillars): {engineering_led_count} initiatives ({eng_pct}%)")
-        print(f"  Product-led (all other objectives):    {product_led_count} initiatives ({prod_pct}%)")
+        print(f"\nExcluded teams: {', '.join(excluded_teams)}")
 
     print("\n" + "-" * 70)
     print("Team Analysis (sorted by total initiatives, descending):")
@@ -994,6 +1012,15 @@ def print_workload_report(analysis: dict[str, Any], team_managers: dict[str, dic
                     print(f"  {rag_circle} {clickable_key}: {summary}")
             else:
                 print(f"\nContributing: None")
+
+    # Initiatives by Strategic Objective section
+    print("\n" + "=" * 70)
+    print("INITIATIVES BY STRATEGIC OBJECTIVE")
+    print("=" * 70)
+    print("Initiatives counted in ALL their objectives (not just primary)\n")
+
+    for obj_data in metrics['objectives_data']:
+        print(f"{obj_data['label']}: {obj_data['count']} initiatives ({obj_data['touchpoints']} touchpoints)")
 
     # Most Collaborative Initiatives section
     initiative_team_counts = {}
@@ -1357,6 +1384,228 @@ def print_markdown_report(analysis: dict[str, Any], team_managers: dict[str, dic
         print("✓ All strategic objectives are valid\n")
 
 
+def compute_dashboard_metrics(analysis: dict[str, Any],
+                              initiative_summaries: dict[str, str],
+                              initiative_urls: dict[str, str],
+                              initiative_strategic_objectives: dict[str, str],
+                              initiative_owner_teams: dict[str, str],
+                              initiative_contributing_teams: dict[str, list[str]],
+                              reverse_team_mappings: dict[str, str] = None) -> dict[str, Any]:
+    """Compute all dashboard metrics and KPIs.
+
+    Counts initiatives in ALL their objectives (not just primary), so multi-objective
+    initiatives contribute to the count of each objective they belong to.
+
+    Args:
+        analysis: Workload analysis results from analyze_workload()
+        initiative_summaries: Map of initiative key to summary
+        initiative_urls: Map of initiative key to Jira URL
+        initiative_strategic_objectives: Map of initiative key to strategic objective(s)
+        initiative_owner_teams: Map of initiative key to owner team
+        initiative_contributing_teams: Map of initiative key to contributing teams list
+        reverse_team_mappings: Optional mapping from project keys to display names
+
+    Returns:
+        Dict containing:
+        - kpis: Dict with total_initiatives, active_teams, engineering_count, product_count,
+                avg_per_team, most_loaded_team, top_objective
+        - objectives_data: List of {objective, label, count, touchpoints, initiatives}
+        - team_workload: Dict of team -> {leading, contributing, total, engineering, product}
+        - bottleneck_teams: List of top 3 bottleneck teams
+        - collaborative_initiatives: List of top 3 most collaborative initiatives
+    """
+    if reverse_team_mappings is None:
+        reverse_team_mappings = {}
+
+    team_details = analysis.get('team_details', {})
+    team_stats = analysis['team_stats']
+    team_work_type_stats = analysis.get('team_work_type_stats', {})
+
+    # Collect all unique initiatives
+    all_initiative_keys = set()
+    for team_data in team_details.values():
+        all_initiative_keys.update(team_data['leading'])
+        all_initiative_keys.update(team_data['contributing'])
+
+    total_initiatives = len(all_initiative_keys)
+    active_teams = len([t for t, s in team_stats.items() if s['total'] > 0])
+
+    # Count initiatives by strategic objective (ALL objectives, not just primary)
+    # Initiative can be counted in multiple objectives if it has multiple objectives
+    objective_initiatives = defaultdict(set)  # objective -> set of initiative keys
+    objective_touchpoints = defaultdict(int)  # objective -> team-initiative pair count
+
+    for init_key in all_initiative_keys:
+        obj_raw = initiative_strategic_objectives.get(init_key, '')
+        # Split comma-separated objectives
+        objectives = [o.strip() for o in obj_raw.split(',') if o.strip()]
+        if not objectives:
+            objectives = ['']  # Empty/unassigned
+
+        # Add to each objective
+        for obj in objectives:
+            objective_initiatives[obj].add(init_key)
+
+    # Calculate touchpoints (team-initiative pairs) per objective
+    for team, team_data in team_details.items():
+        for role in ['leading', 'contributing']:
+            for init_key in team_data.get(role, []):
+                obj_raw = initiative_strategic_objectives.get(init_key, '')
+                objectives = [o.strip() for o in obj_raw.split(',') if o.strip()]
+                if not objectives:
+                    objectives = ['']
+
+                for obj in objectives:
+                    objective_touchpoints[obj] += 1
+
+    # Find top objective (by initiative count in ALL objectives)
+    top_objective = ''
+    top_objective_count = 0
+    if objective_initiatives:
+        top_objective = max(objective_initiatives.keys(),
+                           key=lambda o: len(objective_initiatives[o]))
+        top_objective_count = len(objective_initiatives[top_objective])
+
+    # Count engineering vs product initiatives
+    engineering_count = len([k for k in all_initiative_keys
+                            if 'engineering_pillars' in initiative_strategic_objectives.get(k, '')])
+    product_count = total_initiatives - engineering_count
+
+    # Find most loaded team
+    most_loaded_team = ''
+    most_loaded_count = 0
+    most_loaded_leading = 0
+    most_loaded_contributing = 0
+    if team_stats:
+        most_loaded_team = max(team_stats.keys(), key=lambda t: team_stats[t]['total'])
+        most_loaded_count = team_stats[most_loaded_team]['total']
+        most_loaded_leading = team_stats[most_loaded_team]['leading']
+        most_loaded_contributing = team_stats[most_loaded_team]['contributing']
+
+    # Average initiatives per team
+    avg_per_team = round(total_initiatives / active_teams, 1) if active_teams > 0 else 0
+
+    # Prepare objectives data (sorted by count descending)
+    objective_labels = {
+        '2026_fuel_regulated': '2026 · Fuel Regulated',
+        '2026_scale_ecom': '2026 · Scale eCommerce',
+        '2026_network': '2026 · Network',
+        '2026_recurring_payments': '2026 · Recurring Payments',
+        'engineering_pillars': 'Engineering Pillars',
+        'beyond_strategic': 'Beyond Strategic',
+        '': 'Unassigned'
+    }
+
+    objectives_data = []
+    for obj in sorted(objective_initiatives.keys(),
+                     key=lambda o: len(objective_initiatives[o]),
+                     reverse=True):
+        initiatives = []
+        for init_key in objective_initiatives[obj]:
+            initiatives.append({
+                'key': init_key,
+                'name': initiative_summaries.get(init_key, ''),
+                'url': initiative_urls.get(init_key, ''),
+                'objectives': [o.strip() for o in
+                             initiative_strategic_objectives.get(init_key, '').split(',')
+                             if o.strip()] or ['']
+            })
+
+        objectives_data.append({
+            'objective': obj,
+            'label': objective_labels.get(obj, obj),
+            'count': len(objective_initiatives[obj]),
+            'touchpoints': objective_touchpoints[obj],
+            'initiatives': initiatives
+        })
+
+    # Prepare team workload data
+    team_workload = {}
+    for team, stats in team_stats.items():
+        eng_count = 0
+        prod_count = 0
+        if team in team_work_type_stats:
+            eng_count = team_work_type_stats[team]['engineering']['total']
+            prod_count = team_work_type_stats[team]['product']['total']
+
+        team_workload[team] = {
+            'leading': stats['leading'],
+            'contributing': stats['contributing'],
+            'total': stats['total'],
+            'engineering': eng_count,
+            'product': prod_count,
+            'display_name': reverse_team_mappings.get(team, team)
+        }
+
+    # Calculate bottleneck teams (teams that many others depend on)
+    bottleneck_teams = []
+    for team, team_data in team_details.items():
+        leading_count = len(team_data['leading'])
+        if leading_count > 0:
+            dependent_teams = set()
+            for init_key in team_data['leading']:
+                for other_team, other_data in team_details.items():
+                    if other_team != team and init_key in other_data['contributing']:
+                        dependent_teams.add(other_team)
+
+            if len(dependent_teams) > 0:
+                bottleneck_teams.append({
+                    'team': team,
+                    'display_name': reverse_team_mappings.get(team, team),
+                    'leading_count': leading_count,
+                    'dependent_count': len(dependent_teams),
+                    'dependent_teams': [reverse_team_mappings.get(t, t) for t in dependent_teams]
+                })
+
+    bottleneck_teams.sort(key=lambda x: x['dependent_count'], reverse=True)
+    top_bottlenecks = bottleneck_teams[:3]
+
+    # Calculate most collaborative initiatives (initiatives with most teams involved)
+    initiative_team_counts = {}
+    for team_data in team_details.values():
+        for init_key in team_data['leading']:
+            initiative_team_counts[init_key] = initiative_team_counts.get(init_key, 0) + 1
+        for init_key in team_data['contributing']:
+            initiative_team_counts[init_key] = initiative_team_counts.get(init_key, 0) + 1
+
+    collaborative_initiatives = []
+    for init_key, team_count in sorted(initiative_team_counts.items(),
+                                       key=lambda x: x[1],
+                                       reverse=True):
+        if team_count >= 2:
+            collaborative_initiatives.append({
+                'key': init_key,
+                'name': initiative_summaries.get(init_key, ''),
+                'url': initiative_urls.get(init_key, ''),
+                'team_count': team_count,
+                'objective': initiative_strategic_objectives.get(init_key, '')
+            })
+
+    top_collaborative = collaborative_initiatives[:3]
+
+    return {
+        'kpis': {
+            'total_initiatives': total_initiatives,
+            'active_teams': active_teams,
+            'engineering_count': engineering_count,
+            'product_count': product_count,
+            'avg_per_team': avg_per_team,
+            'most_loaded_team': most_loaded_team,
+            'most_loaded_display_name': reverse_team_mappings.get(most_loaded_team, most_loaded_team),
+            'most_loaded_count': most_loaded_count,
+            'most_loaded_leading': most_loaded_leading,
+            'most_loaded_contributing': most_loaded_contributing,
+            'top_objective': top_objective,
+            'top_objective_label': objective_labels.get(top_objective, top_objective),
+            'top_objective_count': top_objective_count
+        },
+        'objectives_data': objectives_data,
+        'team_workload': team_workload,
+        'bottleneck_teams': top_bottlenecks,
+        'collaborative_initiatives': top_collaborative
+    }
+
+
 def generate_dashboard_csv(analysis: dict[str, Any], initiative_summaries: dict[str, str],
                             initiative_strategic_objectives: dict[str, str],
                             initiative_owner_teams: dict[str, str],
@@ -1443,8 +1692,26 @@ def generate_html_dashboard(analysis: dict[str, Any], initiative_summaries: dict
     """
     from lib.template_renderer import get_template_environment
     from datetime import datetime
+    import json as json_lib
 
-    # Generate CSV data for the dashboard
+    # Prepare defaults
+    if reverse_team_mappings is None:
+        reverse_team_mappings = {}
+    if team_work_type_stats is None:
+        team_work_type_stats = {}
+
+    # Compute all dashboard metrics in Python
+    metrics = compute_dashboard_metrics(
+        analysis,
+        initiative_summaries,
+        initiative_urls,
+        initiative_strategic_objectives,
+        initiative_owner_teams,
+        initiative_contributing_teams,
+        reverse_team_mappings
+    )
+
+    # Generate CSV data for backward compatibility (still used for heatmap)
     csv_data = generate_dashboard_csv(
         analysis,
         initiative_summaries,
@@ -1455,31 +1722,18 @@ def generate_html_dashboard(analysis: dict[str, Any], initiative_summaries: dict
     )
 
     # Escape special characters in CSV data to prevent breaking JavaScript template literal
-    # Must escape backslashes first, then other special chars
     csv_data = csv_data.replace('\\', '\\\\')  # Escape backslashes
     csv_data = csv_data.replace('`', '\\`')    # Escape backticks
     csv_data = csv_data.replace('${', '\\${')  # Escape template expressions
 
-    # Extract Jira base URL from first initiative URL
-    jira_base_url = 'https://your-org.atlassian.net/browse/'
-    if initiative_urls:
-        first_url = next(iter(initiative_urls.values()))
-        if first_url and '/browse/' in first_url:
-            jira_base_url = first_url.split('/browse/')[0] + '/browse/'
+    # Extract Jira base URL
+    jira_base_url = get_jira_base_url()
 
     # Generate snapshot description
     snapshot_desc = f"Workload analysis from {json_file.name} · Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
-    # Prepare team name mapping for JavaScript (default to empty dict if not provided)
-    if reverse_team_mappings is None:
-        reverse_team_mappings = {}
-
-    # Prepare team work type stats (default to empty dict if not provided)
-    if team_work_type_stats is None:
-        team_work_type_stats = {}
-
-    # Convert to JSON strings for template
-    import json as json_lib
+    # Convert data to JSON strings for template
+    metrics_json = json_lib.dumps(metrics)
     team_names_json = json_lib.dumps(reverse_team_mappings)
     team_work_type_stats_json = json_lib.dumps(team_work_type_stats)
 
@@ -1491,7 +1745,8 @@ def generate_html_dashboard(analysis: dict[str, Any], initiative_summaries: dict
         jira_base_url=jira_base_url,
         snapshot_description=snapshot_desc,
         team_names_json=team_names_json,
-        team_work_type_stats_json=team_work_type_stats_json
+        team_work_type_stats_json=team_work_type_stats_json,
+        metrics_json=metrics_json
     )
 
     # Write to file
