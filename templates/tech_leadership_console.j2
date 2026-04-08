@@ -1,0 +1,185 @@
+{# Console report template for Tech Leadership validation #}
+{# Input: result (TechLeadershipResult), data_file (Path), jira_base_url (str), verbose (bool) #}
+{% set has_conflicts = result.priority_conflicts|length > 0 %}
+{% set has_missing = result.missing_commitments|length > 0 %}
+{% set has_quality_issues = result.data_quality_issues|length > 0 %}
+{% set has_unlisted = result.unlisted_initiatives|length > 0 %}
+
+================================================================================
+Tech Leadership Priority Validation Report
+================================================================================
+Quarter: {{ result.metadata.quarter }}
+Data Source: {{ data_file }}
+Tech Leadership Initiatives: {{ result.metadata.total_tech_leadership }}
+Active (non-Done/Cancelled): {{ result.metadata.active_initiatives }}
+Validated (non-Discovery): {{ result.metadata.validated_initiatives }}
+Priorities Configured: {{ result.metadata.priorities_count }}
+Teams Analyzed: {{ result.metadata.teams_analyzed }}
+
+{% if result.metadata.missing_from_data %}
+⚠️  Warning: {{ result.metadata.missing_from_data|length }} initiatives in priority config not found in quarter data:
+{% for key in result.metadata.missing_from_data %}
+   - {{ key }}
+{% endfor %}
+{% endif %}
+
+{% if has_unlisted %}
+⚠️  Warning: {{ result.unlisted_initiatives|length }} Tech Leadership initiatives not in priority config:
+{% for init in result.unlisted_initiatives %}
+   - {{ init.key|hyperlink(jira_base_url ~ '/browse/' ~ init.key) }}: {{ init.summary }}
+{% endfor %}
+{% endif %}
+
+{% if has_quality_issues %}
+
+⚠️  Data Quality Issues
+================================================================================
+{{ result.data_quality_issues|length }} initiatives missing teams_involved field:
+
+{% for init in result.data_quality_issues %}
+{{ init.key|hyperlink(jira_base_url ~ '/browse/' ~ init.key) }}: {{ init.summary }}
+   Status: {{ init.status }}
+   ⚠️  Missing teams_involved - cannot validate team commitments
+
+{% endfor %}
+{% endif %}
+
+{# Section 1: Priority Conflicts #}
+{% if has_conflicts %}
+
+⚠️  Section 1: Priority Conflicts
+================================================================================
+{{ result.priority_conflicts|length }} teams committed to lower-priority initiatives while skipping higher-priority ones:
+
+{% for conflict in result.priority_conflicts %}
+{{ conflict.team_display }} ({{ conflict.team_key }})
+   Committed to:
+{% for init in conflict.committed_to %}
+      - Priority #{{ init.priority }}: {{ init.key|hyperlink(jira_base_url ~ '/browse/' ~ init.key) }} - {{ init.title }}
+{% endfor %}
+
+   Missing higher priorities:
+{% for init in conflict.missing_higher_priorities %}
+      - Priority #{{ init.priority }}: {{ init.key|hyperlink(jira_base_url ~ '/browse/' ~ init.key) }} - {{ init.title }}
+{% endfor %}
+
+{% endfor %}
+{% else %}
+
+✅ Section 1: Priority Conflicts
+================================================================================
+No priority conflicts detected. All teams committing to Tech Leadership initiatives are respecting priority order.
+{% endif %}
+
+{# Section 2: Missing Commitments #}
+{% if has_missing %}
+
+⚠️  Section 2: Missing Commitments
+================================================================================
+{{ result.missing_commitments|length }} teams expected to contribute but with no green/yellow epics:
+
+{% for missing in result.missing_commitments %}
+{{ missing.team_display }} ({{ missing.team_key }})
+   Expected in {{ missing.expected_in|length }} initiatives:
+{% for init in missing.expected_in %}
+      - {{ init.key|hyperlink(jira_base_url ~ '/browse/' ~ init.key) }}: {{ init.title }}
+{% endfor %}
+   ⚠️  No green/yellow epics found - team not committed to any
+
+{% endfor %}
+{% else %}
+
+✅ Section 2: Missing Commitments
+================================================================================
+All expected teams have at least one green/yellow epic commitment.
+{% endif %}
+
+{# Section 3: Initiative Health Dashboard #}
+
+📊 Section 3: Initiative Health Dashboard
+================================================================================
+Initiative-centric view of team commitments (in priority order):
+
+{% for init in result.initiative_health %}
+Priority #{{ init.priority }}: {{ init.key|hyperlink(jira_base_url ~ '/browse/' ~ init.key) }}
+   {{ init.title }}
+   Expected teams ({{ init.expected_teams|length }}): {{ init.expected_teams|join(', ') }}
+{% if init.committed_teams %}
+   ✅ Committed ({{ init.committed_teams|length }}):
+{% for team_data in init.committed_teams %}
+      - {{ team_data.team }} ({{ team_data.rag_statuses|join(', ') }})
+{% endfor %}
+{% else %}
+   ❌ No committed teams
+{% endif %}
+{% if init.missing_teams %}
+   ⚠️  Missing ({{ init.missing_teams|length }}): {{ init.missing_teams|join(', ') }}
+{% endif %}
+
+{% endfor %}
+
+{# Section 4: Action Items for Managers #}
+{% if has_conflicts or has_missing %}
+
+📋 Section 4: Action Items for Managers
+================================================================================
+Action items grouped by responsible team:
+
+{# Extract and group actions by team #}
+{% set teams_with_actions = [] %}
+{% for conflict in result.priority_conflicts %}
+   {% if conflict.team_display not in teams_with_actions %}
+      {% set _ = teams_with_actions.append(conflict.team_display) %}
+   {% endif %}
+{% endfor %}
+{% for missing in result.missing_commitments %}
+   {% if missing.team_display not in teams_with_actions %}
+      {% set _ = teams_with_actions.append(missing.team_display) %}
+   {% endif %}
+{% endfor %}
+
+{% for team_display in teams_with_actions|sort %}
+{# Find actions for this team #}
+{% set team_conflicts = [] %}
+{% set team_missing = [] %}
+{% for conflict in result.priority_conflicts %}
+   {% if conflict.team_display == team_display %}
+      {% set _ = team_conflicts.append(conflict) %}
+   {% endif %}
+{% endfor %}
+{% for missing in result.missing_commitments %}
+   {% if missing.team_display == team_display %}
+      {% set _ = team_missing.append(missing) %}
+   {% endif %}
+{% endfor %}
+
+{{ team_display }}:
+{% for conflict in team_conflicts %}
+{% for init in conflict.missing_higher_priorities %}
+   [ ] Review commitment to priority #{{ init.priority }} ({{ init.key|hyperlink(jira_base_url ~ '/browse/' ~ init.key) }}) vs lower priorities
+{% endfor %}
+{% endfor %}
+{% for missing in team_missing %}
+   [ ] Create green/yellow epics for {{ missing.expected_in|length }} expected initiatives
+{% endfor %}
+
+{% endfor %}
+{% else %}
+
+✅ Section 4: Action Items for Managers
+================================================================================
+No action items - all teams respecting priorities and commitments.
+{% endif %}
+
+================================================================================
+Summary
+================================================================================
+{% if has_conflicts or has_missing %}
+⚠️  Validation found {{ result.priority_conflicts|length }} priority conflicts and {{ result.missing_commitments|length }} missing commitments.
+
+Review action items above and work with team managers to address gaps.
+{% else %}
+✅ All teams respecting Tech Leadership initiative priorities and commitments.
+{% endif %}
+
+Exit code: {% if has_conflicts or has_missing %}1 (issues found){% else %}0 (success){% endif %}
