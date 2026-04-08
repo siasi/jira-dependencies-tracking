@@ -11,7 +11,8 @@ You have {{ message.total_actions }} action item{% if message.total_actions != 1
 **{{ team.team_name }}:**
 {% endif %}
 {% for initiative in team.initiatives -%}
-{{ initiative.key }}: <{{ initiative.url }}>
+{% if initiative.key %}{{ initiative.key }}: <{{ initiative.url }}>
+{% endif %}
 {% for action in initiative.actions -%}
 {% if action.action_type == 'missing_owner' -%}
 :raising_hand: Missing owner - {{ action.description }}
@@ -29,6 +30,10 @@ You have {{ message.total_actions }} action item{% if message.total_actions != 1
 :thinking_face: {{ action.description }}
 {% elif action.action_type == 'ready_to_planned' -%}
 :rocket: {{ action.description }}
+{% elif action.action_type == 'priority_conflict' -%}
+:warning: Priority conflict - {{ action.description }}
+{% elif action.action_type == 'missing_commitment' -%}
+:raising_hand: Missing commitment - {{ action.description }}
 {% endif %}
 {% endfor %}
 

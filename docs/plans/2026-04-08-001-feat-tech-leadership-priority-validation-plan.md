@@ -1371,36 +1371,37 @@ priorities:
 **Goal:** Extract action items and generate Slack notifications.
 
 **Tasks:**
-1. **Implement action item extraction** (~220 lines)
+1. ✅ **Implement action item extraction** (~220 lines)
    - `extract_tech_leadership_actions()`
    - Flatten conflicts and missing commitments
    - Add manager metadata
    - Sort by priority
 
-2. **Reuse config loading functions** (~150 lines)
+2. ✅ **Reuse config loading functions** (~150 lines)
    - Copy `_load_team_managers()` from validate_planning.py
-   - Copy `_load_team_mappings()` from validate_planning.py
+   - Copy `_load_team_mappings()` from validate_planning.py (already done in Phase 2)
    - Copy `_validate_slack_config()` from validate_planning.py
 
-3. **Implement Slack message generation** (~180 lines)
+3. ✅ **Implement Slack message generation** (~180 lines)
    - `generate_tech_leadership_slack_messages()`
    - Group by manager Slack ID
    - Multi-team manager subsections
-   - Reuse `notification_slack.j2` template
+   - Extended `notification_slack.j2` template with tech_leadership action types
 
-4. **Add --slack CLI flag** (~20 lines)
-   - argparse option
+4. ✅ **Add --slack CLI flag** (~20 lines)
+   - Click option
    - Conditional execution in main()
    - Print summary
 
 **Success Criteria:**
-- [ ] Action items extracted with manager info
-- [ ] Slack messages grouped by manager
-- [ ] Multi-team managers get one message
-- [ ] Timestamped file saved to data/
+- [x] Action items extracted with manager info
+- [x] Slack messages grouped by manager
+- [x] Multi-team managers get one message
+- [x] Timestamped file saved to data/
 
 **Files Modified:**
 - `validate_tech_leadership.py` (extend)
+- `templates/notification_slack.j2` (extend)
 
 ### Phase 5: Testing and Edge Cases (Priority 1)
 

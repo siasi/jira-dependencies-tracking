@@ -210,6 +210,70 @@ def _load_team_mappings() -> tuple:
         return {}, {}, []
 
 
+def _load_team_managers() -> Dict[str, Dict[str, Optional[str]]]:
+    """Load team managers with Notion handles and Slack IDs.
+
+    Returns:
+        Dict mapping project keys to manager info:
+        {
+            "CBPPE": {
+                "notion_handle": "@Manager B",
+                "slack_id": "U01F3QUHP0B"
+            }
+        }
+
+        Handles legacy string format for backward compatibility.
+    """
+    mappings_file = Path(__file__).parent / 'config' / 'team_mappings.yaml'
+    if not mappings_file.exists():
+        return {}
+
+    try:
+        with open(mappings_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            raw_managers = data.get('team_managers', {})
+
+            # Normalize to dict format
+            normalized = {}
+            for project_key, value in raw_managers.items():
+                if isinstance(value, str):
+                    # Legacy format: just Notion handle
+                    normalized[project_key] = {
+                        'notion_handle': value,
+                        'slack_id': None
+                    }
+                elif isinstance(value, dict):
+                    # New format: structured data
+                    normalized[project_key] = {
+                        'notion_handle': value.get('notion_handle', ''),
+                        'slack_id': value.get('slack_id')
+                    }
+
+            return normalized
+    except Exception:
+        return {}
+
+
+def _validate_slack_config(team_managers: Dict[str, Dict[str, Any]]) -> None:
+    """Validate all teams have Slack IDs for Slack messaging.
+
+    Args:
+        team_managers: Dict of team manager info from _load_team_managers()
+
+    Raises:
+        ValueError: If any team is missing slack_id
+    """
+    missing = [
+        key for key, info in team_managers.items()
+        if not info.get('slack_id')
+    ]
+    if missing:
+        raise ValueError(
+            f"Missing Slack IDs for teams: {', '.join(missing)}\n"
+            f"Update team_mappings.yaml with slack_id for each team"
+        )
+
+
 def _get_team_epics_rag_statuses(
     initiative: Dict,
     team_key: str
@@ -659,6 +723,220 @@ def print_tech_leadership_report(
     click.echo(output)
 
 
+def extract_tech_leadership_actions(
+    result: TechLeadershipResult,
+    team_managers: Dict[str, Dict[str, Optional[str]]],
+    reverse_team_mappings: Dict[str, str]
+) -> List[Dict[str, Any]]:
+    """Extract action items from validation result.
+
+    Args:
+        result: TechLeadershipResult instance
+        team_managers: Map team_key to manager info
+        reverse_team_mappings: Map project key to display name
+
+    Returns:
+        Flat list of action item dicts with manager metadata
+    """
+    actions = []
+    jira_base_url = get_jira_base_url()
+
+    # Helper to build base context
+    def _base_context(team_key: str, team_display: str, section: str) -> Dict:
+        manager_info = team_managers.get(team_key, {})
+        return {
+            'section': section,
+            'responsible_team': team_display,
+            'responsible_team_key': team_key,
+            'responsible_manager_name': manager_info.get('notion_handle', '').lstrip('@'),
+            'responsible_manager_notion': manager_info.get('notion_handle', ''),
+            'responsible_manager_slack_id': manager_info.get('slack_id', ''),
+        }
+
+    # 1. Priority conflicts
+    for conflict in result.priority_conflicts:
+        team_key = conflict['team_key']
+        team_display = conflict['team_display']
+
+        # Create action for each missing higher-priority initiative
+        for missing in conflict['missing_higher_priorities']:
+            base = _base_context(team_key, team_display, 'priority_conflicts')
+            actions.append({
+                **base,
+                'initiative_key': missing['key'],
+                'initiative_title': missing['title'],
+                'initiative_url': f"{jira_base_url}/browse/{missing['key']}",
+                'action_type': 'priority_conflict',
+                'priority': PRIORITY_TYPES['priority_conflict']['priority'],
+                'description': (
+                    f"Review commitment to lower-priority initiatives while "
+                    f"skipping priority #{missing['priority']} ({missing['key']})"
+                ),
+                'committed_to': conflict['committed_to'],  # Extra context
+                'epic_key': None,
+                'epic_title': None,
+                'epic_rag': None
+            })
+
+    # 2. Missing commitments
+    for missing in result.missing_commitments:
+        team_key = missing['team_key']
+        team_display = missing['team_display']
+        base = _base_context(team_key, team_display, 'missing_commitments')
+
+        # One action summarizing all expected initiatives
+        actions.append({
+            **base,
+            'initiative_key': None,  # Multiple initiatives
+            'initiative_title': f"{len(missing['expected_in'])} Tech Leadership initiatives",
+            'initiative_url': None,
+            'action_type': 'missing_commitment',
+            'priority': PRIORITY_TYPES['missing_commitment']['priority'],
+            'description': (
+                f"No green/yellow epics for {len(missing['expected_in'])} expected initiatives"
+            ),
+            'expected_in': missing['expected_in'],  # Extra context
+            'epic_key': None,
+            'epic_title': None,
+            'epic_rag': None
+        })
+
+    # Sort by priority
+    actions.sort(key=lambda x: x['priority'])
+
+    return actions
+
+
+def generate_tech_leadership_slack_messages(
+    result: TechLeadershipResult,
+    team_managers: Dict[str, Dict[str, Optional[str]]],
+    reverse_team_mappings: Dict[str, str],
+    output_dir: Path
+) -> None:
+    """Generate Slack bulk messages for Tech Leadership validation.
+
+    Args:
+        result: TechLeadershipResult instance
+        team_managers: Map team_key to manager info
+        reverse_team_mappings: Map project key to display name
+        output_dir: Directory to save Slack messages file
+
+    Raises:
+        ValueError: If any team missing slack_id in config
+    """
+    from collections import defaultdict
+    from datetime import datetime
+
+    # Validate Slack config
+    _validate_slack_config(team_managers)
+
+    # Extract actions
+    actions = extract_tech_leadership_actions(result, team_managers, reverse_team_mappings)
+
+    if not actions:
+        click.echo(click.style("No action items to send via Slack.", fg='green'))
+        return
+
+    # Group by manager (same pattern as validate_planning.py)
+    manager_groups = defaultdict(lambda: {
+        'manager_name': None,
+        'slack_id': None,
+        'total_actions': 0,
+        'total_initiatives': 0,
+        'teams': defaultdict(lambda: {
+            'team_name': None,
+            'team_key': None,
+            'initiatives': defaultdict(lambda: {
+                'key': None,
+                'title': None,
+                'url': None,
+                'actions': []
+            })
+        })
+    })
+
+    for action in actions:
+        slack_id = action['responsible_manager_slack_id']
+        team_key = action['responsible_team_key']
+        team_name = action['responsible_team']
+        manager_name = action['responsible_manager_name']
+
+        # Set manager info
+        if manager_groups[slack_id]['manager_name'] is None:
+            manager_groups[slack_id]['manager_name'] = manager_name
+            manager_groups[slack_id]['slack_id'] = slack_id
+
+        # Set team info
+        if manager_groups[slack_id]['teams'][team_key]['team_name'] is None:
+            manager_groups[slack_id]['teams'][team_key]['team_name'] = team_name
+            manager_groups[slack_id]['teams'][team_key]['team_key'] = team_key
+
+        # Add to initiative
+        init_key = action.get('initiative_key') or 'MULTIPLE'
+        init_group = manager_groups[slack_id]['teams'][team_key]['initiatives'][init_key]
+
+        if init_group['key'] is None:
+            init_group['key'] = action.get('initiative_key')
+            init_group['title'] = action['initiative_title']
+            init_group['url'] = action.get('initiative_url')
+
+        init_group['actions'].append(action)
+        manager_groups[slack_id]['total_actions'] += 1
+
+    # Count unique initiatives per manager
+    for slack_id, manager_data in manager_groups.items():
+        unique_initiatives = set()
+        for team_data in manager_data['teams'].values():
+            for init_key in team_data['initiatives'].keys():
+                if init_key != 'MULTIPLE':
+                    unique_initiatives.add(init_key)
+        manager_data['total_initiatives'] = len(unique_initiatives)
+
+    # Convert to list and sort
+    messages = []
+    for slack_id, manager_data in sorted(manager_groups.items()):
+        # Sort teams alphabetically
+        teams_list = []
+        for team_key, team_data in sorted(manager_data['teams'].items()):
+            # Sort initiatives by key
+            initiatives_list = []
+            for init_key, init_data in sorted(team_data['initiatives'].items()):
+                # Sort actions by priority
+                init_data['actions'].sort(key=lambda x: x['priority'])
+                initiatives_list.append(init_data)
+
+            team_data['initiatives'] = initiatives_list
+            teams_list.append(team_data)
+
+        manager_data['teams'] = teams_list
+        messages.append(manager_data)
+
+    # Render template
+    env = get_template_environment()
+    template = env.get_template('notification_slack.j2')
+    jira_base_url = get_jira_base_url()
+
+    output = template.render(
+        messages=messages,
+        jira_base_url=jira_base_url,
+        context='tech_leadership'
+    )
+
+    # Save to timestamped file
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    output_file = output_dir / f"slack_messages_tech_leadership_{timestamp}.txt"
+
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(output)
+
+    # Print to console
+    click.echo("\n" + "=" * 80)
+    click.echo(output)
+    click.echo("=" * 80)
+    click.echo(f"\n✅ Slack messages saved to: {output_file}")
+    click.echo(f"Total managers: {len(messages)}, Total action items: {sum(m['total_actions'] for m in messages)}")
+
+
 @click.command()
 @click.option(
     '--quarter',
@@ -671,6 +949,11 @@ def print_tech_leadership_report(
     help='Custom priority config path (default: config/tech_leadership_priorities.yaml)'
 )
 @click.option(
+    '--slack',
+    is_flag=True,
+    help='Generate Slack bulk messages for manager notifications'
+)
+@click.option(
     '--verbose',
     is_flag=True,
     help='Include verbose output with additional details'
@@ -680,7 +963,7 @@ def print_tech_leadership_report(
     type=click.Path(exists=True),
     required=False
 )
-def main(quarter: str, config: Optional[str], verbose: bool, data_file: Optional[str]):
+def main(quarter: str, config: Optional[str], slack: bool, verbose: bool, data_file: Optional[str]):
     """Validate Tech Leadership initiative priorities and team commitments.
 
     Detects priority conflicts (teams committed to lower-priority initiatives
@@ -691,6 +974,9 @@ def main(quarter: str, config: Optional[str], verbose: bool, data_file: Optional
 
         # Validate current quarter using latest extraction
         python validate_tech_leadership.py --quarter "26 Q2"
+
+        # Generate Slack messages
+        python validate_tech_leadership.py --quarter "26 Q2" --slack
 
         # Use custom priority config
         python validate_tech_leadership.py --quarter "26 Q2" --config custom_priorities.yaml
@@ -723,6 +1009,20 @@ def main(quarter: str, config: Optional[str], verbose: bool, data_file: Optional
 
         # Print report using template
         print_tech_leadership_report(result, data_path, verbose)
+
+        # Generate Slack messages if requested
+        if slack:
+            team_managers = _load_team_managers()
+            _, reverse_team_mappings, _ = _load_team_mappings()
+            output_dir = Path(__file__).parent / 'data'
+            output_dir.mkdir(exist_ok=True)
+
+            generate_tech_leadership_slack_messages(
+                result,
+                team_managers,
+                reverse_team_mappings,
+                output_dir
+            )
 
         # Exit code based on findings
         if result.has_issues:
