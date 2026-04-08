@@ -82,6 +82,7 @@ teams_excluded_from_workload_analysis:
   - "Security Engineering"
   - "DevOps"
   - "Integration Ops"
+  - "CBP Platform"
 
   # Add more excluded teams as needed
   # - "Team Display Name"
