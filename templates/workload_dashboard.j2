@@ -235,6 +235,12 @@
 </div>
 
 <div class="card">
+  <div class="card-title">Initiatives by Strategic Objective</div>
+  <div class="card-subtitle">Actual initiative count per objective (not touchpoints). Click to see initiatives.</div>
+  <div id="objectives-list" style="font-size:14px;line-height:1.8"></div>
+</div>
+
+<div class="card">
   <div class="card-title">⚠️ Delivery Risk: Bottleneck Teams</div>
   <div class="card-subtitle">Teams that many others depend on — potential blockers and coordination bottlenecks.</div>
   <div id="bottleneck-list" style="font-size:14px;line-height:1.8"></div>
@@ -542,11 +548,11 @@ initiatives.forEach(row => {
   };
 });
 
-// Sort by total teams (descending) and take top 10
+// Sort by total teams (descending) and take top 3
 const topCollaborative = Object.values(initiativeTeams)
   .filter(i => i.totalTeams >= 2) // Only show initiatives with 2+ teams
   .sort((a, b) => b.totalTeams - a.totalTeams)
-  .slice(0, 10);
+  .slice(0, 3);
 
 // Render collaboration list
 const collabHTML = topCollaborative.length > 0
@@ -616,7 +622,7 @@ allTeams.forEach(team => {
 // Sort by number of dependent teams (descending)
 const bottleneckTeams = Object.values(teamDependencies)
   .sort((a, b) => b.dependentTeamsCount - a.dependentTeamsCount)
-  .slice(0, 5); // Top 5 bottleneck teams
+  .slice(0, 3); // Top 3 bottleneck teams
 
 // Render bottleneck list
 const bottleneckHTML = bottleneckTeams.length > 0
@@ -781,12 +787,13 @@ new Chart(workTypeCtx, {
       x: {
         stacked: true,
         grid: { color: '#e2e8f0' },
-        ticks: { font: { size: 11 } }
+        ticks: { font: { size: 11 }, color: '#718096' },
+        title: { display: true, text: 'Number of initiatives', font: { size: 11 }, color: '#a0aec0' }
       },
       y: {
         stacked: true,
         grid: { display: false },
-        ticks: { font: { size: 11 } }
+        ticks: { font: { size: 12, weight: '500' }, color: '#2d3748' }
       }
     }
   }
@@ -983,6 +990,63 @@ allObjs.forEach(obj => {
 ttd = totalsRow.insertCell();
 ttd.className = 'row-total';
 ttd.textContent = grandTotal;
+
+// ─── INITIATIVES BY STRATEGIC OBJECTIVE ──────────────────────────────────────
+// Group initiatives by strategic objective (unique initiatives, not touchpoints)
+const initiativesByObjective = {};
+initiatives.forEach(row => {
+  const objRaw = row.strategic_objective || '';
+  // Split comma-separated objectives
+  let objectives = objRaw.split(',').map(o => o.trim()).filter(Boolean);
+  if (objectives.length === 0) {
+    objectives = [''];
+  }
+
+  const init = {
+    key: row.initiative_key,
+    name: row.initiative_name,
+    objectives: objectives
+  };
+
+  // Add to each objective (initiatives with multiple objectives appear in each)
+  objectives.forEach(obj => {
+    if (!initiativesByObjective[obj]) {
+      initiativesByObjective[obj] = [];
+    }
+    initiativesByObjective[obj].push(init);
+  });
+});
+
+// Sort objectives by initiative count (descending)
+const sortedObjectives = Object.keys(initiativesByObjective)
+  .sort((a, b) => initiativesByObjective[b].length - initiativesByObjective[a].length);
+
+// Render objectives list
+const objectivesHTML = sortedObjectives.map((obj, idx) => {
+  const inits = initiativesByObjective[obj];
+  const count = inits.length;
+  const objLabel = OBJ_LABELS[obj] || obj || 'Unassigned';
+  const touchpoints = objTouchpoints[obj] || 0;
+
+  return `
+    <div style="padding:10px 0;border-bottom:1px solid #e2e8f0;cursor:pointer;transition:background 0.15s"
+         onclick="showModal('${objLabel.replace(/'/g, "\\'")}', ${JSON.stringify(inits).replace(/'/g, "\\'")})"
+         onmouseover="this.style.background='#f7fafc'"
+         onmouseout="this.style.background='white'">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="color:#718096;font-weight:600;min-width:20px">${idx + 1}.</span>
+        <span style="flex:1;color:#2d3748;font-weight:500">${objLabel}</span>
+        <span style="background:#edf2f7;padding:3px 10px;border-radius:4px;font-size:13px;font-weight:600;color:#2d3748">${count} initiative${count !== 1 ? 's' : ''}</span>
+      </div>
+      <div style="padding-left:32px;font-size:12px;color:#a0aec0;margin-top:2px">
+        ${touchpoints} total touchpoints (team-initiative pairs) · Click to see initiatives
+      </div>
+    </div>
+  `;
+}).join('');
+
+document.getElementById('objectives-list').innerHTML = objectivesHTML;
+
 </script>
 </body>
 </html>

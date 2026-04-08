@@ -995,6 +995,78 @@ def print_workload_report(analysis: dict[str, Any], team_managers: dict[str, dic
             else:
                 print(f"\nContributing: None")
 
+    # Most Collaborative Initiatives section
+    initiative_team_counts = {}
+    for team_data in team_details.values():
+        for init_key in team_data['leading']:
+            initiative_team_counts[init_key] = initiative_team_counts.get(init_key, 0) + 1
+        for init_key in team_data['contributing']:
+            initiative_team_counts[init_key] = initiative_team_counts.get(init_key, 0) + 1
+
+    # Get top 3 most collaborative (most teams involved)
+    top_collaborative = sorted(
+        [(k, v) for k, v in initiative_team_counts.items() if v >= 2],
+        key=lambda x: x[1],
+        reverse=True
+    )[:3]
+
+    if top_collaborative:
+        print("\n" + "=" * 70)
+        print("MOST COLLABORATIVE INITIATIVES (Top 3)")
+        print("=" * 70)
+        print("Initiatives requiring coordination across multiple teams\n")
+
+        for idx, (init_key, team_count) in enumerate(top_collaborative, 1):
+            summary = initiative_summaries.get(init_key, 'No summary')
+            url = initiative_urls.get(init_key, '')
+            objective = initiative_strategic_objectives.get(init_key, '')
+
+            clickable_key = make_clickable_link(init_key, url)
+            print(f"{idx}. {clickable_key}: {summary}")
+            print(f"   {team_count} teams involved")
+            if objective:
+                print(f"   Objective: {objective}")
+            print()
+
+    # Bottleneck Teams section
+    bottleneck_teams = []
+    for team, team_data in team_details.items():
+        leading_count = len(team_data['leading'])
+        if leading_count > 0:
+            # Count how many other teams contribute to this team's initiatives
+            dependent_teams = set()
+            for init_key in team_data['leading']:
+                for other_team, other_data in team_details.items():
+                    if other_team != team and init_key in other_data['contributing']:
+                        dependent_teams.add(other_team)
+
+            if len(dependent_teams) > 0:
+                bottleneck_teams.append((team, leading_count, len(dependent_teams), list(dependent_teams)))
+
+    # Sort by number of dependent teams (descending)
+    bottleneck_teams.sort(key=lambda x: x[2], reverse=True)
+    top_bottlenecks = bottleneck_teams[:3]
+
+    if top_bottlenecks:
+        print("\n" + "=" * 70)
+        print("⚠️  DELIVERY RISK: BOTTLENECK TEAMS (Top 3)")
+        print("=" * 70)
+        print("Teams that many others depend on — potential coordination bottlenecks\n")
+
+        for team, leading_count, dependent_count, dependent_list in top_bottlenecks:
+            team_display = reverse_team_mappings.get(team, team)
+            print(f"⚠️  {team_display}")
+            print(f"   Leads {leading_count} initiative{'s' if leading_count != 1 else ''}")
+            print(f"   {dependent_count} team{'s' if dependent_count != 1 else ''} depend on them:")
+
+            # Show up to 5 dependent teams
+            display_teams = [reverse_team_mappings.get(t, t) for t in dependent_list[:5]]
+            if len(dependent_list) > 5:
+                print(f"   {', '.join(display_teams)}, +{len(dependent_list) - 5} more")
+            else:
+                print(f"   {', '.join(display_teams)}")
+            print()
+
     # Data Quality section with action items
     # Count total issues
     total_issues = (
