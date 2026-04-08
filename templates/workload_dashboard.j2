@@ -983,15 +983,17 @@ ttd.textContent = grandTotal;
 
 // ─── INITIATIVES BY STRATEGIC OBJECTIVE ──────────────────────────────────────
 // Use pre-computed objectives data from Python
+// Store initiatives data for click handlers
+const objectivesInitiatives = METRICS.objectives_data.map(obj => obj.initiatives);
+
 const objectivesHTML = METRICS.objectives_data.map((objData, idx) => {
-  const inits = objData.initiatives;
   const count = objData.count;
   const objLabel = objData.label;
   const touchpoints = objData.touchpoints;
 
   return `
     <div style="padding:10px 0;border-bottom:1px solid #e2e8f0;cursor:pointer;transition:background 0.15s"
-         onclick="showModal('${objLabel.replace(/'/g, "\\'")}', ${JSON.stringify(inits).replace(/'/g, "\\'")})"
+         onclick="showModal('${objLabel.replace(/'/g, "\\'")}', objectivesInitiatives[${idx}])"
          onmouseover="this.style.background='#f7fafc'"
          onmouseout="this.style.background='white'">
       <div style="display:flex;align-items:center;gap:12px">
@@ -1000,7 +1002,7 @@ const objectivesHTML = METRICS.objectives_data.map((objData, idx) => {
         <span style="background:#edf2f7;padding:3px 10px;border-radius:4px;font-size:13px;font-weight:600;color:#2d3748">${count} initiative${count !== 1 ? 's' : ''}</span>
       </div>
       <div style="padding-left:32px;font-size:12px;color:#a0aec0;margin-top:2px">
-        ${touchpoints} total touchpoints (team-initiative pairs) · Click to see initiatives
+        ${touchpoints} total touchpoints (team-initiative pairs)
       </div>
     </div>
   `;
