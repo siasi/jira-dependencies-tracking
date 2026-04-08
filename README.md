@@ -366,6 +366,73 @@ Terminal report with four sections:
 
 See [brainstorm document](docs/brainstorms/2026-03-21-initiative-status-validation-brainstorm.md) for design decisions and approach rationale.
 
+## Validate Tech Leadership Priorities
+
+Validate team commitments to Tech Leadership initiatives and ensure teams respect relative initiative priorities. Identifies priority conflicts (teams committed to lower-priority work while skipping higher-priority initiatives) and missing commitments.
+
+```bash
+# Validate latest extraction for Q2 2026
+python validate_tech_leadership.py --quarter "26 Q2"
+
+# Validate specific file for Q2 2026
+python validate_tech_leadership.py --quarter "26 Q2" data/jira_extract_20260408.json
+
+# Use custom priority config
+python validate_tech_leadership.py --quarter "26 Q2" --config custom_priorities.yaml
+
+# Generate Slack notifications for Q2 2026
+python validate_tech_leadership.py --quarter "26 Q2" --slack
+```
+
+**Options:**
+- `--quarter "YY QN"` - **Required.** Quarter to validate (e.g., "26 Q2"). Only Tech Leadership initiatives matching this quarter will be validated.
+- `--config PATH` - Custom priority config path (default: `config/tech_leadership_priorities.yaml`)
+- `--verbose` - Include verbose output with additional details
+- `--slack` - Generate Slack bulk messages for manager notifications
+- `data_file` - Optional path to specific data file (defaults to latest extraction)
+
+**Priority Configuration:**
+
+Create `config/tech_leadership_priorities.yaml` from the `.example` file:
+
+```bash
+cp config/tech_leadership_priorities.yaml.example config/tech_leadership_priorities.yaml
+```
+
+Edit the file to list Tech Leadership initiatives in priority order (highest priority first):
+
+```yaml
+quarter: "26 Q2"
+priorities:
+  - INIT-1521  # Highest priority - Linkerd Team Adoption
+  - INIT-1483  # High priority - Edge Metrics
+  - INIT-1411  # Medium priority - Load Test Improvements
+  - INIT-1388  # Lower priority - Retry Storms Phase 3
+```
+
+**What Gets Validated:**
+
+- **Tech Leadership Initiatives:** Initiatives where `owner_team == "Tech Leadership"`
+- **Active Initiatives:** Excludes Done/Cancelled initiatives
+- **Non-Discovery:** Excludes `[Discovery]` prefixed initiatives
+- **Commitment Definition:** Team has epic(s) with ALL epics being non-red (green/yellow/amber)
+
+**Report Sections:**
+
+1. **Priority Conflicts:** Teams committed to lower-priority initiatives while skipping higher-priority ones
+2. **Missing Commitments:** Teams expected to contribute (`teams_involved`) but with no green/yellow epics
+3. **Initiative Health Dashboard:** Initiative-centric view of expected vs actual team commitments
+4. **Action Items for Managers:** Actionable checklist grouped by responsible team
+
+**Exit Codes:**
+- `0` - No priority conflicts or missing commitments
+- `1` - Conflicts or missing commitments found
+- `2` - Configuration error (missing file, invalid format)
+
+**Design Documentation:**
+
+See [brainstorm document](docs/brainstorms/2026-04-08-tech-leadership-priority-validation-brainstorm.md) and [implementation plan](docs/plans/2026-04-08-001-feat-tech-leadership-priority-validation-plan.md) for design decisions and approach rationale.
+
 ## Analyze Workload
 
 Analyze the distribution of epic work across teams to identify imbalances and ensure fair resource allocation.
