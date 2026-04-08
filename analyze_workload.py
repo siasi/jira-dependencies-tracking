@@ -1288,7 +1288,8 @@ def print_markdown_report(analysis: dict[str, Any], team_managers: dict[str, dic
 def generate_dashboard_csv(analysis: dict[str, Any], initiative_summaries: dict[str, str],
                             initiative_strategic_objectives: dict[str, str],
                             initiative_owner_teams: dict[str, str],
-                            initiative_contributing_teams: dict[str, list[str]]) -> str:
+                            initiative_contributing_teams: dict[str, list[str]],
+                            excluded_teams: list[str] = None) -> str:
     """Generate CSV data for the HTML dashboard.
 
     CSV Format:
@@ -1300,6 +1301,7 @@ def generate_dashboard_csv(analysis: dict[str, Any], initiative_summaries: dict[
         initiative_strategic_objectives: Map of initiative key to strategic objective
         initiative_owner_teams: Map of initiative key to owner team
         initiative_contributing_teams: Map of initiative key to contributing teams list
+        excluded_teams: Optional list of teams to exclude from the dashboard
 
     Returns:
         CSV string with header and data rows
@@ -1309,6 +1311,10 @@ def generate_dashboard_csv(analysis: dict[str, Any], initiative_summaries: dict[
 
     output = StringIO()
     writer = csv.writer(output)
+
+    # Default to empty list if not provided
+    if excluded_teams is None:
+        excluded_teams = []
 
     # Write header
     writer.writerow(['initiative_key', 'initiative_name', 'strategic_objective',
@@ -1325,7 +1331,14 @@ def generate_dashboard_csv(analysis: dict[str, Any], initiative_summaries: dict[
         name = initiative_summaries.get(init_key, '')
         objective = initiative_strategic_objectives.get(init_key, '')
         owner = initiative_owner_teams.get(init_key, '')
+
+        # Filter out excluded teams from owner
+        if owner in excluded_teams:
+            owner = ''
+
         contrib = initiative_contributing_teams.get(init_key, [])
+        # Filter out excluded teams from contributors (should already be filtered, but double-check)
+        contrib = [team for team in contrib if team not in excluded_teams]
         contrib_str = ','.join(contrib) if contrib else ''
 
         writer.writerow([init_key, name, objective, owner, contrib_str])
@@ -1365,7 +1378,8 @@ def generate_html_dashboard(analysis: dict[str, Any], initiative_summaries: dict
         initiative_summaries,
         initiative_strategic_objectives,
         initiative_owner_teams,
-        initiative_contributing_teams
+        initiative_contributing_teams,
+        analysis.get('excluded_teams', [])
     )
 
     # Escape special characters in CSV data to prevent breaking JavaScript template literal
@@ -1622,7 +1636,8 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
             analysis['initiative_summaries'],
             analysis['initiative_strategic_objectives'],
             analysis['initiative_owner_teams'],
-            analysis['initiative_contributing_teams']
+            analysis['initiative_contributing_teams'],
+            analysis.get('excluded_teams', [])
         )
 
         # Write to file
