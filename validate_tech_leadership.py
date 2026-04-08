@@ -297,8 +297,33 @@ def _get_team_epics_rag_statuses(
     return []
 
 
+def _get_team_epics_data(
+    initiative: Dict,
+    team_key: str
+) -> List[Dict]:
+    """Get all epic data for a team's epics in an initiative.
+
+    Args:
+        initiative: Initiative dict with contributing_teams
+        team_key: Team project key to look up
+
+    Returns:
+        List of epic dicts with rag_status and status fields
+    """
+    contributing_teams = initiative.get('contributing_teams', [])
+
+    for team in contributing_teams:
+        if team.get('team_project_key') == team_key:
+            return team.get('epics', [])
+
+    return []
+
+
 def _is_team_committed(rag_statuses: List[str]) -> bool:
     """Check if team is committed based on epic RAG statuses.
+
+    DEPRECATED: Use _is_team_committed_with_epics instead.
+    Kept for backward compatibility with existing tests.
 
     Commitment requires:
     - At least one epic exists
@@ -321,6 +346,42 @@ def _is_team_committed(rag_statuses: List[str]) -> bool:
             return False
 
     # All epics are green/yellow/amber
+    return True
+
+
+def _is_team_committed_with_epics(epics: List[Dict]) -> bool:
+    """Check if team is committed based on epic data.
+
+    Commitment requires at least one epic AND all epics must be either:
+    - Non-red RAG (green, yellow, or amber), OR
+    - Status = Done (work already completed)
+
+    A team with Done epics is considered committed even if RAG is red,
+    since they've already completed their contribution.
+
+    Args:
+        epics: List of epic dicts with 'rag_status' and 'status' fields
+
+    Returns:
+        True if committed, False otherwise
+    """
+    if not epics:
+        return False
+
+    # Check each epic - must be either non-red OR Done
+    for epic in epics:
+        rag = epic.get('rag_status')
+        status = epic.get('status', '')
+
+        # Epic is Done - work completed, counts as committed
+        if status == 'Done':
+            continue
+
+        # Epic is not Done - must have non-red RAG
+        if rag is None or rag == '🔴':
+            return False
+
+    # All epics are either non-red OR Done
     return True
 
 
@@ -372,9 +433,10 @@ def _build_commitment_matrix(
             if matrix[team_key]['team_display'] is None:
                 matrix[team_key]['team_display'] = team_display
 
-            # Get RAG statuses
-            rag_statuses = _get_team_epics_rag_statuses(initiative, team_key)
-            is_committed = _is_team_committed(rag_statuses)
+            # Get epic data
+            epics = _get_team_epics_data(initiative, team_key)
+            rag_statuses = [epic.get('rag_status') for epic in epics]
+            is_committed = _is_team_committed_with_epics(epics)
 
             # Add to expected initiatives
             matrix[team_key]['expected_initiatives'].append({
@@ -527,9 +589,10 @@ def _build_initiative_health(
 
         for team_display in teams_involved:
             team_key = team_mappings.get(team_display, team_display)
-            rag_statuses = _get_team_epics_rag_statuses(initiative, team_key)
+            epics = _get_team_epics_data(initiative, team_key)
+            rag_statuses = [epic.get('rag_status') for epic in epics]
 
-            if _is_team_committed(rag_statuses):
+            if _is_team_committed_with_epics(epics):
                 committed.append({
                     'team': team_display,
                     'rag_statuses': rag_statuses

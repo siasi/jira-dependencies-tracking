@@ -12,7 +12,9 @@ from validate_tech_leadership import (
     _is_active_initiative,
     _normalize_teams_involved,
     _get_team_epics_rag_statuses,
+    _get_team_epics_data,
     _is_team_committed,
+    _is_team_committed_with_epics,
     _build_commitment_matrix,
     _detect_priority_conflicts,
     _detect_missing_commitments,
@@ -225,6 +227,77 @@ def test_is_team_committed_all_non_red():
 
     # One None fails
     assert _is_team_committed(["🟢", "🟡", None]) is False
+
+
+def test_is_team_committed_with_epics_done_status():
+    """Test commitment with Done epics (work already completed)."""
+    # Epic with Done status counts as committed, even if RAG is red
+    assert _is_team_committed_with_epics([
+        {"rag_status": "🔴", "status": "Done"}
+    ]) is True
+
+    # Epic with Done status and green RAG
+    assert _is_team_committed_with_epics([
+        {"rag_status": "🟢", "status": "Done"}
+    ]) is True
+
+    # Mix of Done and active green epics
+    assert _is_team_committed_with_epics([
+        {"rag_status": "🟢", "status": "Done"},
+        {"rag_status": "🟢", "status": "In Progress"}
+    ]) is True
+
+    # Done epic with red RAG is OK (already completed)
+    assert _is_team_committed_with_epics([
+        {"rag_status": "🔴", "status": "Done"}
+    ]) is True
+
+
+def test_is_team_committed_with_epics_active_must_be_non_red():
+    """Test active (non-Done) epics must still be non-red."""
+    # Active red epic - not committed
+    assert _is_team_committed_with_epics([
+        {"rag_status": "🔴", "status": "In Progress"}
+    ]) is False
+
+    # Mix of Done and active red - not committed (active is red)
+    assert _is_team_committed_with_epics([
+        {"rag_status": "🟢", "status": "Done"},
+        {"rag_status": "🔴", "status": "In Progress"}
+    ]) is False
+
+    # All Done - committed
+    assert _is_team_committed_with_epics([
+        {"rag_status": "🔴", "status": "Done"},
+        {"rag_status": "🔴", "status": "Done"}
+    ]) is True
+
+
+def test_is_team_committed_with_epics_no_epics():
+    """Test not committed when no epics."""
+    assert _is_team_committed_with_epics([]) is False
+
+
+def test_get_team_epics_data():
+    """Test extracting full epic data for a team."""
+    initiative = {
+        "contributing_teams": [
+            {
+                "team_project_key": "TEAM1",
+                "epics": [
+                    {"key": "TEAM1-1", "rag_status": "🟢", "status": "In Progress"},
+                    {"key": "TEAM1-2", "rag_status": "🔴", "status": "Done"}
+                ]
+            }
+        ]
+    }
+
+    epics = _get_team_epics_data(initiative, "TEAM1")
+    assert len(epics) == 2
+    assert epics[0]["key"] == "TEAM1-1"
+    assert epics[0]["status"] == "In Progress"
+    assert epics[1]["key"] == "TEAM1-2"
+    assert epics[1]["status"] == "Done"
 
 
 # ============================================================================
