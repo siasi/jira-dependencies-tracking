@@ -1,7 +1,7 @@
 ---
 title: Tech Leadership Initiative Priority Validation
 type: feat
-status: active
+status: completed
 date: 2026-04-08
 origin: docs/brainstorms/2026-04-08-tech-leadership-priority-validation-brainstorm.md
 ---
