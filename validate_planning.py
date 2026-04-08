@@ -23,7 +23,7 @@ import sys
 import yaml
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Set
+from typing import Any, Optional
 
 from lib.common_formatting import make_clickable_link
 from lib.config_utils import get_jira_base_url
@@ -35,16 +35,16 @@ class ValidationResult:
 
     def __init__(self):
         # Section 1: Dependency Mapping in Progress
-        self.dependency_mapping: List[Dict[str, Any]] = []
+        self.dependency_mapping: list[dict[str, Any]] = []
         # Section 2: No/Low confidence for completion - require discussion
-        self.low_confidence_completion: List[Dict[str, Any]] = []
+        self.low_confidence_completion: list[dict[str, Any]] = []
         # Section 3: Ready to Move to Planned
-        self.ready_to_plan: List[Dict[str, Any]] = []
+        self.ready_to_plan: list[dict[str, Any]] = []
         # Section 4: Planned/In Progress for the Quarter (healthy initiatives)
-        self.planned_for_quarter: List[Dict[str, Any]] = []
+        self.planned_for_quarter: list[dict[str, Any]] = []
         # Additional sections (verbose only)
-        self.planned_regressions: List[Dict[str, Any]] = []
-        self.ignored_statuses: List[Dict[str, Any]] = []
+        self.planned_regressions: list[dict[str, Any]] = []
+        self.ignored_statuses: list[dict[str, Any]] = []
         # Metadata
         self.quarter: Optional[str] = None
         self.total_checked = 0
@@ -71,7 +71,7 @@ def _is_discovery_initiative(initiative: dict) -> bool:
     return summary.startswith('[Discovery]')
 
 
-def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
+def _check_data_quality(initiative: dict) -> Optional[list[dict[str, Any]]]:
     """Check for data quality blockers.
 
     Args:
@@ -189,7 +189,7 @@ def _check_data_quality(initiative: dict) -> Optional[List[Dict[str, Any]]]:
     return issues if issues else None
 
 
-def _has_red_epics(initiative: dict) -> Optional[List[Dict[str, Any]]]:
+def _has_red_epics(initiative: dict) -> Optional[list[dict[str, Any]]]:
     """Check if initiative has RED epics (skip owner team and exempt teams).
 
     Args:
@@ -230,7 +230,7 @@ def _has_red_epics(initiative: dict) -> Optional[List[Dict[str, Any]]]:
     return red_epics if red_epics else None
 
 
-def _has_yellow_epics(initiative: dict) -> Optional[List[Dict[str, Any]]]:
+def _has_yellow_epics(initiative: dict) -> Optional[list[dict[str, Any]]]:
     """Check if initiative has YELLOW epics (skip owner team and exempt teams).
 
     Args:
@@ -356,7 +356,7 @@ def _is_ready_to_plan(initiative: dict) -> bool:
     return True
 
 
-def _load_team_mappings() -> Dict[str, str]:
+def _load_team_mappings() -> dict[str, str]:
     """Load team name mappings from team_mappings.yaml.
 
     Returns:
@@ -374,7 +374,7 @@ def _load_team_mappings() -> Dict[str, str]:
         return {}
 
 
-def _load_team_managers() -> Dict[str, Dict[str, Optional[str]]]:
+def _load_team_managers() -> dict[str, dict[str, Optional[str]]]:
     """Load team managers with Notion handles and Slack IDs.
 
     Returns:
@@ -418,7 +418,7 @@ def _load_team_managers() -> Dict[str, Dict[str, Optional[str]]]:
         return {}
 
 
-def _validate_slack_config(team_managers: Dict[str, Dict]) -> None:
+def _validate_slack_config(team_managers: dict[str, dict[str, Any]]) -> None:
     """Validate all teams have Slack IDs for Slack messaging.
 
     Args:
@@ -438,7 +438,7 @@ def _validate_slack_config(team_managers: Dict[str, Dict]) -> None:
         )
 
 
-def _load_teams_exempt_from_rag() -> List[str]:
+def _load_teams_exempt_from_rag() -> list[str]:
     """Load list of teams exempt from RAG status checking.
 
     Returns:
@@ -458,7 +458,7 @@ def _load_teams_exempt_from_rag() -> List[str]:
         return []
 
 
-def _load_teams_excluded_from_analysis() -> List[str]:
+def _load_teams_excluded_from_analysis() -> list[str]:
     """Load list of teams to exclude from validation checks.
 
     Returns:
@@ -482,7 +482,7 @@ def _load_teams_excluded_from_analysis() -> List[str]:
         return []
 
 
-def _load_signed_off_initiatives() -> Set[str]:
+def _load_signed_off_initiatives() -> set[str]:
     """Load list of initiative keys that have manager sign-off.
 
     Signed-off initiatives are completely excluded from validation reports
@@ -521,7 +521,7 @@ def _load_signed_off_initiatives() -> Set[str]:
         sys.exit(2)
 
 
-def _load_valid_strategic_objectives() -> List[str]:
+def _load_valid_strategic_objectives() -> list[str]:
     """Load valid strategic objective values from config/jira_config.yaml.
 
     Returns:
@@ -540,7 +540,7 @@ def _load_valid_strategic_objectives() -> List[str]:
         return []
 
 
-def _normalize_teams_involved(teams_involved: Any) -> List[str]:
+def _normalize_teams_involved(teams_involved: Any) -> list[str]:
     """Normalize teams_involved field to a list.
 
     Handles multiple formats:
@@ -581,7 +581,7 @@ def _count_teams_involved(teams_involved: Any) -> int:
     return len(_normalize_teams_involved(teams_involved))
 
 
-def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
+def extract_manager_actions(result: ValidationResult) -> list[dict[str, Any]]:
     """Extract action items from ValidationResult into flat, annotated list.
 
     This function flattens the hierarchical ValidationResult into a list of
@@ -647,7 +647,7 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
 
     # Helper to build base initiative context
     jira_base_url = get_jira_base_url()
-    def _base_context(initiative: Dict, section: str) -> Dict:
+    def _base_context(initiative: dict[str, Any], section: str) -> dict[str, Any]:
         return {
             'initiative_key': initiative['key'],
             'initiative_title': initiative['summary'],
@@ -657,7 +657,7 @@ def extract_manager_actions(result: ValidationResult) -> List[Dict[str, Any]]:
         }
 
     # Helper to add manager info
-    def _add_manager_info(action: Dict, team_key: str, team_display: str) -> Dict:
+    def _add_manager_info(action: dict[str, Any], team_key: str, team_display: str) -> dict[str, Any]:
         manager_info = team_managers.get(team_key, {})
         action['responsible_team'] = team_display
         action['responsible_team_key'] = team_key

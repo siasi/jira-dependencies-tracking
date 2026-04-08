@@ -9,7 +9,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any
 from collections import defaultdict
 from datetime import datetime
 import yaml
@@ -17,8 +17,11 @@ import yaml
 from lib.common_formatting import make_clickable_link
 from lib.config_utils import get_jira_base_url
 
+# Constants
+DISCOVERY_PREFIX = '[Discovery]'
 
-def load_team_mappings() -> Tuple[Dict[str, str], List[str], Dict[str, str], Dict[str, Dict[str, str]], Dict[str, str]]:
+
+def load_team_mappings() -> tuple[dict[str, str], list[str], dict[str, str], dict[str, dict[str, str]], dict[str, str]]:
     """Load team mappings, exclusions, strategic objective mappings, and team managers from team_mappings.yaml.
 
     Returns:
@@ -75,20 +78,20 @@ def load_team_mappings() -> Tuple[Dict[str, str], List[str], Dict[str, str], Dic
         return {}, [], {}, {}, {}
 
 
-def is_discovery_initiative(initiative: Dict) -> bool:
+def is_discovery_initiative(initiative: dict[str, Any]) -> bool:
     """Check if an initiative is a discovery initiative.
 
-    Discovery initiatives (prefixed with [Discovery]) are exempt from
+    Discovery initiatives (prefixed with {DISCOVERY_PREFIX}) are exempt from
     certain validation checks like missing epics.
 
     Args:
         initiative: Initiative dict with 'summary' field
 
     Returns:
-        True if summary starts with "[Discovery]", False otherwise
+        True if summary starts with DISCOVERY_PREFIX, False otherwise
     """
     summary = initiative.get('summary', '')
-    return summary.startswith('[Discovery]')
+    return summary.startswith(DISCOVERY_PREFIX)
 
 
 def get_rag_circle(rag_status: str) -> str:
@@ -114,7 +117,7 @@ def get_rag_circle(rag_status: str) -> str:
     return rag_map.get(rag_status, '🔴')
 
 
-def aggregate_rag_status(rag_statuses: List[str]) -> str:
+def aggregate_rag_status(rag_statuses: list[str]) -> str:
     """Aggregate multiple RAG statuses into a single status.
 
     Rules:
@@ -154,7 +157,7 @@ def aggregate_rag_status(rag_statuses: List[str]) -> str:
         return '🟢'
 
 
-def normalize_team_name(team_name: str, team_mappings: Dict[str, str]) -> str:
+def normalize_team_name(team_name: str, team_mappings: dict[str, str]) -> str:
     """Normalize team name using team_mappings.
 
     Args:
@@ -169,7 +172,7 @@ def normalize_team_name(team_name: str, team_mappings: Dict[str, str]) -> str:
     return team_mappings.get(team_name, team_name)
 
 
-def load_valid_strategic_objectives() -> List[str]:
+def load_valid_strategic_objectives() -> list[str]:
     """Load valid strategic objective values from config/jira_config.yaml.
 
     Returns:
@@ -188,7 +191,7 @@ def load_valid_strategic_objectives() -> List[str]:
         return []
 
 
-def normalize_teams_involved(teams_involved: Any) -> List[str]:
+def normalize_teams_involved(teams_involved: Any) -> list[str]:
     """Normalize teams_involved field to a list.
 
     Handles multiple formats:
@@ -217,8 +220,8 @@ def normalize_teams_involved(teams_involved: Any) -> List[str]:
     return []
 
 
-def analyze_workload(json_file: Path, team_mappings: Dict[str, str], excluded_teams: List[str],
-                     strategic_objective_mappings: Dict[str, str], quarter: str) -> Dict:
+def analyze_workload(json_file: Path, team_mappings: dict[str, str], excluded_teams: list[str],
+                     strategic_objective_mappings: dict[str, str], quarter: str) -> dict[str, Any]:
     """Analyze team workload from extraction data.
 
     Args:
@@ -514,8 +517,8 @@ def find_latest_extract() -> Path:
     return max(all_files, key=lambda p: p.stat().st_mtime)
 
 
-def extract_workload_actions(analysis: Dict, team_managers: Dict[str, Dict[str, str]],
-                             reverse_team_mappings: Dict[str, str]) -> List[Dict[str, Any]]:
+def extract_workload_actions(analysis: dict[str, Any], team_managers: dict[str, dict[str, str]],
+                             reverse_team_mappings: dict[str, str]) -> list[dict[str, Any]]:
     """Extract action items from workload analysis data quality issues.
 
     This function flattens the data quality issues into a list of
@@ -572,7 +575,7 @@ def extract_workload_actions(analysis: Dict, team_managers: Dict[str, Dict[str, 
 
     # Helper to build base initiative context
     jira_base_url = get_jira_base_url()
-    def _base_context(initiative: Dict, section: str) -> Dict:
+    def _base_context(initiative: dict[str, Any], section: str) -> dict[str, Any]:
         return {
             'initiative_key': initiative['key'],
             'initiative_title': initiative['summary'],
@@ -582,7 +585,7 @@ def extract_workload_actions(analysis: Dict, team_managers: Dict[str, Dict[str, 
         }
 
     # Helper to add manager info
-    def _add_manager_info(action: Dict, team_key: str, team_display: str) -> Dict:
+    def _add_manager_info(action: dict[str, Any], team_key: str, team_display: str) -> dict[str, Any]:
         manager_info = team_managers.get(team_key, {})
         action['responsible_team'] = team_display
         action['responsible_team_key'] = team_key
@@ -688,8 +691,8 @@ def extract_workload_actions(analysis: Dict, team_managers: Dict[str, Dict[str, 
     return actions
 
 
-def generate_workload_slack_messages(analysis: Dict, team_managers: Dict[str, Dict[str, str]],
-                                     reverse_team_mappings: Dict[str, str], output_dir: Path) -> None:
+def generate_workload_slack_messages(analysis: dict[str, Any], team_managers: dict[str, dict[str, str]],
+                                     reverse_team_mappings: dict[str, str], output_dir: Path) -> None:
     """Generate Slack-compatible bulk messages for workload quality action items.
 
     Extracts action items from workload analysis, groups by manager,
@@ -709,7 +712,7 @@ def generate_workload_slack_messages(analysis: Dict, team_managers: Dict[str, Di
     from lib.template_renderer import get_template_environment
 
     # Validate configuration
-    def _validate_slack_config(team_managers: Dict[str, Dict]) -> None:
+    def _validate_slack_config(team_managers: dict[str, dict[str, Any]]) -> None:
         """Validate all teams have slack_id configured."""
         missing_slack_ids = []
         for team_key, info in team_managers.items():
@@ -858,8 +861,8 @@ def generate_workload_slack_messages(analysis: Dict, team_managers: Dict[str, Di
             print(f"  - Teams not in team_managers.yaml: {', '.join(sorted(teams_without_slack))}")
 
 
-def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str]] = None,
-                         reverse_team_mappings: Dict[str, str] = None, verbose: bool = False,
+def print_workload_report(analysis: dict[str, Any], team_managers: dict[str, dict[str, str]] = None,
+                         reverse_team_mappings: dict[str, str] = None, verbose: bool = False,
                          show_quality: bool = False) -> None:
     """Print workload analysis report to console.
 
@@ -1077,8 +1080,8 @@ def print_workload_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
     print("\n" + "=" * 70 + "\n")
 
 
-def print_markdown_report(analysis: Dict, team_managers: Dict[str, Dict[str, str]] = None,
-                          reverse_team_mappings: Dict[str, str] = None) -> None:
+def print_markdown_report(analysis: dict[str, Any], team_managers: dict[str, dict[str, str]] = None,
+                          reverse_team_mappings: dict[str, str] = None) -> None:
     """Print workload analysis report in markdown format.
 
     Args:
@@ -1282,10 +1285,10 @@ def print_markdown_report(analysis: Dict, team_managers: Dict[str, Dict[str, str
         print("✓ All strategic objectives are valid\n")
 
 
-def generate_dashboard_csv(analysis: Dict, initiative_summaries: Dict[str, str],
-                            initiative_strategic_objectives: Dict[str, str],
-                            initiative_owner_teams: Dict[str, str],
-                            initiative_contributing_teams: Dict[str, List[str]]) -> str:
+def generate_dashboard_csv(analysis: dict[str, Any], initiative_summaries: dict[str, str],
+                            initiative_strategic_objectives: dict[str, str],
+                            initiative_owner_teams: dict[str, str],
+                            initiative_contributing_teams: dict[str, list[str]]) -> str:
     """Generate CSV data for the HTML dashboard.
 
     CSV Format:
@@ -1330,14 +1333,14 @@ def generate_dashboard_csv(analysis: Dict, initiative_summaries: Dict[str, str],
     return output.getvalue()
 
 
-def generate_html_dashboard(analysis: Dict, initiative_summaries: Dict[str, str],
-                             initiative_urls: Dict[str, str],
-                             initiative_strategic_objectives: Dict[str, str],
-                             initiative_owner_teams: Dict[str, str],
-                             initiative_contributing_teams: Dict[str, List[str]],
+def generate_html_dashboard(analysis: dict[str, Any], initiative_summaries: dict[str, str],
+                             initiative_urls: dict[str, str],
+                             initiative_strategic_objectives: dict[str, str],
+                             initiative_owner_teams: dict[str, str],
+                             initiative_contributing_teams: dict[str, list[str]],
                              output_file: Path,
                              json_file: Path,
-                             reverse_team_mappings: Dict[str, str] = None) -> None:
+                             reverse_team_mappings: dict[str, str] = None) -> None:
     """Generate interactive HTML dashboard for workload analysis.
 
     Args:

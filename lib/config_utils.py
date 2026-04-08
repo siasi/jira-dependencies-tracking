@@ -1,8 +1,11 @@
 """Configuration utilities for accessing environment and config file settings."""
 
+import logging
 import os
 from pathlib import Path
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 def get_jira_base_url() -> str:
@@ -33,8 +36,8 @@ def get_jira_base_url() -> str:
                     if not base.startswith('http'):
                         base = f'https://{base}'
                     return base
-        except Exception:
-            pass
+        except (yaml.YAMLError, OSError, KeyError) as e:
+            logger.debug(f"Failed to load Jira URL from config: {e}")
 
     # Fallback to generic placeholder for safety
     return 'https://your-company.atlassian.net'
