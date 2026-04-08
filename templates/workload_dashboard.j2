@@ -666,6 +666,8 @@ document.getElementById('bottleneck-list').innerHTML = bottleneckHTML;
 // ─── WORK TYPE DISTRIBUTION CHART (Engineering vs Product) ───────────────────
 // Use server-calculated work type stats instead of calculating client-side
 const teamWorkType = {};
+const teamWorkTypeLists = {}; // Track actual initiatives for click handler
+
 allTeams.forEach(team => {
   const stats = TEAM_WORK_TYPE_STATS[team];
   if (stats) {
@@ -677,6 +679,43 @@ allTeams.forEach(team => {
     // Fallback for teams without stats
     teamWorkType[team] = { engineering: 0, product: 0 };
   }
+
+  // Build lists of initiatives by work type for this team
+  const engineeringList = [];
+  const productList = [];
+
+  // Add leading initiatives
+  const leadingInits = teamLeading[team]?.list || [];
+  leadingInits.forEach(init => {
+    const initData = initiatives.find(row => row.initiative_key === init.key);
+    if (initData) {
+      const obj = initData.strategic_objective || '';
+      if (obj === 'engineering_pillars') {
+        engineeringList.push(init);
+      } else {
+        productList.push(init);
+      }
+    }
+  });
+
+  // Add contributing initiatives
+  const contribInits = teamContrib[team]?.list || [];
+  contribInits.forEach(init => {
+    const initData = initiatives.find(row => row.initiative_key === init.key);
+    if (initData) {
+      const obj = initData.strategic_objective || '';
+      if (obj === 'engineering_pillars') {
+        engineeringList.push(init);
+      } else {
+        productList.push(init);
+      }
+    }
+  });
+
+  teamWorkTypeLists[team] = {
+    engineering: engineeringList,
+    product: productList
+  };
 });
 
 // Sort teams by total initiatives for consistent ordering
@@ -708,6 +747,21 @@ new Chart(workTypeCtx, {
     indexAxis: 'y',
     responsive: true,
     maintainAspectRatio: false,
+    onHover: (event, elements) => {
+      event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+    },
+    onClick: (event, elements) => {
+      if (!elements.length) return;
+      const el = elements[0];
+      const team = sortedTeamsForWorkType[el.index];
+      const teamName = getTeamName(team);
+      const isEngineering = el.datasetIndex === 0;
+      const list = isEngineering
+        ? (teamWorkTypeLists[team]?.engineering || [])
+        : (teamWorkTypeLists[team]?.product || []);
+      const workType = isEngineering ? 'Engineering' : 'Product';
+      showModal(`${teamName} · ${workType}`, list);
+    },
     plugins: {
       legend: { position: 'top', labels: { font: { size: 12 }, padding: 16 } },
       tooltip: {
@@ -718,7 +772,7 @@ new Chart(workTypeCtx, {
             const prod = teamWorkType[teamKey]?.product || 0;
             const total = eng + prod;
             const engPct = total > 0 ? Math.round(eng / total * 100) : 0;
-            return [`─────────────`, `Total: ${total}   Engineering: ${engPct}%`];
+            return [`─────────────`, `Total: ${total}   Engineering: ${engPct}%  · Click to see list`];
           }
         }
       }
