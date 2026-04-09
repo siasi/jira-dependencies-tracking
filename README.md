@@ -368,7 +368,7 @@ See [brainstorm document](docs/brainstorms/2026-03-21-initiative-status-validati
 
 ## Validate Tech Leadership Priorities
 
-Validate team commitments to Tech Leadership initiatives and ensure teams respect relative initiative priorities. Identifies priority conflicts (teams committed to lower-priority work while skipping higher-priority initiatives) and missing commitments.
+Validate team commitments to strategically prioritized initiatives and ensure teams respect relative initiative priorities. Identifies priority conflicts (teams committed to lower-priority work while skipping higher-priority initiatives) and missing commitments.
 
 ```bash
 # Validate latest extraction for Q2 2026
@@ -412,10 +412,12 @@ priorities:
 
 **What Gets Validated:**
 
-- **Tech Leadership Initiatives:** Initiatives where `owner_team == "Tech Leadership"`
+- **Configured Initiatives:** Only initiatives listed in the priority config file
 - **Active Initiatives:** Excludes Done/Cancelled initiatives
 - **Non-Discovery:** Excludes `[Discovery]` prefixed initiatives
-- **Commitment Definition:** Team has epic(s) with ALL epics being non-red (green/yellow/amber)
+- **Commitment Definition:** Team has epic(s) with ALL epics being either:
+  - Non-red RAG (green/yellow/amber), OR
+  - Status = Done (work already completed)
 
 **Report Sections:**
 

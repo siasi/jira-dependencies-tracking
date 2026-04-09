@@ -10,10 +10,10 @@ Tech Leadership Priority Validation Report
 ================================================================================
 Quarter: {{ result.metadata.quarter }}
 Data Source: {{ data_file }}
-Tech Leadership Initiatives: {{ result.metadata.total_tech_leadership }}
+Total Initiatives: {{ result.metadata.total_initiatives }}
 Active (non-Done/Cancelled): {{ result.metadata.active_initiatives }}
-Validated (non-Discovery): {{ result.metadata.validated_initiatives }}
-Priorities Configured: {{ result.metadata.priorities_count }}
+Configured in Priorities: {{ result.metadata.priorities_count }}
+Validated (non-Discovery, in config): {{ result.metadata.validated_initiatives }}
 Teams Analyzed: {{ result.metadata.teams_analyzed }}
 
 {% if result.metadata.missing_from_data %}

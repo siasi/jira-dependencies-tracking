@@ -685,42 +685,43 @@ def validate_tech_leadership(
     # Load team mappings
     team_mappings, reverse_team_mappings, excluded_teams = _load_team_mappings()
 
-    # Filter to Tech Leadership initiatives
-    tech_leadership_initiatives = [
-        init for init in initiatives
-        if _is_tech_leadership_initiative(init)
-    ]
-    logger.info(f"Found {len(tech_leadership_initiatives)} Tech Leadership initiatives")
-
     # Filter to active (not Done/Cancelled)
     active_initiatives = [
-        init for init in tech_leadership_initiatives
+        init for init in initiatives
         if _is_active_initiative(init)
     ]
-    logger.info(f"Found {len(active_initiatives)} active Tech Leadership initiatives")
+    logger.info(f"Found {len(active_initiatives)} active initiatives")
 
     # Filter out Discovery initiatives
     non_discovery = [
         init for init in active_initiatives
         if not _is_discovery_initiative(init)
     ]
-    logger.info(f"Found {len(non_discovery)} non-Discovery Tech Leadership initiatives")
+    logger.info(f"Found {len(non_discovery)} non-Discovery initiatives")
+
+    # Filter to only initiatives in priority config
+    priority_set = set(priorities)
+    configured_initiatives = [
+        init for init in non_discovery
+        if init['key'] in priority_set
+    ]
+    logger.info(f"Found {len(configured_initiatives)} initiatives in priority config")
 
     # Check data quality
-    quality_issues = _check_data_quality(non_discovery, priorities)
+    quality_issues = _check_data_quality(configured_initiatives, priorities)
 
-    # Warn about initiatives in config but not found
-    found_keys = {init['key'] for init in non_discovery}
+    # Warn about initiatives in config but not found in data (or filtered out)
+    found_keys = {init['key'] for init in configured_initiatives}
     missing_from_data = [key for key in priorities if key not in found_keys]
     if missing_from_data:
         logger.warning(
-            f"Priority config includes {len(missing_from_data)} initiatives not found in quarter data: "
+            f"Priority config includes {len(missing_from_data)} initiatives not found or filtered out: "
             f"{', '.join(missing_from_data)}"
         )
 
     # Build commitment matrix
     commitment_matrix = _build_commitment_matrix(
-        non_discovery,
+        configured_initiatives,
         priorities,
         team_mappings,
         reverse_team_mappings
@@ -734,7 +735,7 @@ def validate_tech_leadership(
 
     # Build initiative health
     initiative_health = _build_initiative_health(
-        non_discovery,
+        configured_initiatives,
         priorities,
         team_mappings
     )
@@ -748,9 +749,9 @@ def validate_tech_leadership(
         unlisted_initiatives=quality_issues['unlisted_initiatives'],
         metadata={
             'quarter': quarter,
-            'total_tech_leadership': len(tech_leadership_initiatives),
+            'total_initiatives': len(initiatives),
             'active_initiatives': len(active_initiatives),
-            'validated_initiatives': len(non_discovery),
+            'validated_initiatives': len(configured_initiatives),
             'priorities_count': len(priorities),
             'teams_analyzed': len(commitment_matrix),
             'missing_from_data': missing_from_data

@@ -804,9 +804,9 @@ team_mappings:
 
     # Assertions
     assert result.metadata["quarter"] == "26 Q2"
-    assert result.metadata["total_tech_leadership"] == 4
+    assert result.metadata["total_initiatives"] == 4
     assert result.metadata["active_initiatives"] == 3  # Excludes Done
-    assert result.metadata["validated_initiatives"] == 2  # Excludes Done and Discovery
+    assert result.metadata["validated_initiatives"] == 2  # Excludes Done and Discovery, only configured initiatives
 
     # Priority conflict: Team A committed to INIT-2 (priority #2) but not INIT-1 (priority #1)
     assert len(result.priority_conflicts) == 1
