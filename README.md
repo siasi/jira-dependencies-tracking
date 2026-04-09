@@ -371,21 +371,20 @@ See [brainstorm document](docs/brainstorms/2026-03-21-initiative-status-validati
 Validate team commitments to strategically prioritized initiatives and ensure teams respect relative initiative priorities. Identifies priority conflicts (teams committed to lower-priority work while skipping higher-priority initiatives) and missing commitments.
 
 ```bash
-# Validate latest extraction for Q2 2026
-python validate_tech_leadership.py --quarter "26 Q2"
+# Validate latest extraction
+python validate_tech_leadership.py
 
-# Validate specific file for Q2 2026
-python validate_tech_leadership.py --quarter "26 Q2" data/jira_extract_20260408.json
+# Validate specific file
+python validate_tech_leadership.py data/jira_extract_20260408.json
 
 # Use custom priority config
-python validate_tech_leadership.py --quarter "26 Q2" --config custom_priorities.yaml
+python validate_tech_leadership.py --config custom_priorities.yaml
 
-# Generate Slack notifications for Q2 2026
-python validate_tech_leadership.py --quarter "26 Q2" --slack
+# Generate Slack notifications
+python validate_tech_leadership.py --slack
 ```
 
 **Options:**
-- `--quarter "YY QN"` - **Required.** Quarter to validate (e.g., "26 Q2"). Only Tech Leadership initiatives matching this quarter will be validated.
 - `--config PATH` - Custom priority config path (default: `config/tech_leadership_priorities.yaml`)
 - `--verbose` - Include verbose output with additional details
 - `--slack` - Generate Slack bulk messages for manager notifications
@@ -399,10 +398,9 @@ Create `config/tech_leadership_priorities.yaml` from the `.example` file:
 cp config/tech_leadership_priorities.yaml.example config/tech_leadership_priorities.yaml
 ```
 
-Edit the file to list Tech Leadership initiatives in priority order (highest priority first):
+Edit the file to list initiatives in priority order (highest priority first):
 
 ```yaml
-quarter: "26 Q2"
 priorities:
   - INIT-1521  # Highest priority - Linkerd Team Adoption
   - INIT-1483  # High priority - Edge Metrics

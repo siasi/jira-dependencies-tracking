@@ -1,17 +1,14 @@
 # Tech Leadership Initiative Priorities
 # Listed in priority order (first = highest priority)
 #
-# This file defines the relative priorities of Tech Leadership initiatives
-# for validation purposes. Teams committing to lower-priority initiatives
-# while skipping higher-priority ones will be flagged.
+# This file defines the relative priorities of strategically important
+# initiatives for validation purposes. Teams committing to lower-priority
+# initiatives while skipping higher-priority ones will be flagged.
 #
 # Instructions:
 # 1. Copy this file to tech_leadership_priorities.yaml (gitignored)
-# 2. Update quarter to match your current planning cycle
-# 3. List initiative keys in priority order (highest first)
-# 4. Run: python validate_tech_leadership.py --quarter "26 Q2"
-
-quarter: "26 Q2"
+# 2. List initiative keys in priority order (highest first)
+# 3. Run: python validate_tech_leadership.py
 
 priorities:
   - INIT-1234  # Highest priority - critical infrastructure work
@@ -21,7 +18,7 @@ priorities:
   # Add more initiatives as needed
 
 # Notes:
+# - Only initiatives in this list will be validated
 # - Discovery initiatives (prefix [Discovery]) are automatically excluded
 # - Done/Cancelled initiatives are automatically filtered out
-# - Initiatives not in this list will be flagged as "unlisted" in report
-# - All epics must be non-red (green/yellow/amber) for team to be "committed"
+# - Epics with status=Done OR non-red RAG count as committed

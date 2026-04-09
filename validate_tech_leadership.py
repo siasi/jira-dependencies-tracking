@@ -58,20 +58,18 @@ class TechLeadershipResult:
 
 
 def _load_tech_leadership_priorities(
-    config_path: Optional[Path] = None,
-    quarter: Optional[str] = None
+    config_path: Optional[Path] = None
 ) -> Dict[str, Any]:
     """Load and validate Tech Leadership priorities config.
 
     Args:
         config_path: Optional custom config path
-        quarter: Required quarter to validate against config
 
     Returns:
-        Dict with 'quarter' and 'priorities' (ordered list)
+        Dict with 'priorities' (ordered list)
 
     Raises:
-        ValueError: If config missing, invalid, or quarter mismatch
+        ValueError: If config missing, invalid
     """
     if config_path is None:
         config_path = Path(__file__).parent / 'config' / 'tech_leadership_priorities.yaml'
@@ -98,14 +96,6 @@ def _load_tech_leadership_priorities(
     priorities = config['priorities']
     if not isinstance(priorities, list) or len(priorities) == 0:
         raise ValueError("'priorities' must be a non-empty list of initiative keys")
-
-    # Validate quarter match (warning only)
-    config_quarter = config.get('quarter')
-    if quarter and config_quarter and config_quarter != quarter:
-        logger.warning(
-            f"Priority config quarter ({config_quarter}) doesn't match "
-            f"requested quarter ({quarter}). Proceeding with config priorities."
-        )
 
     return config
 
@@ -653,14 +643,12 @@ def _check_data_quality(
 
 def validate_tech_leadership(
     data_file: Path,
-    quarter: str,
     config_path: Optional[Path] = None
 ) -> TechLeadershipResult:
     """Validate Tech Leadership initiative priorities and team commitments.
 
     Args:
         data_file: Path to JSON extraction or snapshot file
-        quarter: Quarter to validate (e.g., "26 Q2")
         config_path: Optional custom priority config path
 
     Returns:
@@ -670,10 +658,10 @@ def validate_tech_leadership(
         ValueError: If config invalid or missing
     """
     # Load priority config
-    priority_config = _load_tech_leadership_priorities(config_path, quarter)
+    priority_config = _load_tech_leadership_priorities(config_path)
     priorities = priority_config['priorities']
 
-    logger.info(f"Loaded {len(priorities)} Tech Leadership priorities for quarter {quarter}")
+    logger.info(f"Loaded {len(priorities)} priorities from config")
 
     # Load data
     with open(data_file, 'r', encoding='utf-8') as f:
@@ -748,7 +736,6 @@ def validate_tech_leadership(
         data_quality_issues=quality_issues['missing_teams_involved'],
         unlisted_initiatives=quality_issues['unlisted_initiatives'],
         metadata={
-            'quarter': quarter,
             'total_initiatives': len(initiatives),
             'active_initiatives': len(active_initiatives),
             'validated_initiatives': len(configured_initiatives),
@@ -1003,11 +990,6 @@ def generate_tech_leadership_slack_messages(
 
 @click.command()
 @click.option(
-    '--quarter',
-    required=True,
-    help='Quarter to validate (e.g., "26 Q2")'
-)
-@click.option(
     '--config',
     type=click.Path(exists=True),
     help='Custom priority config path (default: config/tech_leadership_priorities.yaml)'
@@ -1027,7 +1009,7 @@ def generate_tech_leadership_slack_messages(
     type=click.Path(exists=True),
     required=False
 )
-def main(quarter: str, config: Optional[str], slack: bool, verbose: bool, data_file: Optional[str]):
+def main(config: Optional[str], slack: bool, verbose: bool, data_file: Optional[str]):
     """Validate Tech Leadership initiative priorities and team commitments.
 
     Detects priority conflicts (teams committed to lower-priority initiatives
@@ -1036,17 +1018,17 @@ def main(quarter: str, config: Optional[str], slack: bool, verbose: bool, data_f
 
     Examples:
 
-        # Validate current quarter using latest extraction
-        python validate_tech_leadership.py --quarter "26 Q2"
+        # Validate using latest extraction
+        python validate_tech_leadership.py
 
         # Generate Slack messages
-        python validate_tech_leadership.py --quarter "26 Q2" --slack
+        python validate_tech_leadership.py --slack
 
         # Use custom priority config
-        python validate_tech_leadership.py --quarter "26 Q2" --config custom_priorities.yaml
+        python validate_tech_leadership.py --config custom_priorities.yaml
 
         # Validate specific snapshot
-        python validate_tech_leadership.py --quarter "26 Q2" data/snapshots/snapshot_*.json
+        python validate_tech_leadership.py data/snapshots/snapshot_*.json
     """
     # Setup logging level based on verbose flag
     if verbose:
@@ -1069,7 +1051,7 @@ def main(quarter: str, config: Optional[str], slack: bool, verbose: bool, data_f
         config_path = Path(config) if config else None
 
         # Run validation
-        result = validate_tech_leadership(data_path, quarter, config_path)
+        result = validate_tech_leadership(data_path, config_path)
 
         # Print report using template
         print_tech_leadership_report(result, data_path, verbose)

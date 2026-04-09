@@ -35,23 +35,21 @@ def test_load_tech_leadership_priorities_valid(tmp_path):
     """Test loading valid priority config."""
     config_file = tmp_path / "priorities.yaml"
     config_file.write_text("""
-quarter: "26 Q2"
 priorities:
   - INIT-1234
   - INIT-5678
   - INIT-9012
 """)
 
-    config = _load_tech_leadership_priorities(config_file, "26 Q2")
+    config = _load_tech_leadership_priorities(config_file)
 
-    assert config['quarter'] == "26 Q2"
     assert config['priorities'] == ["INIT-1234", "INIT-5678", "INIT-9012"]
 
 
 def test_load_tech_leadership_priorities_missing_file():
     """Test loading config from missing file raises ValueError."""
     with pytest.raises(ValueError, match="Priority config not found"):
-        _load_tech_leadership_priorities(Path("/nonexistent/config.yaml"), "26 Q2")
+        _load_tech_leadership_priorities(Path("/nonexistent/config.yaml"))
 
 
 def test_load_tech_leadership_priorities_invalid_yaml(tmp_path):
@@ -60,40 +58,25 @@ def test_load_tech_leadership_priorities_invalid_yaml(tmp_path):
     config_file.write_text("invalid: yaml: content:")
 
     with pytest.raises(ValueError, match="Invalid YAML"):
-        _load_tech_leadership_priorities(config_file, "26 Q2")
+        _load_tech_leadership_priorities(config_file)
 
 
 def test_load_tech_leadership_priorities_missing_priorities_key(tmp_path):
     """Test loading config without 'priorities' key raises ValueError."""
     config_file = tmp_path / "no_priorities.yaml"
-    config_file.write_text("quarter: '26 Q2'\nother_key: value")
+    config_file.write_text("other_key: value")
 
     with pytest.raises(ValueError, match="missing 'priorities' key"):
-        _load_tech_leadership_priorities(config_file, "26 Q2")
+        _load_tech_leadership_priorities(config_file)
 
 
 def test_load_tech_leadership_priorities_empty_list(tmp_path):
     """Test loading config with empty priorities list raises ValueError."""
     config_file = tmp_path / "empty.yaml"
-    config_file.write_text("quarter: '26 Q2'\npriorities: []")
+    config_file.write_text("priorities: []")
 
     with pytest.raises(ValueError, match="non-empty list"):
-        _load_tech_leadership_priorities(config_file, "26 Q2")
-
-
-def test_load_tech_leadership_priorities_quarter_mismatch_warns(tmp_path, caplog):
-    """Test quarter mismatch logs warning but continues."""
-    config_file = tmp_path / "mismatch.yaml"
-    config_file.write_text("""
-quarter: "26 Q1"
-priorities:
-  - INIT-1234
-""")
-
-    config = _load_tech_leadership_priorities(config_file, "26 Q2")
-
-    assert "doesn't match" in caplog.text
-    assert config['priorities'] == ["INIT-1234"]
+        _load_tech_leadership_priorities(config_file)
 
 
 # ============================================================================
@@ -726,7 +709,6 @@ def test_validate_tech_leadership_end_to_end(tmp_path, monkeypatch):
     # Create config
     config_file = tmp_path / "priorities.yaml"
     config_file.write_text("""
-quarter: "26 Q2"
 priorities:
   - INIT-1
   - INIT-2
@@ -800,10 +782,9 @@ team_mappings:
     from validate_tech_leadership import validate_tech_leadership as validate_fn
 
     # Run validation
-    result = validate_fn(data_file, "26 Q2", config_file)
+    result = validate_fn(data_file, config_file)
 
     # Assertions
-    assert result.metadata["quarter"] == "26 Q2"
     assert result.metadata["total_initiatives"] == 4
     assert result.metadata["active_initiatives"] == 3  # Excludes Done
     assert result.metadata["validated_initiatives"] == 2  # Excludes Done and Discovery, only configured initiatives
