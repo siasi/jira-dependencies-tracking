@@ -583,19 +583,40 @@ def _build_initiative_health(
             rag_statuses = [epic.get('rag_status') for epic in epics]
 
             if _is_team_committed_with_epics(epics):
-                committed.append({
-                    'team': team_display,
-                    'rag_statuses': rag_statuses
-                })
+                # Check if all epics are Done (completed) vs active
+                all_done = all(epic.get('status') == 'Done' for epic in epics)
+
+                if all_done:
+                    committed.append({
+                        'team': team_display,
+                        'completed': True
+                    })
+                else:
+                    # Active - show RAG statuses for non-Done epics
+                    active_rags = [
+                        epic.get('rag_status')
+                        for epic in epics
+                        if epic.get('status') != 'Done'
+                    ]
+                    committed.append({
+                        'team': team_display,
+                        'completed': False,
+                        'rag_statuses': active_rags
+                    })
             else:
                 missing.append(team_display)
+
+        # Separate completed from active teams
+        completed_teams = [t for t in committed if t.get('completed')]
+        active_teams = [t for t in committed if not t.get('completed')]
 
         health.append({
             'key': init_key,
             'title': init_title,
             'priority': priority,
             'expected_teams': teams_involved,
-            'committed_teams': committed,
+            'completed_teams': completed_teams,
+            'active_teams': active_teams,
             'missing_teams': missing
         })
 

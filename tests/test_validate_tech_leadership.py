@@ -479,27 +479,41 @@ def test_build_initiative_health():
         {
             "key": "INIT-1",
             "summary": "Initiative 1",
-            "teams_involved": ["Team A", "Team B"],
+            "teams_involved": ["Team A", "Team B", "Team C"],
             "contributing_teams": [
                 {
                     "team_project_key": "TEAMA",
-                    "epics": [{"rag_status": "🟢"}]
+                    "epics": [{"rag_status": "🟢", "status": "In Progress"}]
+                },
+                {
+                    "team_project_key": "TEAMC",
+                    "epics": [{"rag_status": "🟢", "status": "Done"}]
                 }
             ]
         }
     ]
 
     priorities = ["INIT-1"]
-    team_mappings = {"Team A": "TEAMA", "Team B": "TEAMB"}
+    team_mappings = {"Team A": "TEAMA", "Team B": "TEAMB", "Team C": "TEAMC"}
 
     health = _build_initiative_health(initiatives, priorities, team_mappings)
 
     assert len(health) == 1
     assert health[0]["key"] == "INIT-1"
     assert health[0]["priority"] == 1  # 1-indexed
-    assert health[0]["expected_teams"] == ["Team A", "Team B"]
-    assert len(health[0]["committed_teams"]) == 1
-    assert health[0]["committed_teams"][0]["team"] == "Team A"
+    assert health[0]["expected_teams"] == ["Team A", "Team B", "Team C"]
+
+    # Team A is active (In Progress)
+    assert len(health[0]["active_teams"]) == 1
+    assert health[0]["active_teams"][0]["team"] == "Team A"
+    assert health[0]["active_teams"][0]["completed"] is False
+
+    # Team C is completed (Done)
+    assert len(health[0]["completed_teams"]) == 1
+    assert health[0]["completed_teams"][0]["team"] == "Team C"
+    assert health[0]["completed_teams"][0]["completed"] is True
+
+    # Team B is missing
     assert health[0]["missing_teams"] == ["Team B"]
 
 

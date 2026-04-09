@@ -103,12 +103,19 @@ Initiative-centric view of team commitments (in priority order):
 Priority #{{ init.priority }}: {{ init.key|hyperlink(jira_base_url ~ '/browse/' ~ init.key) }}
    {{ init.title }}
    Expected teams ({{ init.expected_teams|length }}): {{ init.expected_teams|join(', ') }}
-{% if init.committed_teams %}
-   ✅ Committed ({{ init.committed_teams|length }}):
-{% for team_data in init.committed_teams %}
+{% if init.completed_teams %}
+   ✅ Completed ({{ init.completed_teams|length }}):
+{% for team_data in init.completed_teams %}
+      - {{ team_data.team }} (Done)
+{% endfor %}
+{% endif %}
+{% if init.active_teams %}
+   🚧 Active ({{ init.active_teams|length }}):
+{% for team_data in init.active_teams %}
       - {{ team_data.team }} ({{ team_data.rag_statuses|join(', ') }})
 {% endfor %}
-{% else %}
+{% endif %}
+{% if not init.completed_teams and not init.active_teams %}
    ❌ No committed teams
 {% endif %}
 {% if init.missing_teams %}
