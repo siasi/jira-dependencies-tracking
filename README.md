@@ -118,13 +118,13 @@ python extract.py extract
 
 Validate readiness for new initiatives in the quarter and track action items for Team Managers, so that initiatives can progress to Planned status:
 ```bash
-python validate_planning.py --quarter "26 Q2" --min-teams 2 --slack
+python validate_planning.py --quarter "26 Q2" --slack
 ```
 
 Once Planning is done, extract data again and analyze workload per team:
 ```bash
 python extract.py extract
-python analyze_workload.py
+python analyze_workload.py --quarter "26 Q2"
 ```
 
 ## Extract
@@ -164,6 +164,9 @@ python extract.py extract --format csv --output ./data/export.csv
 - `--output PATH` - Custom output file path
 - `--verbose` - Enable verbose output for debugging
 - `--dry-run` - Show what would be fetched without writing output
+- `--status TEXT` - Filter by status (e.g., "In Progress" or "!Done" to exclude Done)
+- `--quarter TEXT` - Filter by quarter (e.g., "26 Q2"). Automatically excludes Done initiatives unless --status is specified
+- `--jql TEXT` - Custom JQL filter for advanced queries. When set, overrides --quarter and --status
 
 ## Snapshots (alpha)
 
@@ -330,21 +333,22 @@ python validate_planning.py --quarter "26 Q2"
 # Validate specific file for Q2 2026
 python validate_planning.py --quarter "26 Q2" data/jira_extract_20260321.json
 
-# Validate snapshot with multi-team filter
-python validate_planning.py --quarter "26 Q2" --min-teams 2 data/snapshots/snapshot_baseline_*.json
+# Validate snapshot
+python validate_planning.py --quarter "26 Q2" data/snapshots/snapshot_baseline_*.json
 
 # Generate Slack notifications for Q2 2026
 python validate_planning.py --quarter "26 Q2" --slack
+
+# Export markdown report
+python validate_planning.py --quarter "26 Q2" --markdown
 ```
 
 **Options:**
 - `--quarter "YY QN"` - **Required.** Quarter to validate (e.g., "26 Q2"). Only initiatives matching this quarter will be validated.
-- `--min-teams N` - Minimum number of teams required (default: 1, analyzes all initiatives)
-  - Use this to focus on multi-team initiatives only
-  - Report shows total initiatives and how many were filtered out
-- `--markdown FILENAME` - Export report to markdown format (Notion-compatible)
+- `--markdown [FILENAME]` - Export report to markdown format (Notion-compatible). Auto-generates filename if omitted.
 - `--verbose` - Include verbose output with additional details
 - `--slack` - Generate Slack bulk messages for manager notifications
+- `json_file` - Optional path to specific data file (defaults to latest extraction)
 
 ### Slack Manager Notifications
 
@@ -421,12 +425,19 @@ python validate_prioritisation.py data/jira_extract_20260408.json
 # Use custom priority config
 python validate_prioritisation.py --config custom_priorities.yaml
 
+# Export markdown report (auto-generates filename)
+python validate_prioritisation.py --markdown
+
+# Export markdown with custom filename
+python validate_prioritisation.py --markdown dashboard.md
+
 # Generate Slack notifications
 python validate_prioritisation.py --slack
 ```
 
 **Options:**
 - `--config PATH` - Custom priority config path (default: `config/priorities.yaml`)
+- `--markdown [FILENAME]` - Export Initiative Health Dashboard as markdown file. Auto-generates filename if omitted.
 - `--verbose` - Include verbose output with additional details
 - `--slack` - Generate Slack bulk messages for manager notifications
 - `data_file` - Optional path to specific data file (defaults to latest extraction)
@@ -485,37 +496,39 @@ Analyze the distribution of epic work across teams to identify imbalances and en
 python analyze_workload.py --quarter "26 Q2"
 
 # Analyze specific file
-python analyze_workload.py data/jira_extract_20260321.json --quarter "26 Q2"
+python analyze_workload.py --quarter "26 Q2" data/jira_extract_20260321.json
 
 # Analyze snapshot
-python analyze_workload.py data/snapshots/snapshot_baseline_*.json --quarter "26 Q2"
+python analyze_workload.py --quarter "26 Q2" data/snapshots/snapshot_baseline_*.json
 
-# Only analyze initiatives with 2+ teams
-python analyze_workload.py --quarter "26 Q2" --min-teams 2
+# Show detailed data quality issues
+python analyze_workload.py --quarter "26 Q2" --show-quality
 
-# Export to CSV
-python analyze_workload.py --quarter "26 Q2" --csv reports/workload.csv
+# Export to CSV (auto-generates filename)
+python analyze_workload.py --quarter "26 Q2" --csv
 
-# Export to markdown (Notion-compatible)
+# Export to markdown with custom filename
 python analyze_workload.py --quarter "26 Q2" --markdown reports/workload_analysis.md
 
-# Generate interactive HTML dashboard
-python analyze_workload.py --quarter "26 Q2" --html reports/workload_dashboard.html
+# Generate interactive HTML dashboard (auto-generates filename)
+python analyze_workload.py --quarter "26 Q2" --html
 
 # Generate Slack messages for managers
 python analyze_workload.py --quarter "26 Q2" --slack
+
+# Verbose output with detailed initiative lists
+python analyze_workload.py --quarter "26 Q2" --verbose
 ```
 
 **Options:**
 - `--quarter QUARTER` - **Required.** Quarter to analyze (e.g., "26 Q2"). Only initiatives with status="In Progress" or (quarter=QUARTER and status="Planned") are analyzed.
-- `--min-teams N` - Minimum number of teams required (default: 1, analyzes all initiatives)
-  - Focus on multi-team initiatives where coordination is critical
-  - Single-team initiatives are filtered out when N > 1
-- `--csv FILENAME` - Export initiative analysis as CSV file (auto-generates filename if omitted)
-- `--markdown FILENAME` - Export detailed report to markdown format
-- `--html FILENAME` - Generate interactive HTML dashboard with charts and heatmaps
-- `--verbose` - Include verbose output with additional details
-- `--slack` - Generate Slack bulk messages for manager notifications
+- `--html [FILENAME]` - Generate interactive HTML dashboard with charts and heatmaps. Auto-generates filename if omitted.
+- `--markdown [FILENAME]` - Export detailed report to markdown format. Auto-generates filename if omitted.
+- `--csv [FILENAME]` - Export initiative analysis as CSV file. Auto-generates filename if omitted.
+- `--verbose` - Show detailed list of initiatives per team (leading and contributing)
+- `--show-quality` - Show detailed data quality issues (missing owner, missing epics, missing objectives)
+- `--slack` - Generate Slack bulk messages for workload quality action items
+- `json_file` - Optional path to specific data file (defaults to latest extraction)
 
 ### What It Analyzes
 
@@ -547,10 +560,10 @@ Generate a standalone HTML file with interactive visualizations:
 
 ```bash
 # Generate dashboard with auto-generated filename
-python analyze_workload.py --html
+python analyze_workload.py --quarter "26 Q2" --html
 
 # Specify custom filename
-python analyze_workload.py --html reports/workload_dashboard.html
+python analyze_workload.py --quarter "26 Q2" --html reports/workload_dashboard.html
 ```
 
 **Dashboard Features:**
@@ -574,7 +587,7 @@ python analyze_workload.py --html reports/workload_dashboard.html
 Generate workload summary messages for engineering managers:
 
 ```bash
-python analyze_workload.py --slack
+python analyze_workload.py --quarter "26 Q2" --slack
 ```
 
 **Message Content:**
