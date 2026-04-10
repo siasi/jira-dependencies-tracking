@@ -1814,7 +1814,7 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
         '--markdown',
         type=str,
         nargs='?',
-        const=None,
+        const='',
         metavar='FILENAME',
         help='Export report as markdown file. '
              'Optionally specify filename, otherwise saves to output/workload_analysis/ with progressive numbering.'
@@ -1824,7 +1824,7 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
         '--html',
         type=str,
         nargs='?',
-        const=None,
+        const='',
         metavar='FILENAME',
         help='Generate interactive HTML dashboard. '
              'Optionally specify filename, otherwise saves to output/workload_analysis/ with progressive numbering.'
@@ -1834,7 +1834,7 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
         '--csv',
         type=str,
         nargs='?',
-        const=None,
+        const='',
         metavar='FILENAME',
         help='Export initiative analysis as CSV file. '
              'Optionally specify filename, otherwise saves to output/workload_analysis/ with progressive numbering.'
@@ -1901,8 +1901,9 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
 
     # Generate markdown export if requested
     if args.markdown is not None:
-        # Use generate_output_path for default, or custom filename if provided
-        markdown_file = generate_output_path('workload_analysis', 'md', args.markdown)
+        # Use generate_output_path for default (empty string), or custom filename if provided
+        markdown_filename = args.markdown if args.markdown else None
+        markdown_file = generate_output_path('workload_analysis', 'md', markdown_filename)
 
         # Capture markdown output to string
         import io
@@ -1925,8 +1926,9 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
 
     # Generate HTML dashboard if requested
     if args.html is not None:
-        # Use generate_output_path for default, or custom filename if provided
-        html_file = generate_output_path('workload_analysis', 'html', args.html)
+        # Use generate_output_path for default (empty string), or custom filename if provided
+        html_filename = args.html if args.html else None
+        html_file = generate_output_path('workload_analysis', 'html', html_filename)
 
         generate_html_dashboard(
             analysis,
@@ -1943,8 +1945,9 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
 
     # Export CSV if requested
     if args.csv is not None:
-        # Use generate_output_path for default, or custom filename if provided
-        csv_file = generate_output_path('workload_analysis', 'csv', args.csv)
+        # Use generate_output_path for default (empty string), or custom filename if provided
+        csv_filename = args.csv if args.csv else None
+        csv_file = generate_output_path('workload_analysis', 'csv', csv_filename)
 
         # Generate CSV data
         csv_data = generate_dashboard_csv(

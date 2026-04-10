@@ -1381,7 +1381,7 @@ def main():
         '--markdown',
         type=str,
         nargs='?',
-        const=None,
+        const='',
         metavar='FILENAME',
         help='Export report as markdown file (Notion-friendly format). '
              'Optionally specify filename, otherwise saves to output/planning_validation/ with progressive numbering.'
@@ -1423,8 +1423,9 @@ def main():
 
         # Generate markdown export if requested
         if args.markdown is not None:
-            # Use generate_output_path for default, or custom filename if provided
-            markdown_file = generate_output_path('planning_validation', 'md', args.markdown)
+            # Use generate_output_path for default (empty string), or custom filename if provided
+            markdown_filename = args.markdown if args.markdown else None
+            markdown_file = generate_output_path('planning_validation', 'md', markdown_filename)
 
             # Generate markdown content
             markdown_content = generate_markdown_report(
