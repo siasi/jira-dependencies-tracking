@@ -4,13 +4,13 @@ import json
 import pytest
 import yaml
 from pathlib import Path
-from validate_tech_leadership import (
-    TechLeadershipResult,
-    _load_tech_leadership_priorities,
+from validate_prioritisation import (
+    PrioritisationResult,
+    _load_prioritisation_priorities,
     _is_discovery_initiative,
-    _is_tech_leadership_initiative,
     _is_active_initiative,
     _normalize_teams_involved,
+    _filter_excluded_teams,
     _get_team_epics_rag_statuses,
     _get_team_epics_data,
     _is_team_committed,
@@ -22,8 +22,8 @@ from validate_tech_leadership import (
     _check_data_quality,
     _load_team_managers,
     _validate_slack_config,
-    extract_tech_leadership_actions,
-    validate_tech_leadership
+    extract_prioritisation_actions,
+    validate_prioritisation
 )
 
 
@@ -31,7 +31,7 @@ from validate_tech_leadership import (
 # Config Loading Tests
 # ============================================================================
 
-def test_load_tech_leadership_priorities_valid(tmp_path):
+def test_load_prioritisation_priorities_valid(tmp_path):
     """Test loading valid priority config."""
     config_file = tmp_path / "priorities.yaml"
     config_file.write_text("""
@@ -41,42 +41,42 @@ priorities:
   - INIT-9012
 """)
 
-    config = _load_tech_leadership_priorities(config_file)
+    config = _load_prioritisation_priorities(config_file)
 
     assert config['priorities'] == ["INIT-1234", "INIT-5678", "INIT-9012"]
 
 
-def test_load_tech_leadership_priorities_missing_file():
+def test_load_prioritisation_priorities_missing_file():
     """Test loading config from missing file raises ValueError."""
     with pytest.raises(ValueError, match="Priority config not found"):
-        _load_tech_leadership_priorities(Path("/nonexistent/config.yaml"))
+        _load_prioritisation_priorities(Path("/nonexistent/config.yaml"))
 
 
-def test_load_tech_leadership_priorities_invalid_yaml(tmp_path):
+def test_load_prioritisation_priorities_invalid_yaml(tmp_path):
     """Test loading invalid YAML raises ValueError."""
     config_file = tmp_path / "invalid.yaml"
     config_file.write_text("invalid: yaml: content:")
 
     with pytest.raises(ValueError, match="Invalid YAML"):
-        _load_tech_leadership_priorities(config_file)
+        _load_prioritisation_priorities(config_file)
 
 
-def test_load_tech_leadership_priorities_missing_priorities_key(tmp_path):
+def test_load_prioritisation_priorities_missing_priorities_key(tmp_path):
     """Test loading config without 'priorities' key raises ValueError."""
     config_file = tmp_path / "no_priorities.yaml"
     config_file.write_text("other_key: value")
 
     with pytest.raises(ValueError, match="missing 'priorities' key"):
-        _load_tech_leadership_priorities(config_file)
+        _load_prioritisation_priorities(config_file)
 
 
-def test_load_tech_leadership_priorities_empty_list(tmp_path):
+def test_load_prioritisation_priorities_empty_list(tmp_path):
     """Test loading config with empty priorities list raises ValueError."""
     config_file = tmp_path / "empty.yaml"
     config_file.write_text("priorities: []")
 
     with pytest.raises(ValueError, match="non-empty list"):
-        _load_tech_leadership_priorities(config_file)
+        _load_prioritisation_priorities(config_file)
 
 
 # ============================================================================
@@ -90,13 +90,6 @@ def test_is_discovery_initiative():
     assert not _is_discovery_initiative({"summary": "Discovery (not at start)"})
     assert not _is_discovery_initiative({"summary": ""})
 
-
-def test_is_tech_leadership_initiative():
-    """Test Tech Leadership initiative detection."""
-    assert _is_tech_leadership_initiative({"owner_team": "Tech Leadership"})
-    assert not _is_tech_leadership_initiative({"owner_team": "Product Team"})
-    assert not _is_tech_leadership_initiative({"owner_team": ""})
-    assert not _is_tech_leadership_initiative({})
 
 
 def test_is_active_initiative():
@@ -132,6 +125,27 @@ def test_normalize_teams_involved():
 
     # Unexpected type (should return empty list)
     assert _normalize_teams_involved(123) == []
+
+
+def test_filter_excluded_teams():
+    """Test filtering out excluded teams from a list."""
+    # No exclusions
+    assert _filter_excluded_teams(["Team A", "Team B", "Team C"], []) == ["Team A", "Team B", "Team C"]
+
+    # Exclude one team
+    assert _filter_excluded_teams(["Team A", "Team B", "Team C"], ["Team B"]) == ["Team A", "Team C"]
+
+    # Exclude multiple teams
+    assert _filter_excluded_teams(["Team A", "Team B", "Team C", "Team D"], ["Team B", "Team D"]) == ["Team A", "Team C"]
+
+    # Exclude all teams
+    assert _filter_excluded_teams(["Team A", "Team B"], ["Team A", "Team B"]) == []
+
+    # Empty team list
+    assert _filter_excluded_teams([], ["Team A"]) == []
+
+    # Exclusion list has teams not in team list (should be ignored)
+    assert _filter_excluded_teams(["Team A"], ["Team B", "Team C"]) == ["Team A"]
 
 
 # ============================================================================
@@ -318,7 +332,7 @@ def test_build_commitment_matrix():
     team_mappings = {"Team A": "TEAMA", "Team B": "TEAMB"}
     reverse_mappings = {"TEAMA": "Team A", "TEAMB": "Team B"}
 
-    matrix = _build_commitment_matrix(initiatives, priorities, team_mappings, reverse_mappings)
+    matrix = _build_commitment_matrix(initiatives, priorities, team_mappings, reverse_mappings, [])
 
     # Team A should be in matrix
     assert "TEAMA" in matrix
@@ -358,11 +372,39 @@ def test_build_commitment_matrix_skips_unlisted_initiatives():
     team_mappings = {"Team A": "TEAMA"}
     reverse_mappings = {"TEAMA": "Team A"}
 
-    matrix = _build_commitment_matrix(initiatives, priorities, team_mappings, reverse_mappings)
+    matrix = _build_commitment_matrix(initiatives, priorities, team_mappings, reverse_mappings, [])
 
     # Team A should only have INIT-1 in expected initiatives
     assert len(matrix["TEAMA"]["expected_initiatives"]) == 1
     assert matrix["TEAMA"]["expected_initiatives"][0]["key"] == "INIT-1"
+
+
+def test_build_commitment_matrix_excludes_teams():
+    """Test that excluded teams are not included in matrix."""
+    initiatives = [
+        {
+            "key": "INIT-1",
+            "summary": "Initiative 1",
+            "teams_involved": ["Team A", "DevOps", "XD"],
+            "contributing_teams": [
+                {"team_project_key": "TEAMA", "epics": [{"rag_status": "🟢"}]},
+                {"team_project_key": "DEVOPS", "epics": [{"rag_status": "🟢"}]},
+                {"team_project_key": "XD", "epics": [{"rag_status": "🟢"}]}
+            ]
+        }
+    ]
+
+    priorities = ["INIT-1"]
+    team_mappings = {"Team A": "TEAMA", "DevOps": "DEVOPS", "XD": "XD"}
+    reverse_mappings = {"TEAMA": "Team A", "DEVOPS": "DevOps", "XD": "XD"}
+    excluded_teams = ["DevOps", "XD"]
+
+    matrix = _build_commitment_matrix(initiatives, priorities, team_mappings, reverse_mappings, excluded_teams)
+
+    # Only Team A should be in matrix
+    assert "TEAMA" in matrix
+    assert "DEVOPS" not in matrix
+    assert "XD" not in matrix
 
 
 # ============================================================================
@@ -446,8 +488,20 @@ def test_detect_missing_commitments_basic():
             "team_key": "TEAM1",
             "committed_initiatives": [],
             "expected_initiatives": [
-                {"key": "INIT-1", "title": "Init 1"},
-                {"key": "INIT-2", "title": "Init 2"}
+                {
+                    "key": "INIT-1",
+                    "title": "Init 1",
+                    "is_committed": False,
+                    "rag_statuses": [],
+                    "epic_keys": []
+                },
+                {
+                    "key": "INIT-2",
+                    "title": "Init 2",
+                    "is_committed": False,
+                    "rag_statuses": [None],
+                    "epic_keys": ["TEAM1-123"]
+                }
             ]
         },
         "TEAM2": {
@@ -457,7 +511,13 @@ def test_detect_missing_commitments_basic():
                 {"key": "INIT-1", "title": "Init 1"}
             ],
             "expected_initiatives": [
-                {"key": "INIT-1", "title": "Init 1"}
+                {
+                    "key": "INIT-1",
+                    "title": "Init 1",
+                    "is_committed": True,
+                    "rag_statuses": ["🟢"],
+                    "epic_keys": ["TEAM2-456"]
+                }
             ]
         }
     }
@@ -466,7 +526,15 @@ def test_detect_missing_commitments_basic():
 
     assert len(missing) == 1
     assert missing[0]["team_key"] == "TEAM1"
-    assert len(missing[0]["expected_in"]) == 2
+    assert len(missing[0]["issues"]) == 2
+    # First issue: no epic
+    assert missing[0]["issues"][0]["key"] == "INIT-1"
+    assert missing[0]["issues"][0]["reason"] == "no_epic"
+    assert missing[0]["issues"][0]["epic_key"] is None
+    # Second issue: missing RAG
+    assert missing[0]["issues"][1]["key"] == "INIT-2"
+    assert missing[0]["issues"][1]["reason"] == "missing_rag"
+    assert missing[0]["issues"][1]["epic_key"] == "TEAM1-123"
 
 
 # ============================================================================
@@ -496,7 +564,7 @@ def test_build_initiative_health():
     priorities = ["INIT-1"]
     team_mappings = {"Team A": "TEAMA", "Team B": "TEAMB", "Team C": "TEAMC"}
 
-    health = _build_initiative_health(initiatives, priorities, team_mappings)
+    health = _build_initiative_health(initiatives, priorities, team_mappings, [])
 
     assert len(health) == 1
     assert health[0]["key"] == "INIT-1"
@@ -513,8 +581,10 @@ def test_build_initiative_health():
     assert health[0]["completed_teams"][0]["team"] == "Team C"
     assert health[0]["completed_teams"][0]["completed"] is True
 
-    # Team B is missing
-    assert health[0]["missing_teams"] == ["Team B"]
+    # Team B is missing (no epic)
+    assert len(health[0]["missing_teams"]) == 1
+    assert health[0]["missing_teams"][0]["team"] == "Team B"
+    assert health[0]["missing_teams"][0]["reason"] == "no_epic"
 
 
 def test_build_initiative_health_sorted_by_priority():
@@ -527,7 +597,7 @@ def test_build_initiative_health_sorted_by_priority():
     priorities = ["INIT-1", "INIT-2"]
     team_mappings = {}
 
-    health = _build_initiative_health(initiatives, priorities, team_mappings)
+    health = _build_initiative_health(initiatives, priorities, team_mappings, [])
 
     assert health[0]["key"] == "INIT-1"
     assert health[0]["priority"] == 1
@@ -591,8 +661,8 @@ team_managers:
 """)
 
     # Patch __file__ to point to tmp_path
-    import validate_tech_leadership
-    monkeypatch.setattr(validate_tech_leadership, '__file__', str(tmp_path / "validate_tech_leadership.py"))
+    import validate_prioritisation
+    monkeypatch.setattr(validate_prioritisation, '__file__', str(tmp_path / "validate_prioritisation.py"))
 
     managers = _load_team_managers()
 
@@ -612,8 +682,8 @@ team_managers:
   TEAM2: "@Manager B"
 """)
 
-    import validate_tech_leadership
-    monkeypatch.setattr(validate_tech_leadership, '__file__', str(tmp_path / "validate_tech_leadership.py"))
+    import validate_prioritisation
+    monkeypatch.setattr(validate_prioritisation, '__file__', str(tmp_path / "validate_prioritisation.py"))
 
     managers = _load_team_managers()
 
@@ -648,9 +718,9 @@ def test_validate_slack_config_missing_ids():
 # Action Item Extraction Tests
 # ============================================================================
 
-def test_extract_tech_leadership_actions_priority_conflicts():
+def test_extract_prioritisation_actions_priority_conflicts():
     """Test extracting action items from priority conflicts."""
-    result = TechLeadershipResult(
+    result = PrioritisationResult(
         priority_conflicts=[
             {
                 "team_key": "TEAM1",
@@ -673,7 +743,7 @@ def test_extract_tech_leadership_actions_priority_conflicts():
     }
     reverse_mappings = {}
 
-    actions = extract_tech_leadership_actions(result, team_managers, reverse_mappings)
+    actions = extract_prioritisation_actions(result, team_managers, reverse_mappings)
 
     assert len(actions) == 1
     assert actions[0]["action_type"] == "priority_conflict"
@@ -681,17 +751,27 @@ def test_extract_tech_leadership_actions_priority_conflicts():
     assert actions[0]["initiative_key"] == "INIT-1"
 
 
-def test_extract_tech_leadership_actions_missing_commitments():
+def test_extract_prioritisation_actions_missing_commitments():
     """Test extracting action items from missing commitments."""
-    result = TechLeadershipResult(
+    result = PrioritisationResult(
         priority_conflicts=[],
         missing_commitments=[
             {
                 "team_key": "TEAM1",
                 "team_display": "Team 1",
-                "expected_in": [
-                    {"key": "INIT-1", "title": "Init 1"},
-                    {"key": "INIT-2", "title": "Init 2"}
+                "issues": [
+                    {
+                        "key": "INIT-1",
+                        "title": "Init 1",
+                        "reason": "no_epic",
+                        "epic_key": None
+                    },
+                    {
+                        "key": "INIT-2",
+                        "title": "Init 2",
+                        "reason": "missing_rag",
+                        "epic_key": "TEAM1-123"
+                    }
                 ]
             }
         ],
@@ -706,19 +786,25 @@ def test_extract_tech_leadership_actions_missing_commitments():
     }
     reverse_mappings = {}
 
-    actions = extract_tech_leadership_actions(result, team_managers, reverse_mappings)
+    actions = extract_prioritisation_actions(result, team_managers, reverse_mappings)
 
-    assert len(actions) == 1
-    assert actions[0]["action_type"] == "missing_commitment"
-    assert actions[0]["initiative_key"] is None  # Multiple initiatives
-    assert "2 Tech Leadership initiatives" in actions[0]["initiative_title"]
+    assert len(actions) == 2
+    # First action: no epic
+    assert actions[0]["action_type"] == "missing_epic"
+    assert actions[0]["initiative_key"] == "INIT-1"
+    assert "Create epic" in actions[0]["description"]
+    # Second action: missing RAG
+    assert actions[1]["action_type"] == "missing_rag"
+    assert actions[1]["initiative_key"] == "INIT-2"
+    assert "Set RAG status" in actions[1]["description"]
+    assert actions[1]["epic_key"] == "TEAM1-123"
 
 
 # ============================================================================
 # Integration Tests
 # ============================================================================
 
-def test_validate_tech_leadership_end_to_end(tmp_path, monkeypatch):
+def test_validate_prioritisation_end_to_end(tmp_path, monkeypatch):
     """Test end-to-end validation with sample data."""
     # Create config
     config_file = tmp_path / "priorities.yaml"
@@ -789,11 +875,11 @@ team_mappings:
 """)
 
     # Patch config location
-    import validate_tech_leadership as vtl_module
-    monkeypatch.setattr(vtl_module, '__file__', str(tmp_path / "validate_tech_leadership.py"))
+    import validate_prioritisation as vtl_module
+    monkeypatch.setattr(vtl_module, '__file__', str(tmp_path / "validate_prioritisation.py"))
 
     # Import the function with a different name to avoid conflict
-    from validate_tech_leadership import validate_tech_leadership as validate_fn
+    from validate_prioritisation import validate_prioritisation as validate_fn
 
     # Run validation
     result = validate_fn(data_file, config_file)

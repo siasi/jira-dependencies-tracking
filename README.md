@@ -36,6 +36,47 @@ jira-em-toolkit/
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture documentation.
 
+## Output Structure
+
+All report-generating scripts (with `--html`, `--markdown`, or `--csv` options) follow a consistent output structure:
+
+```
+output/
+├── workload_analysis/
+│   ├── 001_workload_analysis_20260410_152030.html
+│   ├── 002_workload_analysis_20260410_153045.md
+│   └── 003_workload_analysis_20260410_154102.csv
+├── planning_validation/
+│   ├── 001_planning_validation_20260410_152030.md
+│   └── 002_planning_validation_20260410_153100.md
+└── prioritisation_validation/
+    ├── 001_prioritisation_validation_20260410_152030.md
+    └── 002_prioritisation_validation_20260410_153200.md
+```
+
+**Naming Convention:** `{progressive_number:03d}_{report_type}_{timestamp}.{extension}`
+
+- **Progressive Number:** Auto-incremented for each report type (001, 002, 003...)
+- **Report Type:** Identifier for the analysis type (e.g., `workload_analysis`, `planning_validation`)
+- **Timestamp:** `YYYYMMDD_HHMMSS` format
+- **Extension:** File format (`html`, `md`, `csv`, `txt`)
+
+**Default Behavior:**
+- When you use `--html`, `--markdown`, or `--csv` without specifying a filename, reports are automatically saved to the appropriate `output/` subdirectory
+- You can still provide a custom filename to override the default location
+
+**Examples:**
+```bash
+# Saves to output/workload_analysis/001_workload_analysis_20260410_152030.html
+python analyze_workload.py --quarter "26 Q2" --html
+
+# Saves to custom location
+python analyze_workload.py --quarter "26 Q2" --html my_custom_report.html
+
+# Generate multiple formats (each gets progressive numbering)
+python analyze_workload.py --quarter "26 Q2" --html --markdown --csv
+```
+
 ## Setup
 
 1. **Prerequisites:** Python 3.9+, Jira Cloud access
@@ -366,36 +407,36 @@ Terminal report with four sections:
 
 See [brainstorm document](docs/brainstorms/2026-03-21-initiative-status-validation-brainstorm.md) for design decisions and approach rationale.
 
-## Validate Tech Leadership Priorities
+## Validate Initiative Priorities
 
 Validate team commitments to strategically prioritized initiatives and ensure teams respect relative initiative priorities. Identifies priority conflicts (teams committed to lower-priority work while skipping higher-priority initiatives) and missing commitments.
 
 ```bash
 # Validate latest extraction
-python validate_tech_leadership.py
+python validate_prioritisation.py
 
 # Validate specific file
-python validate_tech_leadership.py data/jira_extract_20260408.json
+python validate_prioritisation.py data/jira_extract_20260408.json
 
 # Use custom priority config
-python validate_tech_leadership.py --config custom_priorities.yaml
+python validate_prioritisation.py --config custom_priorities.yaml
 
 # Generate Slack notifications
-python validate_tech_leadership.py --slack
+python validate_prioritisation.py --slack
 ```
 
 **Options:**
-- `--config PATH` - Custom priority config path (default: `config/tech_leadership_priorities.yaml`)
+- `--config PATH` - Custom priority config path (default: `config/priorities.yaml`)
 - `--verbose` - Include verbose output with additional details
 - `--slack` - Generate Slack bulk messages for manager notifications
 - `data_file` - Optional path to specific data file (defaults to latest extraction)
 
 **Priority Configuration:**
 
-Create `config/tech_leadership_priorities.yaml` from the `.example` file:
+Create `config/priorities.yaml` from the `.example` file:
 
 ```bash
-cp config/tech_leadership_priorities.yaml.example config/tech_leadership_priorities.yaml
+cp config/priorities.yaml.example config/priorities.yaml
 ```
 
 Edit the file to list initiatives in priority order (highest priority first):
@@ -413,6 +454,8 @@ priorities:
 - **Configured Initiatives:** Only initiatives listed in the priority config file
 - **Active Initiatives:** Excludes Done/Cancelled initiatives
 - **Non-Discovery:** Excludes `[Discovery]` prefixed initiatives
+- **Excluded Teams:** Teams in `teams_excluded_from_prioritisation` (from `config/team_mappings.yaml`) are excluded from analysis
+  - By default: DevOps, Security Engineering, XD
 - **Commitment Definition:** Team has epic(s) with ALL epics being either:
   - Non-red RAG (green/yellow/amber), OR
   - Status = Done (work already completed)

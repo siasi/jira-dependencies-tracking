@@ -16,6 +16,7 @@ import yaml
 
 from lib.common_formatting import make_clickable_link
 from lib.config_utils import get_jira_base_url
+from lib.output_utils import generate_output_path
 
 # Constants
 DISCOVERY_PREFIX = '[Discovery]'
@@ -1813,30 +1814,30 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
         '--markdown',
         type=str,
         nargs='?',
-        const='auto',
+        const=None,
         metavar='FILENAME',
         help='Export report as markdown file. '
-             'Optionally specify filename, otherwise auto-generates with timestamp.'
+             'Optionally specify filename, otherwise saves to output/workload_analysis/ with progressive numbering.'
     )
 
     parser.add_argument(
         '--html',
         type=str,
         nargs='?',
-        const='auto',
+        const=None,
         metavar='FILENAME',
         help='Generate interactive HTML dashboard. '
-             'Optionally specify filename, otherwise auto-generates with timestamp.'
+             'Optionally specify filename, otherwise saves to output/workload_analysis/ with progressive numbering.'
     )
 
     parser.add_argument(
         '--csv',
         type=str,
         nargs='?',
-        const='auto',
+        const=None,
         metavar='FILENAME',
         help='Export initiative analysis as CSV file. '
-             'Optionally specify filename, otherwise auto-generates with timestamp.'
+             'Optionally specify filename, otherwise saves to output/workload_analysis/ with progressive numbering.'
     )
 
     parser.add_argument(
@@ -1899,13 +1900,9 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
         generate_workload_slack_messages(analysis, team_managers, reverse_team_mappings, output_dir)
 
     # Generate markdown export if requested
-    if args.markdown:
-        if args.markdown == 'auto':
-            # Auto-generate filename with timestamp
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            markdown_file = Path(f"workload_analysis_report_{timestamp}.md")
-        else:
-            markdown_file = Path(args.markdown)
+    if args.markdown is not None:
+        # Use generate_output_path for default, or custom filename if provided
+        markdown_file = generate_output_path('workload_analysis', 'md', args.markdown)
 
         # Capture markdown output to string
         import io
@@ -1927,13 +1924,9 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
         print(f"\n✅ Markdown report exported to: {markdown_file}")
 
     # Generate HTML dashboard if requested
-    if args.html:
-        if args.html == 'auto':
-            # Auto-generate filename with timestamp
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            html_file = Path(f"workload_dashboard_{timestamp}.html")
-        else:
-            html_file = Path(args.html)
+    if args.html is not None:
+        # Use generate_output_path for default, or custom filename if provided
+        html_file = generate_output_path('workload_analysis', 'html', args.html)
 
         generate_html_dashboard(
             analysis,
@@ -1949,13 +1942,9 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
         )
 
     # Export CSV if requested
-    if args.csv:
-        if args.csv == 'auto':
-            # Auto-generate filename with timestamp
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            csv_file = Path(f"workload_analysis_{timestamp}.csv")
-        else:
-            csv_file = Path(args.csv)
+    if args.csv is not None:
+        # Use generate_output_path for default, or custom filename if provided
+        csv_file = generate_output_path('workload_analysis', 'csv', args.csv)
 
         # Generate CSV data
         csv_data = generate_dashboard_csv(

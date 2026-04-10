@@ -27,6 +27,7 @@ from typing import Any, Optional
 
 from lib.common_formatting import make_clickable_link
 from lib.config_utils import get_jira_base_url
+from lib.output_utils import generate_output_path
 from lib.template_renderer import get_template_environment
 
 
@@ -1380,10 +1381,10 @@ def main():
         '--markdown',
         type=str,
         nargs='?',
-        const='auto',
+        const=None,
         metavar='FILENAME',
         help='Export report as markdown file (Notion-friendly format). '
-             'Optionally specify filename, otherwise auto-generates with timestamp.'
+             'Optionally specify filename, otherwise saves to output/planning_validation/ with progressive numbering.'
     )
     parser.add_argument(
         '--slack',
@@ -1421,13 +1422,9 @@ def main():
         print_validation_report(result, json_file, verbose=args.verbose)
 
         # Generate markdown export if requested
-        if args.markdown:
-            if args.markdown == 'auto':
-                # Auto-generate filename with timestamp
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                markdown_file = Path(f"initiative_validation_report_{timestamp}.md")
-            else:
-                markdown_file = Path(args.markdown)
+        if args.markdown is not None:
+            # Use generate_output_path for default, or custom filename if provided
+            markdown_file = generate_output_path('planning_validation', 'md', args.markdown)
 
             # Generate markdown content
             markdown_content = generate_markdown_report(
