@@ -911,7 +911,7 @@ def extract_manager_actions(result: ValidationResult) -> list[dict[str, Any]]:
     return actions
 
 
-def generate_slack_messages(result: ValidationResult, output_dir: Path) -> None:
+def generate_slack_messages(result: ValidationResult) -> None:
     """Generate Slack-compatible bulk messages for engineering managers.
 
     Extracts action items from validation result, groups by manager,
@@ -919,7 +919,6 @@ def generate_slack_messages(result: ValidationResult, output_dir: Path) -> None:
 
     Args:
         result: Validation result containing initiatives and issues
-        output_dir: Directory to save output file (typically extracts/)
 
     Raises:
         ValueError: If team_managers config is missing Slack IDs
@@ -1052,8 +1051,7 @@ def generate_slack_messages(result: ValidationResult, output_dir: Path) -> None:
     print("="*60)
 
     # Save to file
-    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-    output_file = output_dir / f'slack_messages_{timestamp}.txt'
+    output_file = generate_output_path('planning_validation', 'txt')
 
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(output)
@@ -1440,8 +1438,7 @@ def main():
 
         # Generate Slack messages if requested
         if args.slack:
-            output_dir = json_file.parent
-            generate_slack_messages(result, output_dir)
+            generate_slack_messages(result)
 
         # Always exit successfully (validation issues are informational, not failures)
         sys.exit(0)

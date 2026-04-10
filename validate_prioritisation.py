@@ -1061,8 +1061,7 @@ def generate_markdown_report(
 def generate_prioritisation_slack_messages(
     result: PrioritisationResult,
     team_managers: Dict[str, Dict[str, Optional[str]]],
-    reverse_team_mappings: Dict[str, str],
-    output_dir: Path
+    reverse_team_mappings: Dict[str, str]
 ) -> None:
     """Generate Slack bulk messages for Tech Leadership validation.
 
@@ -1070,7 +1069,6 @@ def generate_prioritisation_slack_messages(
         result: PrioritisationResult instance
         team_managers: Map team_key to manager info
         reverse_team_mappings: Map project key to display name
-        output_dir: Directory to save Slack messages file
 
     Raises:
         ValueError: If any team missing slack_id in config
@@ -1174,8 +1172,7 @@ def generate_prioritisation_slack_messages(
     )
 
     # Save to timestamped file
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    output_file = output_dir / f"slack_messages_prioritisation_{timestamp}.txt"
+    output_file = generate_output_path('prioritisation_validation', 'txt')
 
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(output)
@@ -1288,14 +1285,11 @@ def main(config: Optional[str], markdown: Optional[str], slack: bool, verbose: b
         if slack:
             team_managers = _load_team_managers()
             _, reverse_team_mappings, _ = _load_team_mappings()
-            output_dir = Path(__file__).parent / 'data'
-            output_dir.mkdir(exist_ok=True)
 
             generate_prioritisation_slack_messages(
                 result,
                 team_managers,
-                reverse_team_mappings,
-                output_dir
+                reverse_team_mappings
             )
 
         # Exit code based on findings

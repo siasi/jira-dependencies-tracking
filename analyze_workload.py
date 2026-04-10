@@ -693,7 +693,7 @@ def extract_workload_actions(analysis: dict[str, Any], team_managers: dict[str, 
 
 
 def generate_workload_slack_messages(analysis: dict[str, Any], team_managers: dict[str, dict[str, str]],
-                                     reverse_team_mappings: dict[str, str], output_dir: Path) -> None:
+                                     reverse_team_mappings: dict[str, str]) -> None:
     """Generate Slack-compatible bulk messages for workload quality action items.
 
     Extracts action items from workload analysis, groups by manager,
@@ -703,7 +703,6 @@ def generate_workload_slack_messages(analysis: dict[str, Any], team_managers: di
         analysis: Workload analysis results from analyze_workload()
         team_managers: Mapping of team keys to manager information
         reverse_team_mappings: Mapping of project keys to display names
-        output_dir: Directory to save output file (typically data/)
 
     Raises:
         ValueError: If team_managers config is missing Slack IDs
@@ -841,8 +840,7 @@ def generate_workload_slack_messages(analysis: dict[str, Any], team_managers: di
     print(output)
 
     # Save to file
-    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-    output_file = output_dir / f'slack_messages_workload_{timestamp}.txt'
+    output_file = generate_output_path('workload_analysis', 'txt')
     output_file.write_text(output)
 
     print(f"\nSlack messages saved to: {output_file}")
@@ -1895,9 +1893,7 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
 
     # Generate Slack messages if requested
     if args.slack:
-        output_dir = Path('data')
-        output_dir.mkdir(exist_ok=True)
-        generate_workload_slack_messages(analysis, team_managers, reverse_team_mappings, output_dir)
+        generate_workload_slack_messages(analysis, team_managers, reverse_team_mappings)
 
     # Generate markdown export if requested
     if args.markdown is not None:
