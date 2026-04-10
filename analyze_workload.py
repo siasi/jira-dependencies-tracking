@@ -290,13 +290,19 @@ def analyze_workload(json_file: Path, team_mappings: dict[str, str], excluded_te
         initiative_urls[initiative_key] = initiative.get('url', '')
 
         # Apply strategic objective mapping (consolidate old objectives to current ones)
+        # Handle comma-separated multiple objectives
         mapped_objective = strategic_objective or ''
         if mapped_objective and strategic_objective_mappings:
-            mapped_objective = strategic_objective_mappings.get(strategic_objective, strategic_objective)
+            # Split by comma, map each objective individually, then rejoin
+            objectives = [obj.strip() for obj in mapped_objective.split(',')]
+            mapped_objectives = [strategic_objective_mappings.get(obj, obj) for obj in objectives]
+            mapped_objective = ', '.join(mapped_objectives)
         initiative_strategic_objectives[initiative_key] = mapped_objective
 
         # Classify as engineering-led or product-led
-        is_engineering_led = mapped_objective == 'engineering_pillars'
+        # An initiative is engineering-led if ANY of its objectives is 'engineering_pillars'
+        objectives_list = [obj.strip() for obj in mapped_objective.split(',')] if mapped_objective else []
+        is_engineering_led = 'engineering_pillars' in objectives_list
         if is_engineering_led:
             engineering_led_count += 1
         else:
@@ -315,14 +321,20 @@ def analyze_workload(json_file: Path, team_mappings: dict[str, str], excluded_te
                     'summary': initiative_summary,
                     'owner_team': normalized_owner or 'None'
                 })
-            elif valid_strategic_objectives and strategic_objective not in valid_strategic_objectives:
-                # Invalid strategic objective
-                initiatives_invalid_strategic_objective.append({
-                    'key': initiative_key,
-                    'summary': initiative_summary,
-                    'owner_team': normalized_owner or 'None',
-                    'current_value': strategic_objective
-                })
+            elif valid_strategic_objectives and strategic_objective:
+                # Check each objective individually (handles comma-separated multiple objectives)
+                objectives = [obj.strip() for obj in strategic_objective.split(',')]
+                invalid_objectives = [obj for obj in objectives if obj not in valid_strategic_objectives]
+
+                if invalid_objectives:
+                    # At least one objective is invalid
+                    initiatives_invalid_strategic_objective.append({
+                        'key': initiative_key,
+                        'summary': initiative_summary,
+                        'owner_team': normalized_owner or 'None',
+                        'current_value': strategic_objective,
+                        'invalid_values': invalid_objectives
+                    })
 
         # Track initiatives without owner
         if not normalized_owner:
@@ -654,7 +666,8 @@ def extract_workload_actions(analysis: dict[str, Any], team_managers: dict[str, 
             'epic_key': None,
             'epic_title': None,
             'epic_rag': None,
-            'current_value': initiative.get('current_value', '')
+            'current_value': initiative.get('current_value', ''),
+            'invalid_values': initiative.get('invalid_values', [])
         }
         _add_manager_info(action, owner_team, owner_display)
         actions.append(action)
@@ -1155,10 +1168,13 @@ def print_workload_report(analysis: dict[str, Any], team_managers: dict[str, dic
                     elif action_type == 'invalid_strategic_objective':
                         manager_mention = f" {action['responsible_manager_notion']}" if action['responsible_manager_notion'] else ""
                         current_value = action.get('current_value', '')
+                        invalid_values = action.get('invalid_values', [])
                         print("\n   ⚠️  Invalid strategic objective - Action:")
                         print(f"       [ ] Fix invalid strategic objective value{manager_mention}")
                         if current_value:
                             print(f"       Current value: \"{current_value}\"")
+                        if invalid_values:
+                            print(f"       Invalid: {', '.join(invalid_values)}")
 
                     elif action_type == 'missing_epics':
                         team_display = action['responsible_team']
@@ -1378,6 +1394,9 @@ def print_markdown_report(analysis: dict[str, Any], team_managers: dict[str, dic
                 link = init['key']
             print(f"- {link} (owner: {owner_display}{manager_display}): \"{summary}\"")
             print(f"  - Current value: \"{current}\"")
+            invalid_values = init.get('invalid_values', [])
+            if invalid_values:
+                print(f"  - Invalid: {', '.join(invalid_values)}")
         print()
     else:
         print("✓ All strategic objectives are valid\n")
