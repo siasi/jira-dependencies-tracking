@@ -192,6 +192,45 @@ def load_valid_strategic_objectives() -> list[str]:
         return []
 
 
+def load_signed_off_initiatives() -> set[str]:
+    """Load list of initiative keys that have manager sign-off.
+
+    Signed-off initiatives are completely excluded from validation reports
+    because managers have explicitly approved their current state despite
+    any inconsistencies.
+
+    Returns:
+        Set of initiative keys to skip validation (e.g., {"INIT-1234"})
+    """
+    exceptions_file = Path(__file__).parent / 'config' / 'initiative_exceptions.yaml'
+    if not exceptions_file.exists():
+        return set()
+
+    try:
+        with open(exceptions_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            signed_off = data.get('signed_off_initiatives', [])
+
+            # Extract keys from list of dicts
+            keys = set()
+            for item in signed_off:
+                if not isinstance(item, dict):
+                    continue  # Skip malformed items silently
+                if 'key' not in item:
+                    continue  # Skip items without key
+                keys.add(item['key'])
+
+            return keys
+    except yaml.YAMLError as e:
+        # Invalid YAML is a config error (fail fast)
+        print(f"Error: Invalid YAML in initiative_exceptions.yaml: {e}", file=sys.stderr)
+        sys.exit(2)
+    except Exception as e:
+        # Unexpected errors are fatal
+        print(f"Error: Could not load initiative_exceptions.yaml: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
 def normalize_teams_involved(teams_involved: Any) -> list[str]:
     """Normalize teams_involved field to a list.
 
@@ -254,6 +293,19 @@ def analyze_workload(json_file: Path, team_mappings: dict[str, str], excluded_te
             initiatives.append(initiative)
         else:
             filtered_count += 1
+
+    # Filter out signed-off initiatives (manager-approved exceptions)
+    signed_off_keys = load_signed_off_initiatives()
+    if signed_off_keys:
+        signed_off_count = 0
+        filtered_initiatives = []
+        for initiative in initiatives:
+            if initiative.get('key') in signed_off_keys:
+                signed_off_count += 1
+            else:
+                filtered_initiatives.append(initiative)
+        initiatives = filtered_initiatives
+        filtered_count += signed_off_count
 
     # Data structures for analysis
     workload = defaultdict(lambda: {'leading': set(), 'contributing': set()})
