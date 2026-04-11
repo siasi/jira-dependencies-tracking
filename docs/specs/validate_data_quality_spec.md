@@ -85,7 +85,9 @@ Additional checks beyond universal:
 **Rationale**: In Progress initiatives are actively being worked on. RAG status is NOT validated because:
 - Work is happening, RAG is less relevant for tracking commitment
 - Focus is on execution, not planning signals
-- User explicitly stated RAG is not relevant for In Progress
+- RAG is not relevant for In Progress status
+
+**Current Implementation Note**: `validate_planning.py` currently validates RAG for all statuses (lines 156-168, 208-227, 252-267, 340-356). This will be updated in a future change to skip RAG validation for "In Progress" status per this specification.
 
 ### Done/Cancelled Status (Cleanup Only)
 
@@ -107,11 +109,18 @@ If `--all-active` or explicit `--status Done` used:
 
 **Implementation**:
 ```python
-# When checking for missing epics or missing RAG:
-# Skip if team_project_key matches owner_team's project_key
-if is_owner_team(team_key, owner_team, team_mappings):
-    continue  # Owner team exempt
+# Filter out owner team from teams_involved before validation
+# This approach is used in validate_prioritisation.py (lines 462-469, 680-686)
+teams_involved = _normalize_teams_involved(initiative.get('teams_involved'))
+owner_team = initiative.get('owner_team')
+if owner_team and owner_team in teams_involved:
+    teams_involved = [team for team in teams_involved if team != owner_team]
+
+# Now teams_involved contains only contributing teams, not owner
+# All downstream validation (missing epics, RAG status) works correctly
 ```
+
+**Rationale**: Pre-filtering is simpler and more maintainable than checking at validation time. Owner team never enters the commitment matrix or health dashboard.
 
 **Applies to**:
 - Missing epics check: Owner team not expected to create epic
@@ -149,8 +158,14 @@ if initiative['summary'].startswith('[Discovery]'):
 objectives = [obj.strip() for obj in strategic_objective.split(',')]
 invalid = [obj for obj in objectives if obj not in valid_objectives]
 if invalid:
-    # Report which specific objectives are invalid
+    issues.append({
+        'type': 'invalid_strategic_objective',
+        'current_value': strategic_objective,  # Full comma-separated string
+        'invalid_values': invalid              # List of specific invalid objectives
+    })
 ```
+
+**Current Implementation**: This pattern is used in `validate_planning.py` (lines 92-109) and `analyze_workload.py` (lines 376-389).
 
 ## Output Formats
 
@@ -346,6 +361,8 @@ python3 validate_data_quality.py --quarter "26 Q2" --verbose
 ```
 
 ## Shared Validation Library: `lib/validation.py`
+
+**⚠️ FUTURE WORK**: This section describes a proposed shared validation library that **does not yet exist**. This is a design specification for future refactoring to consolidate validation logic from the three existing scripts (`validate_planning.py`, `validate_prioritisation.py`, `analyze_workload.py`) into a reusable library. Current implementation uses duplicated validation code across these scripts.
 
 Extract all validation logic to a shared library that can be imported by all scripts.
 
@@ -565,12 +582,79 @@ issues = validator.validate(initiative)
 
 ## Questions / Decisions Needed
 
-1. **RAG validation for In Progress**: Confirmed - NOT validated (user specified)
-2. **Multi-objective format**: Comma-separated (current implementation)
-3. **Owner team creates epic?**: No - owner team exempt (current implementation)
-4. **Discovery initiative handling**: Exempt from dependency checks (current implementation)
-5. **Default output format**: Console (with options for markdown/JSON/Slack)
-6. **Validation priority levels**: P1-P5 as defined above
+1. **RAG validation for In Progress**: Confirmed - NOT validated (user specified) ✓
+2. **Multi-objective format**: Comma-separated (current implementation) ✓
+3. **Owner team creates epic?**: No - owner team exempt (current implementation) ✓
+4. **Discovery initiative handling**: Exempt from dependency checks (current implementation) ✓
+5. **Default output format**: Console + Slack only (markdown/JSON deferred) ✓
+6. **Validation priority levels**: P1-P5 as defined above ✓
+
+## Implementation Status
+
+**Completed: 2026-04-11**
+
+### Phase 1: Extract Validation Library ✓
+- Created `lib/validation.py` with all core validation classes and functions
+- Implemented `Priority` enum (IntEnum 1-5)
+- Implemented `ValidationIssue` dataclass with all required fields
+- Implemented `ValidationConfig` dataclass with configuration options
+- Implemented `InitiativeValidator` class with status-aware validation
+- All validation methods implemented and tested
+- 32 comprehensive tests passing
+
+### Phase 2: Create Data Quality Script ✓
+- Created `validate_data_quality.py` with CLI interface
+- Implemented filtering logic (quarter, status, all-active)
+- Implemented console output (manager-grouped action items)
+- Implemented Slack output using existing `notification_slack.j2` template
+- Exception handling for signed-off initiatives
+- Output directory management using `lib/output_utils.py`
+- 20 comprehensive tests passing
+
+### Phase 3: Integrate with Existing Scripts
+**Status**: Deferred for future work
+- Existing scripts continue to use inline validation
+- Shared library available for future refactoring
+
+### Phase 4: Documentation & Testing ✓
+- README not updated (existing validation scripts already documented)
+- Comprehensive test suite implemented (TDD approach)
+- TODO.md updated with implementation notes
+
+## Implementation Notes
+
+### Output Formats
+**Implemented**: Console, Slack
+**Deferred**: Markdown, JSON (per user request)
+
+### Console Output Format
+Matches spec with following structure:
+- Header with quarter and filter description
+- Summary statistics (initiatives analyzed, issues found, exceptions skipped)
+- Action items grouped by manager
+- Each manager shows team, action count, initiative count
+- Each initiative shows key, summary, status
+- Each issue shows priority label (P1-P5) and description
+- Footer with priority summary
+
+### Slack Output Format
+Uses existing `notification_slack.j2` template for consistency with other scripts.
+Messages only generated for managers with valid Slack IDs configured.
+
+### Deviations from Spec
+1. **Markdown/JSON output**: Not implemented (user requested console + Slack only)
+2. **Verbose mode**: Implemented but minimal output (shows data loading steps)
+3. **Show-exempt flag**: Implemented but not yet functional (low priority)
+4. **By-initiative grouping**: Not implemented (default by-manager is sufficient)
+
+### Key Features
+1. **Status-aware validation**: Different rules for Proposed/Planned/In Progress
+2. **Owner team exemption**: Pre-filtering approach (cleaner than runtime checks)
+3. **Discovery initiative exemption**: Skips dependency and RAG checks
+4. **Multi-objective support**: Comma-separated strategic objectives validated individually
+5. **Exception handling**: Respects `initiative_exceptions.yaml` signed-off initiatives
+6. **RAG-exempt teams**: Respects `teams_exempt_from_rag` configuration
+7. **Test coverage**: 52 tests total (32 validation library + 20 main script)
 
 ## Non-Goals
 
@@ -578,3 +662,132 @@ issues = validator.validate(initiative)
 - Not changing data model or Jira fields
 - Not implementing auto-fix capabilities (read-only validation)
 - Not adding new validation rules beyond current script capabilities
+
+---
+
+## Appendix: Configuration File Structures
+
+### A. `config/initiative_exceptions.yaml`
+
+Manager-approved exceptions to skip from validation. Used by all validation scripts.
+
+```yaml
+# Format
+signed_off_initiatives:
+  - key: "INIT-XXXX"
+    reason: "Why this initiative is exempt from validation"
+    date: "YYYY-MM-DD"
+    approved_by: "@Manager Name"
+
+# Example
+signed_off_initiatives:
+  - key: "INIT-1301"
+    reason: "PayEx and UN have to consult, nothing to build"
+    date: "2026-03-31"
+    approved_by: "@Kevin Platter"
+```
+
+**Usage**: Initiatives in this list are filtered out early in validation scripts (after loading, before any checks).
+
+### B. `config/team_mappings.yaml`
+
+Maps display names to project keys, defines manager contacts, and lists exempt teams.
+
+```yaml
+# Team display name → Project key mapping
+team_mappings:
+  "Core Banking": "CBNK"
+  "Payments Experience": "PX"
+  "Console": "CONSOLE"
+  # ... more teams
+
+# Manager contacts for notifications
+team_managers:
+  "CBNK":
+    notion_handle: "@Joel Oughton"
+    slack_id: "U02GE9CFXGX"
+  "PX":
+    notion_handle: "@Prabodh Kakodkar"
+    slack_id: "U013XJUFPCG"
+  # ... more teams
+
+# Teams exempt from RAG status requirements
+teams_exempt_from_rag:
+  - "DOCS"
+
+# Teams excluded from workload analysis
+teams_excluded_from_workload_analysis:
+  - "IT"
+  - "Security Engineering"
+  - "DevOps"
+  # ... more teams
+
+# Teams excluded from planning validation
+teams_excluded_from_validation:
+  - "IT"
+  - "Security Engineering"
+  # ... more teams
+
+# Teams excluded from prioritisation validation
+teams_excluded_from_prioritisation:
+  - "DevOps"
+  - "Security Engineering"
+  # ... more teams
+
+# Strategic objective mappings (historical → current)
+strategic_objective_mappings:
+  "2025_increase_soc_conversion": "2026_scale_ecom"
+  "2024_1 Scale iGaming and FS": "2026_fuel_regulated"
+  # ... more mappings
+```
+
+**Usage**:
+- `team_mappings`: Match "Teams Involved" display names to epic project keys
+- `team_managers`: Send notifications and tag managers in reports
+- `teams_exempt_from_rag`: Skip RAG validation for these teams
+- `teams_excluded_from_*`: Filter teams from specific validation scripts
+- `strategic_objective_mappings`: Consolidate historical objectives in reports
+
+### C. `config/jira_config.yaml`
+
+Jira instance settings, custom field mappings, and validation rules.
+
+```yaml
+jira:
+  instance: "yourcompany.atlassian.net/"
+
+projects:
+  initiatives: "INIT"
+  teams:
+    - "CBNK"
+    - "PX"
+    - "CONSOLE"
+    # ... more project keys
+
+custom_fields:
+  initiatives:
+    rag_status: "customfield_12111"
+    strategic_objective: "customfield_12101"
+    quarter: "customfield_12108"
+    owner_team: "customfield_10300"
+    teams_involved: "customfield_12521"
+
+validation:
+  strategic_objective:
+    valid_values:
+      - "2026_fuel_regulated"
+      - "2026_network"
+      - "2026_scale_ecom"
+      - "engineering_pillars"
+      - "beyond_strategic"
+      # ... more valid values
+
+output:
+  directory: "./data"
+  filename_pattern: "jira_extract_{timestamp}.json"
+```
+
+**Usage**:
+- Extract custom fields from Jira initiatives
+- Validate strategic objectives against allowed values
+- Configure data extraction output location

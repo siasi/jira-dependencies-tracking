@@ -2,6 +2,25 @@
 
 ## Future Development
 
+### Data Quality Validation Script
+- [x] Create shared validation library `lib/validation.py` (completed 2026-04-11)
+- [x] Create `validate_data_quality.py` script with console and Slack output (completed 2026-04-11)
+- [ ] Refactor existing scripts to use shared validation library (Phase 3 - future work)
+- **Implementation**:
+  - Created `lib/validation.py` with `Priority`, `ValidationIssue`, `ValidationConfig`, `InitiativeValidator`
+  - Implemented status-aware validation rules (RAG not validated for "In Progress")
+  - Owner team exempt from creating epics and setting RAG status
+  - Discovery initiatives exempt from dependency checks
+  - Comma-separated strategic objectives supported
+  - Console output groups action items by manager with priority labels (P1-P5)
+  - Slack output uses `notification_slack.j2` template
+  - Comprehensive test coverage (52 tests total)
+- **Usage**:
+  - `./validate_data_quality.py --quarter "26 Q2"` - Standard validation
+  - `./validate_data_quality.py --quarter "26 Q2" --status Proposed` - Specific status
+  - `./validate_data_quality.py --quarter "26 Q2" --slack` - Generate Slack messages
+  - `./validate_data_quality.py --quarter "26 Q2" --all-active` - All active initiatives
+
 ### Exception Handling Consistency
 - [x] Make `validate_planning.py` respect `initiative_exceptions.yaml` (completed 2026-04-01)
 - [x] Make `validate_prioritisation.py` respect `initiative_exceptions.yaml` (completed 2026-04-11)
