@@ -159,6 +159,135 @@ def test_check_data_quality_missing_strategic_objective():
     assert issues[0]['type'] == 'missing_strategic_objective'
 
 
+def test_check_data_quality_invalid_strategic_objective():
+    """Test data quality check with single invalid strategic objective."""
+    initiative = {
+        "key": "INIT-889",
+        "summary": "Test Initiative",
+        "status": "Proposed",
+        "quarter": "26 Q2",
+        "assignee": "user@example.com",
+        "strategic_objective": "invalid_objective",  # Invalid
+        "teams_involved": ["TEAM1"],
+        "contributing_teams": [
+            {
+                "team_project_key": "TEAM1",
+                "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
+            }
+        ]
+    }
+
+    issues = _check_data_quality(initiative)
+
+    assert issues is not None
+    assert len(issues) == 1
+    assert issues[0]['type'] == 'invalid_strategic_objective'
+    assert issues[0]['current_value'] == 'invalid_objective'
+    assert issues[0]['invalid_values'] == ['invalid_objective']
+
+
+def test_check_data_quality_comma_separated_valid_objectives():
+    """Test data quality check with comma-separated valid strategic objectives."""
+    initiative = {
+        "key": "INIT-890",
+        "summary": "Test Initiative",
+        "status": "Proposed",
+        "quarter": "26 Q2",
+        "assignee": "user@example.com",
+        "strategic_objective": "2026_fuel_regulated, 2026_network",  # Both valid
+        "teams_involved": ["TEAM1"],
+        "contributing_teams": [
+            {
+                "team_project_key": "TEAM1",
+                "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
+            }
+        ]
+    }
+
+    issues = _check_data_quality(initiative)
+
+    # Should have no issues - both objectives are valid
+    assert issues is None
+
+
+def test_check_data_quality_comma_separated_one_invalid():
+    """Test data quality check with comma-separated objectives where one is invalid."""
+    initiative = {
+        "key": "INIT-891",
+        "summary": "Test Initiative",
+        "status": "Proposed",
+        "quarter": "26 Q2",
+        "assignee": "user@example.com",
+        "strategic_objective": "2026_fuel_regulated, invalid_objective",  # One valid, one invalid
+        "teams_involved": ["TEAM1"],
+        "contributing_teams": [
+            {
+                "team_project_key": "TEAM1",
+                "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
+            }
+        ]
+    }
+
+    issues = _check_data_quality(initiative)
+
+    assert issues is not None
+    assert len(issues) == 1
+    assert issues[0]['type'] == 'invalid_strategic_objective'
+    assert issues[0]['current_value'] == '2026_fuel_regulated, invalid_objective'
+    assert issues[0]['invalid_values'] == ['invalid_objective']
+
+
+def test_check_data_quality_comma_separated_all_invalid():
+    """Test data quality check with comma-separated objectives where all are invalid."""
+    initiative = {
+        "key": "INIT-892",
+        "summary": "Test Initiative",
+        "status": "Proposed",
+        "quarter": "26 Q2",
+        "assignee": "user@example.com",
+        "strategic_objective": "invalid_obj1, invalid_obj2, invalid_obj3",  # All invalid
+        "teams_involved": ["TEAM1"],
+        "contributing_teams": [
+            {
+                "team_project_key": "TEAM1",
+                "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
+            }
+        ]
+    }
+
+    issues = _check_data_quality(initiative)
+
+    assert issues is not None
+    assert len(issues) == 1
+    assert issues[0]['type'] == 'invalid_strategic_objective'
+    assert issues[0]['current_value'] == 'invalid_obj1, invalid_obj2, invalid_obj3'
+    assert set(issues[0]['invalid_values']) == {'invalid_obj1', 'invalid_obj2', 'invalid_obj3'}
+
+
+def test_check_data_quality_comma_separated_with_whitespace():
+    """Test that whitespace around comma-separated objectives is handled correctly."""
+    initiative = {
+        "key": "INIT-893",
+        "summary": "Test Initiative",
+        "status": "Proposed",
+        "quarter": "26 Q2",
+        "assignee": "user@example.com",
+        "strategic_objective": "  2026_fuel_regulated  ,  2026_network  ",  # Valid with extra whitespace
+        "teams_involved": ["TEAM1"],
+        "contributing_teams": [
+            {
+                "team_project_key": "TEAM1",
+                "epics": [{"key": "TEAM1-1", "summary": "Epic 1", "rag_status": "🟢"}]
+            }
+        ]
+    }
+
+    issues = _check_data_quality(initiative)
+
+    # Should have no issues - whitespace is stripped and both are valid
+    assert issues is None
+
+
 def test_check_data_quality_all_good():
     """Test data quality check with no issues."""
     initiative = {

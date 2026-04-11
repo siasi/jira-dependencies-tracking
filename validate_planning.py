@@ -95,12 +95,18 @@ def _check_data_quality(initiative: dict) -> Optional[list[dict[str, Any]]]:
         issues.append({'type': 'missing_strategic_objective'})
     else:
         # Check if strategic objective is valid
+        # Split by comma to handle multiple objectives (e.g., "objective1, objective2")
         valid_objectives = _load_valid_strategic_objectives()
-        if valid_objectives and strategic_objective not in valid_objectives:
-            issues.append({
-                'type': 'invalid_strategic_objective',
-                'current_value': strategic_objective
-            })
+        if valid_objectives:
+            objectives = [obj.strip() for obj in strategic_objective.split(',')]
+            invalid_objectives = [obj for obj in objectives if obj not in valid_objectives]
+
+            if invalid_objectives:
+                issues.append({
+                    'type': 'invalid_strategic_objective',
+                    'current_value': strategic_objective,
+                    'invalid_values': invalid_objectives
+                })
 
     # Skip dependency and RAG checks for discovery initiatives
     if is_discovery:

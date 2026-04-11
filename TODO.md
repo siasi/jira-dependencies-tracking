@@ -8,13 +8,13 @@
 - **Rationale**: Manager-approved exceptions should apply consistently across all validation scripts, not just workload analysis
 
 ### Multi-Objective Strategic Objective Support
-- [ ] Fix `validate_planning.py` to handle comma-separated strategic objectives
+- [x] Fix `validate_planning.py` to handle comma-separated strategic objectives (completed 2026-04-11)
 - **Issue**: `validate_planning.py` (lines 92-103) treats strategic objective as single string
 - **Current behavior**: Flags initiatives with multiple objectives (e.g., "objective1, objective2") as invalid
 - **Expected behavior**: Split by comma and validate each objective individually, like `analyze_workload.py` does
 - **Files to update**:
-  - `validate_planning.py`: Update `_check_data_quality()` function to split and validate each objective
-  - Consider adding same logic to `validate_prioritisation.py` for consistency
+  - `validate_planning.py`: Update `_check_data_quality()` function to split and validate each objective ✓
+  - `validate_prioritisation.py`: Not needed - this script doesn't validate strategic objectives
 
 ### Owner Team Expectations Alignment
 - [ ] Align `validate_prioritisation.py` owner team handling with other scripts
