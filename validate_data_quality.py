@@ -71,7 +71,7 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         '--all-active',
         action='store_true',
-        help='Validate all active initiatives (not Done/Cancelled)'
+        help='Validate all active initiatives (Proposed, Planned, In Progress)'
     )
 
     # Output options
@@ -256,8 +256,8 @@ def filter_initiatives(
             if status == status_filter:
                 filtered.append(initiative)
         elif all_active:
-            # All active (not Done/Cancelled)
-            if status not in ['Done', 'Cancelled']:
+            # All active (Proposed, Planned, In Progress)
+            if status in ['Proposed', 'Planned', 'In Progress']:
                 filtered.append(initiative)
         else:
             # Default: In Progress (any quarter) + Planned (matching quarter)
@@ -668,7 +668,7 @@ def main():
     if args.status:
         filter_desc = f'{args.status} status'
     elif args.all_active:
-        filter_desc = 'All active (not Done/Cancelled)'
+        filter_desc = 'All active (Proposed, Planned, In Progress)'
     else:
         filter_desc = f'In Progress (all quarters) + Planned ({args.quarter})'
 
