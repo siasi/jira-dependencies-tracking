@@ -494,20 +494,8 @@ def format_console_output(grouped_data: Dict, metadata: Dict) -> str:
                     # Use full description if no " - " separator
                     action_description = description
 
-                # Determine action owner for this issue
-                is_owner = is_owned_initiative(issue, team, team_mappings)
-                if is_owner:
-                    # Owner action - show manager name with @
-                    action_owner = manager_name
-                else:
-                    # Dependency action - show owner team's manager with @
-                    owner_team = issue.owner_team
-                    owner_project_key = team_mappings.get(owner_team, owner_team)
-                    owner_manager_info = team_managers.get(owner_project_key, {})
-                    owner_manager_name = owner_manager_info.get('notion_handle', 'Unknown')
-                    if not owner_manager_name.startswith('@'):
-                        owner_manager_name = f'@{owner_manager_name}'
-                    action_owner = owner_manager_name
+                # Action owner is always the manager viewing this (already routed correctly by grouping)
+                action_owner = manager_name
 
                 lines.append(f"    {priority_label} ⚠️  {action_description} - {action_owner}")
 

@@ -224,11 +224,11 @@ Action Items by Manager (5 managers, 38 action items):
   Status: In Progress
     P1 ⚠️  Set strategic objective - @Jane Smith
 
-  INIT-901: Search Optimization
+  INIT-901: Search Optimization (owned by Mobile Team)
   Status: Planned
-    P1 ⚠️  Create epic (Platform) - @John Doe
-    P1 ⚠️  Set RAG (Platform) - @John Doe
-    P2 ⚠️  Set RAG (Platform) - @John Doe
+    P1 ⚠️  Create epic (Platform) - @Jane Smith
+    P1 ⚠️  Set RAG (Platform) - @Jane Smith
+    P2 ⚠️  Set RAG (Platform) - @Jane Smith
 
 --------------------------------------------------------------------------------
 
