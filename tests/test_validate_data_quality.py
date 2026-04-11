@@ -303,7 +303,9 @@ def test_group_by_manager():
         'TEAM2': {'notion_handle': '@Manager B', 'slack_id': 'U222'},
     }
 
-    grouped = group_by_manager(issues_by_initiative, team_managers)
+    team_mappings = {}  # No mappings needed for this test
+
+    grouped = group_by_manager(issues_by_initiative, team_managers, team_mappings)
 
     # Should have 2 managers
     assert len(grouped) == 2
@@ -531,8 +533,47 @@ def test_group_by_manager_no_managers():
     }
 
     team_managers = {}  # No managers defined
+    team_mappings = {}  # No mappings
 
-    grouped = group_by_manager(issues_by_initiative, team_managers)
+    grouped = group_by_manager(issues_by_initiative, team_managers, team_mappings)
 
     # Should handle gracefully (might skip or use default)
     assert isinstance(grouped, dict)
+
+
+def test_group_by_manager_with_team_mappings():
+    """Test that display names are mapped to project keys before manager lookup."""
+    from validate_data_quality import group_by_manager
+    from lib.validation import ValidationIssue, Priority
+
+    issues_by_initiative = {
+        'INIT-1': [
+            ValidationIssue(
+                type='missing_assignee',
+                priority=Priority.MEDIUM,
+                description='Assign owner',
+                initiative_key='INIT-1',
+                initiative_summary='Test Initiative',
+                initiative_status='Proposed',
+                owner_team='MAP',  # Display name
+            )
+        ],
+    }
+
+    # Manager info uses project keys
+    team_managers = {
+        'MAPS': {'notion_handle': '@Kevin Plattern', 'slack_id': 'U013U600TT9'},
+    }
+
+    # Mapping from display name to project key
+    team_mappings = {
+        'MAP': 'MAPS',
+    }
+
+    grouped = group_by_manager(issues_by_initiative, team_managers, team_mappings)
+
+    # Should find the manager via the mapping
+    assert len(grouped) == 1
+    assert 'U013U600TT9' in grouped
+    assert grouped['U013U600TT9']['manager_name'] == 'Kevin Plattern'
+    assert grouped['U013U600TT9']['team'] == 'MAP'  # Original display name preserved

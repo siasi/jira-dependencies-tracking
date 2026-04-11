@@ -156,6 +156,24 @@ def load_excluded_teams() -> List[str]:
         return []
 
 
+def load_team_mappings() -> Dict[str, str]:
+    """Load team name to project key mappings.
+
+    Returns:
+        Dict mapping display names to project keys (e.g., "MAP" -> "MAPS")
+    """
+    mappings_file = Path('config/team_mappings.yaml')
+    if not mappings_file.exists():
+        return {}
+
+    try:
+        with open(mappings_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            return data.get('team_mappings', {})
+    except Exception:
+        return {}
+
+
 def load_team_managers() -> Dict[str, Dict[str, Optional[str]]]:
     """Load team managers with Notion handles and Slack IDs.
 
@@ -277,13 +295,15 @@ def validate_initiatives(
 
 def group_by_manager(
     issues_by_initiative: Dict[str, List[ValidationIssue]],
-    team_managers: Dict[str, Dict[str, Optional[str]]]
+    team_managers: Dict[str, Dict[str, Optional[str]]],
+    team_mappings: Dict[str, str]
 ) -> Dict[str, Dict]:
     """Group action items by manager.
 
     Args:
         issues_by_initiative: Dict of initiative key to list of issues
-        team_managers: Dict of team to manager info
+        team_managers: Dict of project key to manager info
+        team_mappings: Dict mapping display names to project keys
 
     Returns:
         Dict mapping manager Slack ID to grouped data
@@ -302,7 +322,10 @@ def group_by_manager(
                 # Can't group without owner team
                 continue
 
-            manager_info = team_managers.get(owner_team, {})
+            # Map display name to project key if needed
+            project_key = team_mappings.get(owner_team, owner_team)
+
+            manager_info = team_managers.get(project_key, {})
             manager_name = manager_info.get('notion_handle', 'Unknown')
             slack_id = manager_info.get('slack_id', f'unknown_{owner_team}')
 
@@ -601,11 +624,12 @@ def main():
     if args.verbose:
         print(f'Found issues in {len(issues_by_initiative)} initiatives')
 
-    # Load manager info
+    # Load manager info and team mappings
     team_managers = load_team_managers()
+    team_mappings = load_team_mappings()
 
     # Group by manager
-    grouped_data = group_by_manager(issues_by_initiative, team_managers)
+    grouped_data = group_by_manager(issues_by_initiative, team_managers, team_mappings)
 
     # Prepare metadata
     metadata = {
