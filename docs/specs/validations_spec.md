@@ -11,11 +11,12 @@ These checks apply to all initiatives regardless of status:
 | Check | Priority | Description |
 |-------|----------|-------------|
 | Missing owner_team | P1 | Blocks everything - initiative needs an owner team |
-| Missing strategic_objective | P2 | Blocks planning - initiative needs strategic alignment |
+| Missing teams_involved | P1 | Data quality issue - should list contributing teams |
+| Missing strategic_objective | P1 | Blocks planning - initiative needs strategic alignment |
 | Invalid strategic_objective | P3 | Not in approved list - needs correction (see definitions below) |
-| Missing teams_involved | P4 | Data quality issue - should list contributing teams |
 
-**Rationale**: These are fundamental data quality requirements. Without owner team (P1), we don't know who to hold accountable. Without strategic objective (P2), we can't prioritize or align work.
+
+**Rationale**: These are fundamental data quality requirements. Without owner team (P1), we don't know who to hold accountable. Without strategic objective (P1), we can't prioritize or align work. Without teams_involved (P1), we can't track dependencies.
 
 ### Proposed Status (Planning Readiness)
 
@@ -23,14 +24,14 @@ Additional checks beyond universal:
 
 | Check | Priority | Description |
 |-------|----------|-------------|
-| Missing assignee | P2 | Blocks planning - needs DRI (person responsible) |
-| Missing epics from teams_involved | P4 | Teams need to create epics to signal commitment |
-| Missing RAG status | P5 | Teams need to communicate commitment level |
+| Missing epics from teams_involved | P2 | Teams need to create epics to signal commitment |
+| Missing RAG status | P2 | Teams need to communicate commitment level |
+| Missing assignee | P3 | Blocks execution - needs person responsible |
 
 **Rationale**: Proposed initiatives are being evaluated for readiness to move to Planned status. Before committing to the quarter, we need:
-- **Assignee (P2)**: Someone to drive the initiative
-- **Epics (P4)**: Teams confirm dependencies by creating epics
-- **RAG status (P5)**: Teams signal confidence level (Red/Amber/Green)
+- **Epics (P2)**: Teams confirm dependencies by creating epics
+- **RAG status (P2)**: Teams signal confidence level (Red/Amber/Green)
+- **Assignee (P3)**: Someone to drive the initiative
 
 All dependency and commitment signals are relevant at this stage.
 
@@ -40,14 +41,14 @@ Additional checks beyond universal:
 
 | Check | Priority | Description |
 |-------|----------|-------------|
-| Missing assignee | P2 | Should have DRI by now - initiative is committed |
-| Missing epics from teams_involved | P4 | Teams should have created epics to confirm dependencies |
-| Missing RAG status | P5 | Teams should be tracking and communicating health |
+| Missing assignee | P1 | Should have DRI by now - initiative is committed |
+| Missing epics from teams_involved | P1 | Teams should have created epics to confirm dependencies |
+| Missing RAG status | P1 | Teams should be tracking and communicating health |
 
 **Rationale**: Planned initiatives are committed for the quarter. By this stage:
-- **Assignee (P2)**: Must have someone accountable for delivery
-- **Epics (P4)**: Dependencies should be confirmed via epic creation
-- **RAG status (P5)**: Teams track health to signal risks early
+- **Assignee (P1)**: Must have someone accountable for delivery
+- **Epics (P1)**: Dependencies should be confirmed via epic creation
+- **RAG status (P1)**: Teams track health to signal risks early
 
 ### In Progress Status (Active Work)
 
@@ -55,13 +56,13 @@ Additional checks beyond universal:
 
 | Check | Priority | Description |
 |-------|----------|-------------|
-| Missing assignee | P2 | Active work must have DRI to coordinate execution |
-| Missing epics from teams_involved | P4 | Contributing teams should have epics for active work |
+| Missing assignee | P1 | Active work must have owner to coordinate execution |
+| Missing epics from teams_involved | P1 | Contributing teams should have epics for active work |
 
 **Rationale**: In Progress initiatives are actively being worked on. By this stage:
-- **Assignee (P2)**: Critical to have someone coordinating the work
-- **Epics (P4)**: Teams should have created epics to track their contributions
-- **RAG status**: NOT validated - decision to proceed was already made, focus is on execution not planning signals
+- **Assignee (P1)**: Critical to have someone coordinating the work
+- **Epics (P1)**: Teams should have created epics to track their contributions
+- **RAG status** : NOT validated - decision to proceed was already made, focus is on execution not planning signals
 
 ### Done/Cancelled Status (Cleanup Only)
 
@@ -69,7 +70,7 @@ Only checked if `--all-active` or explicit `--status Done` is used:
 
 | Check | Priority | Description |
 |-------|----------|-------------|
-| Missing strategic_objective | P2 | Historical data completeness for reporting |
+| Missing strategic_objective | P3 | Historical data completeness for reporting |
 | Epics not marked Done | INFO | Cleanup opportunity - close completed work |
 | RAG status on Done epics | INFO | Cleanup opportunity - clear stale signals |
 
@@ -152,9 +153,10 @@ Result:
 
 **What's still checked:**
 - ✓ Owner team (P1)
-- ✓ Assignee (P2)
-- ✓ Strategic objective (P2/P3)
-- ✓ Teams involved (P4)
+- ✓ Teams involved (P1)
+- ✓ Strategic objective (P1)
+- ✓ Invalid strategic objective (P3)
+- ✓ Assignee (varies by status: P3 for Proposed, P1 for Planned/In Progress)
 
 **What's skipped:**
 - ✗ Missing epics
@@ -175,7 +177,5 @@ Result:
 | Priority | Label | Meaning | Example |
 |----------|-------|---------|---------|
 | P1 | Critical | Blocks everything - fundamental data missing | Missing owner_team |
-| P2 | High | Blocks planning - can't proceed without this | Missing assignee, strategic objective |
+| P2 | High | Blocks progression - can't proceed without this | Missing epic, RAG status |
 | P3 | Medium | Data correction needed - fixable mistake | Invalid strategic objective (typo) |
-| P4 | Low | Missing dependencies - quality issue | Missing epics, teams_involved |
-| P5 | Info | Missing signals - nice to have | Missing RAG status |

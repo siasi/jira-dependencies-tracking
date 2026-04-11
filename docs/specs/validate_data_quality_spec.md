@@ -35,16 +35,22 @@ Exclude:
 
 ## Status-Aware Validation Rules
 
-Different validation rules apply based on initiative status:
+**Key Concept**: Validation severity **escalates** as initiatives progress through statuses. What's a minor issue in Proposed becomes critical in Planned/In Progress.
+
+**Note**: DRI (Directly Responsible Individual) = the `assignee` field in Jira.
 
 ### All Statuses (Universal Checks)
 
+These checks apply to all initiatives regardless of status:
+
 | Check | Priority | Description |
 |-------|----------|-------------|
-| Missing owner_team | P1 | Blocks everything - initiative needs owner |
-| Missing strategic_objective | P2 | Blocks planning - initiative needs strategic alignment |
-| Invalid strategic_objective | P3 | Wrong value - needs correction |
-| Missing teams_involved | P4 | Data quality issue - should list contributing teams |
+| Missing owner_team | P1 | Blocks everything - initiative needs an owner team |
+| Missing teams_involved | P1 | Blocks planning - must list contributing teams |
+| Missing strategic_objective | P1 | Blocks planning - initiative needs strategic alignment |
+| Invalid strategic_objective | P3 | Not in approved list - needs correction (typo/deprecated) |
+
+**Rationale**: These are fundamental data quality requirements that never change priority regardless of status.
 
 ### Proposed Status (Planning Readiness)
 
@@ -52,42 +58,47 @@ Additional checks beyond universal:
 
 | Check | Priority | Description |
 |-------|----------|-------------|
-| Missing assignee | P2 | Blocks planning - needs DRI |
-| Missing epics from teams_involved | P4 | Teams need to create epics to commit |
-| Missing RAG status | P5 | Teams need to signal commitment level |
-| Epic count vs teams_involved mismatch | P4 | Expected teams missing epics |
+| Missing assignee | P3 | Nice to have - can assign during planning |
+| Missing epics from teams_involved | P2 | Important signal - teams confirm commitment via epics |
+| Missing RAG status | P2 | Important signal - teams communicate confidence level |
 
-**Rationale**: Proposed initiatives are being evaluated for readiness to move to Planned status. All dependency and commitment signals (RAG) are relevant.
+**Rationale**: Proposed initiatives are being evaluated for readiness to move to Planned status. Priorities are moderate because:
+- **Assignee (P3)**: Helpful but can be assigned later during planning
+- **Epics (P2)**: Important for teams to signal commitment before we commit the quarter
+- **RAG (P2)**: Important for teams to communicate confidence (Red/Amber/Green)
 
-### Planned Status (Current Quarter Commitment)
-
-Additional checks beyond universal:
-
-| Check | Priority | Description |
-|-------|----------|-------------|
-| Missing assignee | P2 | Should have DRI by now |
-| Missing epics from teams_involved | P4 | Teams should have created epics |
-| Missing RAG status | P5 | Teams should be tracking health |
-| Epic count vs teams_involved mismatch | P4 | Expected teams missing epics |
-
-**Rationale**: Planned initiatives are committed for the quarter. Teams should have epics and be tracking RAG status.
-
-### In Progress Status (Active Work)
+### Planned Status (Current Quarter Commitment) - **ESCALATED PRIORITIES**
 
 Additional checks beyond universal:
 
 | Check | Priority | Description |
 |-------|----------|-------------|
-| Missing assignee | P2 | Active work must have DRI |
-| Missing epics from teams_involved | P4 | Contributing teams should have epics |
-| Epic count vs teams_involved mismatch | P4 | Expected teams missing epics |
+| Missing assignee | P1 | **Critical** - must have DRI for committed work |
+| Missing epics from teams_involved | P1 | **Critical** - dependencies must be confirmed |
+| Missing RAG status | P1 | **Critical** - must track health for committed work |
 
-**Rationale**: In Progress initiatives are actively being worked on. RAG status is NOT validated because:
-- Work is happening, RAG is less relevant for tracking commitment
-- Focus is on execution, not planning signals
-- RAG is not relevant for In Progress status
+**Rationale**: Planned initiatives are committed for the quarter. Priorities escalate to P1 because:
+- **Assignee (P1)**: Work is committed - MUST have someone accountable
+- **Epics (P1)**: Dependencies MUST be confirmed before quarter starts
+- **RAG (P1)**: Teams MUST track health to signal risks early
 
-**Current Implementation Note**: `validate_planning.py` currently validates RAG for all statuses (lines 156-168, 208-227, 252-267, 340-356). This will be updated in a future change to skip RAG validation for "In Progress" status per this specification.
+By Planned status, these should have been resolved during Proposed phase.
+
+### In Progress Status (Active Work) - **MAXIMUM SEVERITY**
+
+Additional checks beyond universal:
+
+| Check | Priority | Description |
+|-------|----------|-------------|
+| Missing assignee | P1 | **Critical** - active work must have owner coordinating execution |
+| Missing epics from teams_involved | P1 | **Critical** - contributing teams must have epics tracking work |
+
+**Rationale**: In Progress initiatives are actively being worked on. Priorities remain P1 because:
+- **Assignee (P1)**: Critical to have someone coordinating active execution
+- **Epics (P1)**: Teams must have epics to track their contributions
+- **RAG status**: NOT validated - decision to proceed was already made, focus shifted to execution not planning signals
+
+By In Progress status, all planning issues should have been resolved weeks ago.
 
 ### Done/Cancelled Status (Cleanup Only)
 
@@ -100,6 +111,22 @@ If `--all-active` or explicit `--status Done` used:
 | RAG status on Done epics | INFO | Cleanup opportunity |
 
 **Rationale**: Only check if explicitly requested. Focus on data completeness for historical analysis.
+
+### Severity Escalation Summary
+
+This table shows how priorities change as initiatives progress:
+
+| Check | Universal | Proposed | Planned | In Progress | Escalation Pattern |
+|-------|-----------|----------|---------|-------------|-------------------|
+| Missing owner_team | P1 | P1 | P1 | P1 | Always critical |
+| Missing teams_involved | P1 | P1 | P1 | P1 | Always critical |
+| Missing strategic_objective | P1 | P1 | P1 | P1 | Always critical |
+| Invalid strategic_objective | P3 | P3 | P3 | P3 | Always medium |
+| Missing assignee | - | P3 | **P1** ⬆️ | P1 | Escalates when committed |
+| Missing epics | - | P2 | **P1** ⬆️ | P1 | Escalates when committed |
+| Missing RAG | - | P2 | **P1** ⬆️ | N/A ⬇️ | Escalates, then drops |
+
+**Key Insight**: As initiatives move from planning to execution, missing data becomes more severe because it should have been fixed earlier.
 
 ## Validation Logic - Special Cases
 
@@ -654,7 +681,27 @@ Messages only generated for managers with valid Slack IDs configured.
 4. **Multi-objective support**: Comma-separated strategic objectives validated individually
 5. **Exception handling**: Respects `initiative_exceptions.yaml` signed-off initiatives
 6. **RAG-exempt teams**: Respects `teams_exempt_from_rag` configuration
-7. **Test coverage**: 52 tests total (32 validation library + 20 main script)
+7. **Excluded teams support**: Respects `teams_excluded_from_validation` configuration
+8. **Test coverage**: 59 tests total (37 validation library + 22 main script)
+
+### Severity Escalation (Specified, Not Yet Implemented)
+
+**Status**: The spec now defines severity escalation where priorities increase as initiatives progress (e.g., missing assignee is P3 in Proposed but P1 in Planned/In Progress).
+
+**Current Implementation**: Uses **fixed priorities** regardless of status:
+- Missing owner_team: Always P1 (CRITICAL)
+- Missing assignee: Always P2 (HIGH)
+- Missing strategic_objective: Always P2 (HIGH)
+- Invalid strategic_objective: Always P3 (MEDIUM)
+- Missing teams_involved: Always P4 (LOW)
+- Missing epics: Always P4 (LOW)
+- Missing RAG: Always P5 (INFO)
+
+**Future Work**: Implement status-aware priority escalation to match spec:
+- Update `InitiativeValidator.validate()` to pass initiative status to validation methods
+- Each validation method adjusts priority based on status
+- Update tests to verify priority escalation logic
+- Update Priority enum comments to reflect variable priorities
 
 ## Non-Goals
 
