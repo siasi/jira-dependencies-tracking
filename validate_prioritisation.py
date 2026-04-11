@@ -1305,6 +1305,14 @@ def main(config: Optional[str], markdown: Optional[str], slack: bool, verbose: b
     while skipping higher-priority ones) and missing commitments (teams with
     no green/yellow epics despite being in teams_involved).
 
+    SCOPE (which initiatives are validated):
+      - Initiatives: Only those listed in config/priorities.yaml
+      - Status: No status filtering (validates all prioritized initiatives)
+      - Quarter: No quarter filtering (validates all prioritized initiatives)
+
+      Exclusions:
+        - Teams in teams_excluded_from_prioritisation (config/team_mappings.yaml)
+
     Examples:
 
         # Validate using latest extraction

@@ -36,6 +36,31 @@ jira-em-toolkit/
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture documentation.
 
+## Script Scope Quick Reference
+
+Each script validates/analyzes a specific subset of initiatives. Use this reference to understand which initiatives each script considers:
+
+| Script | Quarter Filter | Status Filter | Notes |
+|--------|---------------|---------------|-------|
+| **validate_planning.py** | Required (`--quarter`) | Proposed OR Planned | Planning readiness for specific quarter |
+| **validate_data_quality.py** | Optional, combinable | Flexible (see below) | Supports complex filtering combinations |
+| **validate_prioritisation.py** | None | No filtering | Only initiatives in `priorities.yaml` |
+| **analyze_workload.py** | Required (`--quarter`) | In Progress OR Planned (matching quarter) | Active workload for specific quarter |
+
+**validate_data_quality.py Filtering Options:**
+- Default: In Progress (any quarter) + Planned (any quarter)
+- `--quarter Q`: In Progress (any quarter) + Planned (quarter Q)
+- `--status X`: Status X (any quarter)
+- `--status X --quarter Q`: Status X AND quarter Q
+- `--all-active`: Proposed, Planned, In Progress (any quarter)
+- `--all-active --quarter Q`: Proposed, Planned, In Progress AND quarter Q
+
+**Common Exclusions (all scripts):**
+- Signed-off initiatives (`config/initiative_exceptions.yaml`)
+- Teams in various `teams_excluded_from_*` lists (`config/team_mappings.yaml`)
+
+For detailed scope information, see each script's section below or run with `--help`.
+
 ## Shared Validation Library
 
 All validation scripts (`validate_planning.py`, `validate_prioritisation.py`, `analyze_workload.py`) now use a centralized validation library (`lib/validation.py`) that provides consistent data quality checks across the toolkit.
@@ -353,6 +378,13 @@ custom_fields:
 
 Validate initiative readiness for Proposed → Planned status transitions based on epic RAG status, team dependencies, and assignee presence.
 
+**Scope (which initiatives are validated):**
+- **Quarter:** Matches specified `--quarter` (required)
+- **Status:** Proposed OR Planned only
+- **Exclusions:**
+  - Signed-off initiatives (`config/initiative_exceptions.yaml`)
+  - Teams in `teams_excluded_from_validation` (`config/team_mappings.yaml`)
+
 ```bash
 # Validate latest extraction for Q2 2026
 python validate_planning.py --quarter "26 Q2"
@@ -441,6 +473,32 @@ See [brainstorm document](docs/brainstorms/2026-03-21-initiative-status-validati
 ## Validate Data Quality
 
 Validate initiative data quality using comprehensive baseline checks. Reports missing owner teams, assignees, strategic objectives, epics, and RAG status. Uses the shared validation library (`lib/validation.py`) for consistent validation across the toolkit.
+
+**Scope (which initiatives are validated):**
+
+The script supports flexible filtering with combinable flags:
+
+- **Default (no filters):**
+  - Status: In Progress (any quarter) + Planned (any quarter)
+
+- **With `--quarter Q`:**
+  - Status: In Progress (any quarter) + Planned (quarter Q)
+
+- **With `--status X`:**
+  - Status: X (any quarter)
+
+- **With `--status X --quarter Q`:**
+  - Status: X AND quarter: Q
+
+- **With `--all-active`:**
+  - Status: Proposed, Planned, In Progress (any quarter)
+
+- **With `--all-active --quarter Q`:**
+  - Status: Proposed, Planned, In Progress AND quarter: Q
+
+- **Exclusions:**
+  - Signed-off initiatives (`config/initiative_exceptions.yaml`)
+  - Teams in `teams_excluded_from_validation` (`config/team_mappings.yaml`)
 
 ```bash
 # Validate current quarter
@@ -570,13 +628,18 @@ priorities:
   - INIT-1388  # Lower priority - Retry Storms Phase 3
 ```
 
+**Scope (which initiatives are validated):**
+- **Initiatives:** Only those listed in `config/priorities.yaml`
+- **Status:** No status filtering (validates all prioritized initiatives)
+- **Quarter:** No quarter filtering (validates all prioritized initiatives)
+- **Exclusions:**
+  - Done/Cancelled initiatives
+  - `[Discovery]` prefixed initiatives
+  - Teams in `teams_excluded_from_prioritisation` (`config/team_mappings.yaml`)
+    - By default: DevOps, Security Engineering, XD
+
 **What Gets Validated:**
 
-- **Configured Initiatives:** Only initiatives listed in the priority config file
-- **Active Initiatives:** Excludes Done/Cancelled initiatives
-- **Non-Discovery:** Excludes `[Discovery]` prefixed initiatives
-- **Excluded Teams:** Teams in `teams_excluded_from_prioritisation` (from `config/team_mappings.yaml`) are excluded from analysis
-  - By default: DevOps, Security Engineering, XD
 - **Commitment Definition:** Team has epic(s) with ALL epics being either:
   - Non-red RAG (green/yellow/amber), OR
   - Status = Done (work already completed)
@@ -600,6 +663,13 @@ See [brainstorm document](docs/brainstorms/2026-04-08-tech-leadership-priority-v
 ## Analyze Workload
 
 Analyze the distribution of epic work across teams to identify imbalances and ensure fair resource allocation.
+
+**Scope (which initiatives are analyzed):**
+- **Quarter:** Specified `--quarter` (required)
+- **Status:** In Progress (any quarter) OR Planned (matches quarter)
+- **Exclusions:**
+  - Signed-off initiatives (`config/initiative_exceptions.yaml`)
+  - Teams in `teams_excluded_from_workload_analysis` (`config/team_mappings.yaml`)
 
 ```bash
 # Analyze latest extraction for Q2 2026

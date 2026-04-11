@@ -1388,7 +1388,22 @@ def find_latest_extract() -> Path:
 def main():
     """Main validation workflow."""
     parser = argparse.ArgumentParser(
-        description='Validate initiative readiness for Proposed → Planned status transitions'
+        description='Validate initiative readiness for Proposed → Planned status transitions',
+        epilog="""
+Scope (which initiatives are validated):
+  - Quarter: Matches specified --quarter (required)
+  - Status: Proposed OR Planned only
+
+  Exclusions:
+    - Signed-off initiatives (config/initiative_exceptions.yaml)
+    - Teams in teams_excluded_from_validation (config/team_mappings.yaml)
+
+Examples:
+  python validate_planning.py --quarter "26 Q2"
+  python validate_planning.py --quarter "26 Q2" --slack
+  python validate_planning.py --quarter "26 Q2" --markdown report.md
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
         'json_file',

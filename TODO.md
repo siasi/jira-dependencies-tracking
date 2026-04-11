@@ -63,6 +63,27 @@
   - Run: `./validate_data_quality.py --quarter "26 Q2" --me`
   - Console shows only your teams' issues, Slack output unchanged 
 
+### Makes --help option and README be more clear about the scope of the initiatives considered by each team
+- [x] Improved --help and README documentation for script scope (completed 2026-04-11)
+- **Implementation**:
+  - Added detailed "Scope" sections to each script's --help epilog using argparse.RawDescriptionHelpFormatter
+  - Added "Script Scope Quick Reference" table to README for easy comparison
+  - Added detailed "Scope" sections to each script's README documentation
+  - Clarified filtering logic for validate_data_quality.py (combinable flags with AND logic)
+  - Documented quarter and status filtering for all scripts
+  - Listed exclusions (signed-off initiatives, excluded teams) for each script
+- **Scripts Updated**:
+  - validate_data_quality.py: Comprehensive filtering combinations documented
+  - validate_planning.py: Quarter-specific Proposed/Planned validation
+  - validate_prioritisation.py: Priority config-based scope (no quarter/status filtering)
+  - analyze_workload.py: In Progress + Planned (quarter-specific) scope
+- **Documentation**:
+  - README.md: Quick reference table + detailed scope sections for each script
+  - All scripts: --help output now includes clear scope information
+
+### Consolidate output format for action items
+[] In the same way we consolidated the validation logic in a library is there a way to ensure the format of the output (console and slack) related to action items is consistent across the scripts? If so is there an opprotunity to reduce the number of templates we have?
+
 ### Makes script names more consistent 
 [] Follow Mission Control metaphor                                                 
                                                                        

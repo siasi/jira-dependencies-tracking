@@ -56,7 +56,32 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
         Parsed arguments
     """
     parser = argparse.ArgumentParser(
-        description='Validate initiative data quality and generate action items'
+        description='Validate initiative data quality and generate action items',
+        epilog="""
+Scope (which initiatives are validated):
+  Default (no filters):
+    - Status: In Progress (any quarter) + Planned (any quarter)
+
+  With --quarter Q:
+    - Status: In Progress (any quarter) + Planned (quarter Q)
+
+  With --status X:
+    - Status: X (any quarter)
+
+  With --status X --quarter Q:
+    - Status: X AND quarter: Q
+
+  With --all-active:
+    - Status: Proposed, Planned, In Progress (any quarter)
+
+  With --all-active --quarter Q:
+    - Status: Proposed, Planned, In Progress AND quarter: Q
+
+  Exclusions:
+    - Signed-off initiatives (config/initiative_exceptions.yaml)
+    - Teams in teams_excluded_from_validation (config/team_mappings.yaml)
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
     # Filtering (combinable with AND logic)

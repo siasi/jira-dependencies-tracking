@@ -1840,22 +1840,28 @@ def main():
         description='Analyze team workload from Jira extraction data',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  # Analyze workload from latest extraction
-  python3 analyze_team_workload.py
+Scope (which initiatives are analyzed):
+  - Quarter: Specified --quarter (required)
+  - Status: In Progress (any quarter) OR Planned (matches quarter)
 
-  # Analyze specific extraction
-  python3 analyze_team_workload.py data/jira_extract_2024-01-15.json
-
-  # Analyze with verbose output
-  python3 analyze_team_workload.py --verbose
+  Exclusions:
+    - Signed-off initiatives (config/initiative_exceptions.yaml)
+    - Teams in teams_excluded_from_workload_analysis (config/team_mappings.yaml)
 
 The script distinguishes between:
   - Leading: Team is the owner_team of the initiative
   - Contributing: Team has epics in an initiative they don't own
   - Total: Leading + Contributing
 
-Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered out.
+Examples:
+  # Analyze workload from latest extraction
+  python3 analyze_workload.py --quarter "26 Q2"
+
+  # Analyze specific extraction
+  python3 analyze_workload.py --quarter "26 Q2" data/jira_extract_2024-01-15.json
+
+  # Analyze with verbose output
+  python3 analyze_workload.py --quarter "26 Q2" --verbose
         """
     )
 
