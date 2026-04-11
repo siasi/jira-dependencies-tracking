@@ -3,8 +3,8 @@
 ## Future Development
 
 ### Exception Handling Consistency
-- [ ] Make `validate_planning.py` respect `initiative_exceptions.yaml`
-- [ ] Make `validate_prioritisation.py` respect `initiative_exceptions.yaml`
+- [x] Make `validate_planning.py` respect `initiative_exceptions.yaml` (completed 2026-04-01)
+- [x] Make `validate_prioritisation.py` respect `initiative_exceptions.yaml` (completed 2026-04-11)
 - **Rationale**: Manager-approved exceptions should apply consistently across all validation scripts, not just workload analysis
 
 ### Multi-Objective Strategic Objective Support

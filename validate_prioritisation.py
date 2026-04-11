@@ -248,6 +248,45 @@ def _load_team_managers() -> Dict[str, Dict[str, Optional[str]]]:
         return {}
 
 
+def _load_signed_off_initiatives() -> set:
+    """Load list of initiative keys that have manager sign-off.
+
+    Signed-off initiatives are completely excluded from validation reports
+    because managers have explicitly approved their current state despite
+    any inconsistencies.
+
+    Returns:
+        Set of initiative keys to skip validation (e.g., {"INIT-1234"})
+    """
+    exceptions_file = Path(__file__).parent / 'config' / 'initiative_exceptions.yaml'
+    if not exceptions_file.exists():
+        return set()
+
+    try:
+        with open(exceptions_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            signed_off = data.get('signed_off_initiatives', [])
+
+            # Extract keys from list of dicts
+            keys = set()
+            for item in signed_off:
+                if not isinstance(item, dict):
+                    continue  # Skip malformed items silently
+                if 'key' not in item:
+                    continue  # Skip items without key
+                keys.add(item['key'])
+
+            return keys
+    except yaml.YAMLError as e:
+        # Invalid YAML is a config error (fail fast)
+        logger.error(f"Invalid YAML in initiative_exceptions.yaml: {e}")
+        sys.exit(2)
+    except Exception as e:
+        # Unexpected errors are fatal
+        logger.error(f"Could not load initiative_exceptions.yaml: {e}")
+        sys.exit(2)
+
+
 def _validate_slack_config(team_managers: Dict[str, Dict[str, Any]]) -> None:
     """Validate all teams have Slack IDs for Slack messaging.
 
@@ -775,6 +814,13 @@ def validate_prioritisation(
 
     initiatives = data.get('initiatives', [])
     logger.info(f"Loaded {len(initiatives)} total initiatives from {data_file}")
+
+    # Filter out signed-off initiatives (manager-approved exceptions)
+    signed_off_keys = _load_signed_off_initiatives()
+    if signed_off_keys:
+        signed_off_count = len([init for init in initiatives if init['key'] in signed_off_keys])
+        initiatives = [init for init in initiatives if init['key'] not in signed_off_keys]
+        logger.info(f"Filtered out {signed_off_count} signed-off initiatives")
 
     # Load team mappings
     team_mappings, reverse_team_mappings, excluded_teams = _load_team_mappings()

@@ -21,6 +21,7 @@ from validate_prioritisation import (
     _build_initiative_health,
     _check_data_quality,
     _load_team_managers,
+    _load_signed_off_initiatives,
     _validate_slack_config,
     extract_prioritisation_actions,
     validate_prioritisation
@@ -896,3 +897,193 @@ team_mappings:
     # Missing commitment: Team B expected in INIT-1 but has no epics
     assert len(result.missing_commitments) == 1
     assert result.missing_commitments[0]["team_display"] == "Team B"
+
+
+# ============================================================================
+# Signed-Off Initiatives Tests
+# ============================================================================
+
+def test_load_signed_off_initiatives_returns_set():
+    """Test that _load_signed_off_initiatives returns a set."""
+    # The function should always return a set (empty if file missing, populated if exists)
+    keys = _load_signed_off_initiatives()
+    assert isinstance(keys, set)
+    # Each item should be a string (initiative key)
+    for key in keys:
+        assert isinstance(key, str)
+        assert key.startswith('INIT-')
+
+
+def test_signed_off_initiative_filtered_out(tmp_path, monkeypatch):
+    """Test that signed-off initiatives are completely filtered out."""
+    # Create priority config
+    config_file = tmp_path / "priorities.yaml"
+    config_file.write_text("""
+priorities:
+  - INIT-1234
+  - INIT-5678
+""")
+
+    # Create test data with signed-off initiative
+    data_file = tmp_path / "test_data.json"
+    data = {
+        'initiatives': [
+            {
+                'key': 'INIT-1234',
+                'summary': 'Signed Off Initiative',
+                'owner_team': 'Team A',
+                'status': 'Proposed',
+                'teams_involved': ['Team A', 'Team B'],
+                'contributing_teams': []
+            },
+            {
+                'key': 'INIT-5678',
+                'summary': 'Normal Initiative',
+                'owner_team': 'Team A',
+                'status': 'Proposed',
+                'teams_involved': ['Team A'],
+                'contributing_teams': []
+            }
+        ]
+    }
+    data_file.write_text(json.dumps(data))
+
+    # Setup config directory in tmp_path
+    test_config_dir = tmp_path / "config"
+    test_config_dir.mkdir()
+
+    # Write team mappings
+    mappings_file = test_config_dir / "team_mappings.yaml"
+    mappings_file.write_text("""
+team_mappings:
+  "Team A": "TEAMA"
+  "Team B": "TEAMB"
+""")
+
+    # Write initiative exceptions with signed-off initiative
+    exceptions_file = test_config_dir / "initiative_exceptions.yaml"
+    config_data = {
+        'signed_off_initiatives': [
+            {'key': 'INIT-1234', 'reason': 'Manager approved', 'date': '2026-04-01', 'approved_by': '@Manager'}
+        ]
+    }
+    with open(exceptions_file, 'w') as f:
+        yaml.dump(config_data, f)
+
+    # Patch config location
+    import validate_prioritisation as vtl_module
+    monkeypatch.setattr(vtl_module, '__file__', str(tmp_path / "validate_prioritisation.py"))
+
+    # Run validation
+    from validate_prioritisation import validate_prioritisation as validate_fn
+    result = validate_fn(data_file, config_file)
+
+    # Verify signed-off initiative is filtered out
+    # total_initiatives is counted AFTER filtering signed-off initiatives
+    assert result.metadata['total_initiatives'] == 1
+    # After filtering signed-off, only 1 initiative remains, and it's active and non-discovery
+    assert result.metadata['active_initiatives'] == 1
+    assert result.metadata['validated_initiatives'] == 1
+
+    # Verify INIT-1234 is not in any results
+    all_keys = set()
+    for init in result.initiative_health:
+        all_keys.add(init['key'])
+    for conflict in result.priority_conflicts:
+        for committed in conflict.get('committed_to', []):
+            all_keys.add(committed['key'])
+    for missing in result.missing_commitments:
+        for issue in missing.get('issues', []):
+            all_keys.add(issue['key'])
+
+    assert 'INIT-1234' not in all_keys
+    assert 'INIT-5678' in all_keys
+
+
+def test_mixed_signed_off_and_normal_initiatives(tmp_path, monkeypatch):
+    """Test that only signed-off initiatives are filtered."""
+    # Create priority config with three initiatives
+    config_file = tmp_path / "priorities.yaml"
+    config_file.write_text("""
+priorities:
+  - INIT-1111
+  - INIT-2222
+  - INIT-3333
+""")
+
+    # Create test data
+    data_file = tmp_path / "test_data.json"
+    data = {
+        'initiatives': [
+            {
+                'key': 'INIT-1111',
+                'summary': 'Signed Off',
+                'owner_team': 'Team A',
+                'status': 'Proposed',
+                'teams_involved': ['Team A'],
+                'contributing_teams': []
+            },
+            {
+                'key': 'INIT-2222',
+                'summary': 'Normal Initiative 1',
+                'owner_team': 'Team B',
+                'status': 'Proposed',
+                'teams_involved': ['Team B'],
+                'contributing_teams': []
+            },
+            {
+                'key': 'INIT-3333',
+                'summary': 'Normal Initiative 2',
+                'owner_team': 'Team C',
+                'status': 'Proposed',
+                'teams_involved': ['Team C'],
+                'contributing_teams': []
+            }
+        ]
+    }
+    data_file.write_text(json.dumps(data))
+
+    # Setup config directory
+    test_config_dir = tmp_path / "config"
+    test_config_dir.mkdir()
+
+    # Write team mappings
+    mappings_file = test_config_dir / "team_mappings.yaml"
+    mappings_file.write_text("""
+team_mappings:
+  "Team A": "TEAMA"
+  "Team B": "TEAMB"
+  "Team C": "TEAMC"
+""")
+
+    # Write initiative exceptions with one signed-off initiative
+    exceptions_file = test_config_dir / "initiative_exceptions.yaml"
+    config_data = {
+        'signed_off_initiatives': [
+            {'key': 'INIT-1111', 'reason': 'Approved', 'date': '2026-04-01', 'approved_by': '@Manager'}
+        ]
+    }
+    with open(exceptions_file, 'w') as f:
+        yaml.dump(config_data, f)
+
+    # Patch config location
+    import validate_prioritisation as vtl_module
+    monkeypatch.setattr(vtl_module, '__file__', str(tmp_path / "validate_prioritisation.py"))
+
+    # Run validation
+    from validate_prioritisation import validate_prioritisation as validate_fn
+    result = validate_fn(data_file, config_file)
+
+    # Verify counts (total_initiatives is counted AFTER filtering signed-off)
+    assert result.metadata['total_initiatives'] == 2
+    assert result.metadata['active_initiatives'] == 2  # INIT-1111 filtered out
+    assert result.metadata['validated_initiatives'] == 2  # Only INIT-2222 and INIT-3333
+
+    # Verify INIT-1111 is filtered but others are not
+    all_keys = set()
+    for init in result.initiative_health:
+        all_keys.add(init['key'])
+
+    assert 'INIT-1111' not in all_keys
+    assert 'INIT-2222' in all_keys
+    assert 'INIT-3333' in all_keys
