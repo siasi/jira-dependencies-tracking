@@ -198,7 +198,7 @@ def test_check_owner_team_empty_string():
 
 
 def test_check_strategic_objective_missing():
-    """Test missing strategic_objective is detected (P2)."""
+    """Test missing strategic_objective is detected (P1)."""
     config = ValidationConfig(valid_strategic_objectives=["obj1"])
     validator = InitiativeValidator(config)
 
@@ -215,7 +215,7 @@ def test_check_strategic_objective_missing():
 
     strategic_issues = [i for i in issues if i.type == "missing_strategic_objective"]
     assert len(strategic_issues) == 1
-    assert strategic_issues[0].priority == Priority.HIGH
+    assert strategic_issues[0].priority == Priority.CRITICAL  # P1 universal check
 
 
 def test_check_strategic_objective_invalid():
@@ -277,7 +277,7 @@ def test_check_strategic_objective_multi_comma_separated():
 
 
 def test_check_teams_involved_missing():
-    """Test missing teams_involved is detected (P4)."""
+    """Test missing teams_involved is detected (P1)."""
     config = ValidationConfig(valid_strategic_objectives=["obj1"])
     validator = InitiativeValidator(config)
 
@@ -294,7 +294,7 @@ def test_check_teams_involved_missing():
 
     teams_issues = [i for i in issues if i.type == "missing_teams_involved"]
     assert len(teams_issues) == 1
-    assert teams_issues[0].priority == Priority.LOW
+    assert teams_issues[0].priority == Priority.CRITICAL  # P1 universal check
 
 
 def test_check_teams_involved_empty_list():
@@ -319,7 +319,7 @@ def test_check_teams_involved_empty_list():
 
 # Test InitiativeValidator - Status-Specific Checks
 def test_check_assignee_for_proposed():
-    """Test assignee check for Proposed status (P2)."""
+    """Test assignee check for Proposed status (P3 - lower priority)."""
     config = ValidationConfig(valid_strategic_objectives=["obj1"])
     validator = InitiativeValidator(config)
 
@@ -337,11 +337,11 @@ def test_check_assignee_for_proposed():
 
     assignee_issues = [i for i in issues if i.type == "missing_assignee"]
     assert len(assignee_issues) == 1
-    assert assignee_issues[0].priority == Priority.HIGH
+    assert assignee_issues[0].priority == Priority.MEDIUM  # P3 for Proposed
 
 
 def test_check_assignee_for_planned():
-    """Test assignee check for Planned status."""
+    """Test assignee check for Planned status (P1 - escalated)."""
     config = ValidationConfig(valid_strategic_objectives=["obj1"])
     validator = InitiativeValidator(config)
 
@@ -359,10 +359,11 @@ def test_check_assignee_for_planned():
 
     assignee_issues = [i for i in issues if i.type == "missing_assignee"]
     assert len(assignee_issues) == 1
+    assert assignee_issues[0].priority == Priority.CRITICAL  # P1 for Planned (escalated)
 
 
 def test_check_assignee_for_in_progress():
-    """Test assignee check for In Progress status."""
+    """Test assignee check for In Progress status (P1 - maximum severity)."""
     config = ValidationConfig(valid_strategic_objectives=["obj1"])
     validator = InitiativeValidator(config)
 
@@ -380,6 +381,7 @@ def test_check_assignee_for_in_progress():
 
     assignee_issues = [i for i in issues if i.type == "missing_assignee"]
     assert len(assignee_issues) == 1
+    assert assignee_issues[0].priority == Priority.CRITICAL  # P1 for In Progress
 
 
 def test_no_assignee_check_for_done():
@@ -459,6 +461,87 @@ def test_check_missing_epics_discovery_exempt():
     assert len(epic_issues) == 0
 
 
+def test_check_missing_epics_proposed_priority():
+    """Test missing epics for Proposed status (P2)."""
+    config = ValidationConfig(
+        valid_strategic_objectives=["obj1"],
+        team_mappings={},
+        owner_team_exempt=True,
+    )
+    validator = InitiativeValidator(config)
+
+    initiative = {
+        "key": "INIT-123",
+        "summary": "Test",
+        "status": "Proposed",
+        "owner_team": "TEAM1",
+        "assignee": "user@example.com",
+        "strategic_objective": "obj1",
+        "teams_involved": ["TEAM1", "TEAM2"],
+        "contributing_teams": [],
+    }
+
+    issues = validator.validate(initiative)
+
+    epic_issues = [i for i in issues if i.type == "missing_epic"]
+    assert len(epic_issues) == 1
+    assert epic_issues[0].priority == Priority.HIGH  # P2 for Proposed
+
+
+def test_check_missing_epics_planned_priority():
+    """Test missing epics for Planned status (P1 - escalated)."""
+    config = ValidationConfig(
+        valid_strategic_objectives=["obj1"],
+        team_mappings={},
+        owner_team_exempt=True,
+    )
+    validator = InitiativeValidator(config)
+
+    initiative = {
+        "key": "INIT-123",
+        "summary": "Test",
+        "status": "Planned",
+        "owner_team": "TEAM1",
+        "assignee": "user@example.com",
+        "strategic_objective": "obj1",
+        "teams_involved": ["TEAM1", "TEAM2"],
+        "contributing_teams": [],
+    }
+
+    issues = validator.validate(initiative)
+
+    epic_issues = [i for i in issues if i.type == "missing_epic"]
+    assert len(epic_issues) == 1
+    assert epic_issues[0].priority == Priority.CRITICAL  # P1 for Planned (escalated)
+
+
+def test_check_missing_epics_in_progress_priority():
+    """Test missing epics for In Progress status (P1)."""
+    config = ValidationConfig(
+        valid_strategic_objectives=["obj1"],
+        team_mappings={},
+        owner_team_exempt=True,
+    )
+    validator = InitiativeValidator(config)
+
+    initiative = {
+        "key": "INIT-123",
+        "summary": "Test",
+        "status": "In Progress",
+        "owner_team": "TEAM1",
+        "assignee": "user@example.com",
+        "strategic_objective": "obj1",
+        "teams_involved": ["TEAM1", "TEAM2"],
+        "contributing_teams": [],
+    }
+
+    issues = validator.validate(initiative)
+
+    epic_issues = [i for i in issues if i.type == "missing_epic"]
+    assert len(epic_issues) == 1
+    assert epic_issues[0].priority == Priority.CRITICAL  # P1 for In Progress
+
+
 def test_check_missing_epics_string_teams_involved():
     """Test teams_involved as comma-separated string is handled correctly."""
     config = ValidationConfig(
@@ -498,7 +581,7 @@ def test_check_missing_epics_string_teams_involved():
 
 
 def test_check_rag_status_for_proposed():
-    """Test RAG status is checked for Proposed status."""
+    """Test RAG status is checked for Proposed status (P2)."""
     config = ValidationConfig(
         valid_strategic_objectives=["obj1"],
         check_rag_status=True,
@@ -526,12 +609,12 @@ def test_check_rag_status_for_proposed():
 
     rag_issues = [i for i in issues if i.type == "missing_rag_status"]
     assert len(rag_issues) == 1
-    assert rag_issues[0].priority == Priority.INFO
+    assert rag_issues[0].priority == Priority.HIGH  # P2 for Proposed
     assert rag_issues[0].team_affected == "TEAM2"
 
 
 def test_check_rag_status_for_planned():
-    """Test RAG status is checked for Planned status."""
+    """Test RAG status is checked for Planned status (P1 - escalated)."""
     config = ValidationConfig(
         valid_strategic_objectives=["obj1"],
         check_rag_status=True,
@@ -559,6 +642,7 @@ def test_check_rag_status_for_planned():
 
     rag_issues = [i for i in issues if i.type == "missing_rag_status"]
     assert len(rag_issues) == 1
+    assert rag_issues[0].priority == Priority.CRITICAL  # P1 for Planned (escalated)
 
 
 def test_no_rag_check_for_in_progress():

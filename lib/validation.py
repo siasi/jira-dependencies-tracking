@@ -124,7 +124,12 @@ class InitiativeValidator:
         return []
 
     def _check_assignee(self, initiative: Dict) -> List[ValidationIssue]:
-        """Check for missing assignee.
+        """Check for missing assignee with status-aware priority.
+
+        Priority escalation:
+        - Proposed: P3 (MEDIUM) - Nice to have, can assign later
+        - Planned: P1 (CRITICAL) - Must have DRI for committed work
+        - In Progress: P1 (CRITICAL) - Must have someone coordinating
 
         Args:
             initiative: Initiative dictionary
@@ -135,9 +140,16 @@ class InitiativeValidator:
         assignee = initiative.get('assignee')
 
         if not assignee or (isinstance(assignee, str) and not assignee.strip()):
+            # Calculate status-aware priority
+            status = initiative.get('status', '')
+            if status == 'Proposed':
+                priority = Priority.MEDIUM  # P3
+            else:  # Planned or In Progress
+                priority = Priority.CRITICAL  # P1
+
             return [ValidationIssue(
                 type="missing_assignee",
-                priority=Priority.HIGH,
+                priority=priority,
                 description="Assign initiative owner",
                 initiative_key=initiative.get('key', ''),
                 initiative_summary=initiative.get('summary', ''),
@@ -164,11 +176,11 @@ class InitiativeValidator:
         issues = []
         strategic_objective = initiative.get('strategic_objective')
 
-        # Check for missing
+        # Check for missing (P1 - blocks planning)
         if not strategic_objective or (isinstance(strategic_objective, str) and not strategic_objective.strip()):
             return [ValidationIssue(
                 type="missing_strategic_objective",
-                priority=Priority.HIGH,
+                priority=Priority.CRITICAL,
                 description="Set strategic objective",
                 initiative_key=initiative.get('key', ''),
                 initiative_summary=initiative.get('summary', ''),
@@ -208,13 +220,13 @@ class InitiativeValidator:
         if not self.config.check_teams_involved:
             return []
 
-        # Normalize and check if empty
+        # Normalize and check if empty (P1 - data quality requirement)
         teams_involved = normalize_teams_involved(initiative.get('teams_involved'))
 
         if not teams_involved:
             return [ValidationIssue(
                 type="missing_teams_involved",
-                priority=Priority.LOW,
+                priority=Priority.CRITICAL,
                 description="List contributing teams",
                 initiative_key=initiative.get('key', ''),
                 initiative_summary=initiative.get('summary', ''),
@@ -225,7 +237,12 @@ class InitiativeValidator:
         return []
 
     def _check_missing_epics(self, initiative: Dict) -> List[ValidationIssue]:
-        """Check for missing epics from expected teams.
+        """Check for missing epics from expected teams with status-aware priority.
+
+        Priority escalation:
+        - Proposed: P2 (HIGH) - Important signal of commitment
+        - Planned: P1 (CRITICAL) - Dependencies must be confirmed
+        - In Progress: P1 (CRITICAL) - Teams should have epics for active work
 
         Rules:
         - Compare teams_involved vs teams with epics
@@ -262,6 +279,13 @@ class InitiativeValidator:
         contributing_teams = initiative.get('contributing_teams', [])
         teams_with_epics = {ct['team_project_key'] for ct in contributing_teams if ct.get('epics')}
 
+        # Calculate status-aware priority
+        status = initiative.get('status', '')
+        if status == 'Proposed':
+            priority = Priority.HIGH  # P2
+        else:  # Planned or In Progress
+            priority = Priority.CRITICAL  # P1
+
         # Find missing teams
         for team in teams_involved:
             # Normalize team name using mappings if provided
@@ -272,7 +296,7 @@ class InitiativeValidator:
             if team_key not in teams_with_epics:
                 issues.append(ValidationIssue(
                     type="missing_epic",
-                    priority=Priority.LOW,
+                    priority=priority,
                     description=f"Missing epic from {team} team - Create epic",
                     initiative_key=initiative.get('key', ''),
                     initiative_summary=initiative.get('summary', ''),
@@ -284,7 +308,12 @@ class InitiativeValidator:
         return issues
 
     def _check_rag_status(self, initiative: Dict) -> List[ValidationIssue]:
-        """Check for missing RAG status on epics.
+        """Check for missing RAG status on epics with status-aware priority.
+
+        Priority escalation:
+        - Proposed: P2 (HIGH) - Important signal of confidence
+        - Planned: P1 (CRITICAL) - Teams must track health
+        - In Progress: N/A (not validated - already in validate())
 
         Rules:
         - Only for Proposed/Planned status
@@ -307,6 +336,13 @@ class InitiativeValidator:
         owner_team = initiative.get('owner_team')
         contributing_teams = initiative.get('contributing_teams', [])
 
+        # Calculate status-aware priority
+        status = initiative.get('status', '')
+        if status == 'Proposed':
+            priority = Priority.HIGH  # P2
+        else:  # Planned
+            priority = Priority.CRITICAL  # P1
+
         for ct in contributing_teams:
             team_key = ct.get('team_project_key')
 
@@ -326,7 +362,7 @@ class InitiativeValidator:
                 if not rag_status or (isinstance(rag_status, str) and not rag_status.strip()):
                     issues.append(ValidationIssue(
                         type="missing_rag_status",
-                        priority=Priority.INFO,
+                        priority=priority,
                         description=f"Missing RAG status on {epic.get('key', 'epic')} ({team_key} team) - Set RAG",
                         initiative_key=initiative.get('key', ''),
                         initiative_summary=initiative.get('summary', ''),

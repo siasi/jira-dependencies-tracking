@@ -626,8 +626,8 @@ issues = validator.validate(initiative)
 - Implemented `ValidationIssue` dataclass with all required fields
 - Implemented `ValidationConfig` dataclass with configuration options
 - Implemented `InitiativeValidator` class with status-aware validation
-- All validation methods implemented and tested
-- 32 comprehensive tests passing
+- All validation methods implemented with severity escalation
+- 40 comprehensive tests passing (includes escalation tests)
 
 ### Phase 2: Create Data Quality Script ✓
 - Created `validate_data_quality.py` with CLI interface
@@ -675,33 +675,37 @@ Messages only generated for managers with valid Slack IDs configured.
 4. **By-initiative grouping**: Not implemented (default by-manager is sufficient)
 
 ### Key Features
-1. **Status-aware validation**: Different rules for Proposed/Planned/In Progress
-2. **Owner team exemption**: Pre-filtering approach (cleaner than runtime checks)
-3. **Discovery initiative exemption**: Skips dependency and RAG checks
-4. **Multi-objective support**: Comma-separated strategic objectives validated individually
-5. **Exception handling**: Respects `initiative_exceptions.yaml` signed-off initiatives
-6. **RAG-exempt teams**: Respects `teams_exempt_from_rag` configuration
-7. **Excluded teams support**: Respects `teams_excluded_from_validation` configuration
-8. **Test coverage**: 59 tests total (37 validation library + 22 main script)
+1. **Severity escalation**: Priorities increase as initiatives progress (P3→P1 for assignee, P2→P1 for epics)
+2. **Status-aware validation**: Different rules for Proposed/Planned/In Progress
+3. **Owner team exemption**: Pre-filtering approach (cleaner than runtime checks)
+4. **Discovery initiative exemption**: Skips dependency and RAG checks
+5. **Multi-objective support**: Comma-separated strategic objectives validated individually
+6. **Exception handling**: Respects `initiative_exceptions.yaml` signed-off initiatives
+7. **RAG-exempt teams**: Respects `teams_exempt_from_rag` configuration
+8. **Excluded teams support**: Respects `teams_excluded_from_validation` configuration
+9. **Test coverage**: 40 validation library tests + 22 main script tests
 
-### Severity Escalation (Specified, Not Yet Implemented)
+### Severity Escalation ✅ IMPLEMENTED
 
-**Status**: The spec now defines severity escalation where priorities increase as initiatives progress (e.g., missing assignee is P3 in Proposed but P1 in Planned/In Progress).
+**Status**: Fully implemented as of 2026-04-11. All validation methods now calculate status-aware priorities.
 
-**Current Implementation**: Uses **fixed priorities** regardless of status:
-- Missing owner_team: Always P1 (CRITICAL)
-- Missing assignee: Always P2 (HIGH)
-- Missing strategic_objective: Always P2 (HIGH)
-- Invalid strategic_objective: Always P3 (MEDIUM)
-- Missing teams_involved: Always P4 (LOW)
-- Missing epics: Always P4 (LOW)
-- Missing RAG: Always P5 (INFO)
+**Implementation Details**:
+- `_check_assignee()`: Returns P3 for Proposed, P1 for Planned/In Progress
+- `_check_strategic_objective()`: Returns P1 for missing (universal check)
+- `_check_teams_involved()`: Returns P1 for missing (universal check)
+- `_check_missing_epics()`: Returns P2 for Proposed, P1 for Planned/In Progress
+- `_check_rag_status()`: Returns P2 for Proposed, P1 for Planned
+- Invalid strategic objective: Always P3 (universal check)
 
-**Future Work**: Implement status-aware priority escalation to match spec:
-- Update `InitiativeValidator.validate()` to pass initiative status to validation methods
-- Each validation method adjusts priority based on status
-- Update tests to verify priority escalation logic
-- Update Priority enum comments to reflect variable priorities
+**Verification**: All 40 validation tests passing, including status-specific priority escalation tests:
+- `test_check_assignee_for_proposed` (P3)
+- `test_check_assignee_for_planned` (P1)
+- `test_check_assignee_for_in_progress` (P1)
+- `test_check_missing_epics_proposed_priority` (P2)
+- `test_check_missing_epics_planned_priority` (P1)
+- `test_check_missing_epics_in_progress_priority` (P1)
+- `test_check_rag_status_for_proposed` (P2)
+- `test_check_rag_status_for_planned` (P1)
 
 ## Non-Goals
 
