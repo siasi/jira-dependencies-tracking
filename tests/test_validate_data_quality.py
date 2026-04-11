@@ -149,7 +149,7 @@ def test_filter_initiatives_by_status():
 
 
 def test_filter_initiatives_all_active():
-    """Test filtering all active initiatives."""
+    """Test filtering all active initiatives (any quarter)."""
     from validate_data_quality import filter_initiatives
 
     initiatives = [
@@ -160,6 +160,37 @@ def test_filter_initiatives_all_active():
         {'key': 'INIT-5', 'status': 'Cancelled', 'quarter': '26 Q2', 'owner_team': 'TEAM1'},
     ]
 
+    # Test 1: --all-active without quarter (any quarter)
+    filtered = filter_initiatives(
+        initiatives,
+        quarter=None,  # No quarter filter
+        status_filter=None,
+        all_active=True,
+        signed_off=set(),
+        excluded_teams=[]
+    )
+
+    keys = {i['key'] for i in filtered}
+    assert 'INIT-1' in keys  # Proposed, any quarter
+    assert 'INIT-2' in keys  # Planned, any quarter
+    assert 'INIT-3' in keys  # In Progress, any quarter
+    assert 'INIT-4' not in keys  # Done excluded
+    assert 'INIT-5' not in keys  # Cancelled excluded
+
+
+def test_filter_initiatives_all_active_with_quarter():
+    """Test filtering all active initiatives with quarter filter (AND logic)."""
+    from validate_data_quality import filter_initiatives
+
+    initiatives = [
+        {'key': 'INIT-1', 'status': 'Proposed', 'quarter': '26 Q1', 'owner_team': 'TEAM1'},
+        {'key': 'INIT-2', 'status': 'Planned', 'quarter': '26 Q2', 'owner_team': 'TEAM1'},
+        {'key': 'INIT-3', 'status': 'In Progress', 'quarter': '26 Q3', 'owner_team': 'TEAM1'},
+        {'key': 'INIT-4', 'status': 'Done', 'quarter': '26 Q2', 'owner_team': 'TEAM1'},
+        {'key': 'INIT-5', 'status': 'Cancelled', 'quarter': '26 Q2', 'owner_team': 'TEAM1'},
+    ]
+
+    # Test 2: --all-active --quarter "26 Q2" (AND logic)
     filtered = filter_initiatives(
         initiatives,
         quarter='26 Q2',
@@ -170,11 +201,39 @@ def test_filter_initiatives_all_active():
     )
 
     keys = {i['key'] for i in filtered}
-    assert 'INIT-1' in keys
-    assert 'INIT-2' in keys
-    assert 'INIT-3' in keys
+    assert 'INIT-1' not in keys  # Q1, not Q2
+    assert 'INIT-2' in keys  # Planned AND Q2
+    assert 'INIT-3' not in keys  # Q3, not Q2
     assert 'INIT-4' not in keys  # Done excluded
     assert 'INIT-5' not in keys  # Cancelled excluded
+
+
+def test_filter_initiatives_status_with_quarter():
+    """Test filtering by status with quarter filter (AND logic)."""
+    from validate_data_quality import filter_initiatives
+
+    initiatives = [
+        {'key': 'INIT-1', 'status': 'Proposed', 'quarter': '26 Q1', 'owner_team': 'TEAM1'},
+        {'key': 'INIT-2', 'status': 'Proposed', 'quarter': '26 Q2', 'owner_team': 'TEAM1'},
+        {'key': 'INIT-3', 'status': 'Planned', 'quarter': '26 Q2', 'owner_team': 'TEAM1'},
+        {'key': 'INIT-4', 'status': 'In Progress', 'quarter': '26 Q2', 'owner_team': 'TEAM1'},
+    ]
+
+    # Test: --status Proposed --quarter "26 Q2" (AND logic)
+    filtered = filter_initiatives(
+        initiatives,
+        quarter='26 Q2',
+        status_filter='Proposed',
+        all_active=False,
+        signed_off=set(),
+        excluded_teams=[]
+    )
+
+    keys = {i['key'] for i in filtered}
+    assert 'INIT-1' not in keys  # Proposed but Q1
+    assert 'INIT-2' in keys  # Proposed AND Q2
+    assert 'INIT-3' not in keys  # Q2 but not Proposed
+    assert 'INIT-4' not in keys  # Q2 but not Proposed
 
 
 def test_filter_initiatives_exclude_signed_off():

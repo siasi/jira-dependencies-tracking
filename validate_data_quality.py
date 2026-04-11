@@ -56,22 +56,19 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
         description='Validate initiative data quality and generate action items'
     )
 
-    # Required
+    # Filtering (combinable with AND logic)
     parser.add_argument(
         '--quarter',
-        required=True,
-        help='Quarter to validate (e.g., "26 Q2")'
+        help='Filter by quarter (e.g., "26 Q2"). Combines with other filters using AND.'
     )
-
-    # Filtering
     parser.add_argument(
         '--status',
-        help='Validate only this status (overrides default filter)'
+        help='Filter by status (e.g., "Proposed", "Planned", "In Progress"). Combines with --quarter using AND.'
     )
     parser.add_argument(
         '--all-active',
         action='store_true',
-        help='Validate all active initiatives (Proposed, Planned, In Progress)'
+        help='Filter to active statuses (Proposed, Planned, In Progress). Combines with --quarter using AND.'
     )
 
     # Output options
@@ -210,21 +207,25 @@ def load_team_managers() -> Dict[str, Dict[str, Optional[str]]]:
 
 def filter_initiatives(
     initiatives: List[Dict],
-    quarter: str,
+    quarter: Optional[str],
     status_filter: Optional[str],
     all_active: bool,
     signed_off: Set[str],
     excluded_teams: Optional[List[str]] = None
 ) -> List[Dict]:
-    """Filter initiatives based on criteria.
+    """Filter initiatives based on criteria using AND logic.
 
-    Default filter (no --status or --all-active):
-    - Status = "In Progress" (any quarter), OR
-    - Status = "Planned" AND Quarter = specified quarter
+    Filters can be combined:
+    - --status X --quarter Q: status == X AND quarter == Q
+    - --all-active --quarter Q: status in [Proposed, Planned, In Progress] AND quarter == Q
+    - --status X: status == X (any quarter)
+    - --all-active: status in [Proposed, Planned, In Progress] (any quarter)
+    - --quarter Q: In Progress (any quarter) + Planned (quarter Q)
+    - No filters: In Progress (any quarter) + Planned (any quarter)
 
     Args:
         initiatives: List of initiative dicts
-        quarter: Quarter filter (e.g., "26 Q2")
+        quarter: Optional quarter filter (e.g., "26 Q2")
         status_filter: Optional status to filter by
         all_active: If True, include all active statuses
         signed_off: Set of initiative keys to exclude
@@ -250,21 +251,35 @@ def filter_initiatives(
         if owner_team in excluded_teams_set:
             continue
 
-        # Apply filters
+        # Determine which statuses to include
         if status_filter:
             # Explicit status filter
-            if status == status_filter:
-                filtered.append(initiative)
+            status_match = (status == status_filter)
         elif all_active:
-            # All active (Proposed, Planned, In Progress)
-            if status in ['Proposed', 'Planned', 'In Progress']:
-                filtered.append(initiative)
+            # All active statuses
+            status_match = status in ['Proposed', 'Planned', 'In Progress']
         else:
-            # Default: In Progress (any quarter) + Planned (matching quarter)
-            if status == 'In Progress':
-                filtered.append(initiative)
-            elif status == 'Planned' and init_quarter == quarter:
-                filtered.append(initiative)
+            # Default: In Progress (any quarter) + Planned
+            status_match = status in ['In Progress', 'Planned']
+
+        # Apply status filter
+        if not status_match:
+            continue
+
+        # Apply quarter filter if provided
+        if quarter:
+            # For default filter: In Progress passes for any quarter, Planned must match quarter
+            if status_filter or all_active:
+                # Explicit filters: quarter must match
+                if init_quarter != quarter:
+                    continue
+            else:
+                # Default filter: only Planned needs to match quarter
+                if status == 'Planned' and init_quarter != quarter:
+                    continue
+
+        # Passed all filters
+        filtered.append(initiative)
 
     return filtered
 
@@ -665,12 +680,25 @@ def main():
         print(f'Filtered to {len(filtered)} initiatives')
 
     # Determine filter description
+    parts = []
+
+    # Status/Active filter
     if args.status:
-        filter_desc = f'{args.status} status'
+        parts.append(f'Status: {args.status}')
     elif args.all_active:
-        filter_desc = 'All active (Proposed, Planned, In Progress)'
+        parts.append('Status: Proposed, Planned, In Progress')
     else:
-        filter_desc = f'In Progress (all quarters) + Planned ({args.quarter})'
+        parts.append('Status: In Progress (any quarter) + Planned')
+
+    # Quarter filter
+    if args.quarter:
+        if args.status or args.all_active:
+            parts.append(f'Quarter: {args.quarter}')
+        else:
+            # Default filter: only Planned uses quarter
+            parts[-1] = f'Status: In Progress (any quarter) + Planned ({args.quarter})'
+
+    filter_desc = ' AND '.join(parts) if len(parts) > 1 else parts[0]
 
     # Load validation config
     config = load_validation_config(
@@ -693,7 +721,7 @@ def main():
 
     # Prepare metadata
     metadata = {
-        'quarter': args.quarter,
+        'quarter': args.quarter if args.quarter else 'All quarters',
         'filter': filter_desc,
         'initiatives_analyzed': len(filtered),
         'initiatives_with_issues': len(issues_by_initiative),
