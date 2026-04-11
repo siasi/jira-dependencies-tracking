@@ -733,3 +733,196 @@ def test_is_owned_initiative():
         team_affected='TEAM2',
     )
     assert is_owned_initiative(dependency_issue, 'TEAM2', team_mappings) is False
+
+
+# Test --me flag functionality
+def test_parse_args_with_me_flag():
+    """Test CLI parsing with --me flag."""
+    from validate_data_quality import parse_args
+
+    args = parse_args(['--quarter', '26 Q2', '--me'])
+
+    assert args.me is True
+    assert args.quarter == '26 Q2'
+
+
+def test_load_my_teams_from_config(tmp_path):
+    """Test loading my_teams from configuration."""
+    from validate_data_quality import load_my_teams
+
+    # Create temporary config
+    config_dir = tmp_path / 'config'
+    config_dir.mkdir()
+    config_file = config_dir / 'team_mappings.yaml'
+    
+    config_data = {
+        'my_teams': ['CONSOLE', 'PAYINS']
+    }
+    
+    with open(config_file, 'w') as f:
+        yaml.dump(config_data, f)
+    
+    # Test with patched config path
+    with patch('validate_data_quality.Path') as mock_path:
+        mock_path.return_value = config_file
+        teams = load_my_teams()
+    
+    assert teams == ['CONSOLE', 'PAYINS']
+
+
+def test_load_my_teams_missing_config():
+    """Test loading my_teams when config doesn't exist."""
+    from validate_data_quality import load_my_teams
+    
+    with patch('validate_data_quality.Path') as mock_path:
+        mock_path.return_value.exists.return_value = False
+        teams = load_my_teams()
+    
+    assert teams == []
+
+
+def test_filter_grouped_data_by_teams():
+    """Test filtering grouped data by my teams."""
+    from validate_data_quality import filter_grouped_data_by_teams
+    from lib.validation import ValidationIssue, Priority
+    
+    # Create test data with two managers
+    grouped_data = {
+        'U123': {
+            'manager_name': 'Manager A',
+            'team': 'CONSOLE',
+            'initiatives': {
+                'INIT-1': {
+                    'summary': 'Test Initiative 1',
+                    'status': 'Proposed',
+                    'issues': [
+                        ValidationIssue(
+                            type='missing_assignee',
+                            priority=Priority.HIGH,
+                            description='Missing assignee',
+                            initiative_key='INIT-1',
+                            initiative_summary='Test Initiative 1',
+                            initiative_status='Proposed',
+                            owner_team='CONSOLE'
+                        )
+                    ]
+                }
+            }
+        },
+        'U456': {
+            'manager_name': 'Manager B',
+            'team': 'PAYINS',
+            'initiatives': {
+                'INIT-2': {
+                    'summary': 'Test Initiative 2',
+                    'status': 'Planned',
+                    'issues': [
+                        ValidationIssue(
+                            type='missing_epic',
+                            priority=Priority.CRITICAL,
+                            description='Missing epic',
+                            initiative_key='INIT-2',
+                            initiative_summary='Test Initiative 2',
+                            initiative_status='Planned',
+                            owner_team='PAYINS'
+                        )
+                    ]
+                }
+            }
+        }
+    }
+    
+    # Filter to only CONSOLE team
+    my_teams = ['CONSOLE']
+    filtered, filtered_count, total_count = filter_grouped_data_by_teams(grouped_data, my_teams)
+    
+    # Should only have Manager A (CONSOLE team)
+    assert len(filtered) == 1
+    assert 'U123' in filtered
+    assert 'U456' not in filtered
+    
+    # Counts should be correct
+    assert filtered_count == 1  # Only CONSOLE issues
+    assert total_count == 2  # Total issues across all teams
+
+
+def test_filter_grouped_data_with_empty_teams():
+    """Test filtering with empty my_teams list returns all data."""
+    from validate_data_quality import filter_grouped_data_by_teams
+    from lib.validation import ValidationIssue, Priority
+    
+    grouped_data = {
+        'U123': {
+            'manager_name': 'Manager A',
+            'team': 'CONSOLE',
+            'initiatives': {
+                'INIT-1': {
+                    'summary': 'Test',
+                    'status': 'Proposed',
+                    'issues': [
+                        ValidationIssue(
+                            type='missing_assignee',
+                            priority=Priority.HIGH,
+                            description='Missing assignee',
+                            initiative_key='INIT-1',
+                            initiative_summary='Test',
+                            initiative_status='Proposed',
+                            owner_team='CONSOLE'
+                        )
+                    ]
+                }
+            }
+        }
+    }
+    
+    # Empty teams list should return all data
+    filtered, filtered_count, total_count = filter_grouped_data_by_teams(grouped_data, [])
+    
+    assert filtered == grouped_data
+    assert filtered_count == total_count == 1
+
+
+def test_console_output_shows_filtered_count():
+    """Test that console output displays filtered vs total counts."""
+    from validate_data_quality import format_console_output
+    
+    grouped_data = {}
+    metadata = {
+        'quarter': '26 Q2',
+        'filter': 'Status: Proposed',
+        'initiatives_analyzed': 10,
+        'initiatives_with_issues': 5,
+        'exceptions_skipped': 0,
+        'excluded_teams': [],
+        'filtered_count': 3,
+        'total_count': 10,
+    }
+    
+    output = format_console_output(grouped_data, metadata)
+    
+    # Should show filtered count
+    assert '3 action items for your teams' in output
+    assert '10 total' in output
+
+
+def test_console_output_without_filtering():
+    """Test that console output shows normal count when not filtering."""
+    from validate_data_quality import format_console_output
+    
+    grouped_data = {}
+    metadata = {
+        'quarter': '26 Q2',
+        'filter': 'Status: Proposed',
+        'initiatives_analyzed': 10,
+        'initiatives_with_issues': 5,
+        'exceptions_skipped': 0,
+        'excluded_teams': [],
+        'filtered_count': None,
+        'total_count': None,
+    }
+    
+    output = format_console_output(grouped_data, metadata)
+    
+    # Should not show filtered count
+    assert 'for your teams' not in output
+    assert '0 action items):' in output  # Normal count (0 because grouped_data is empty)

@@ -14,7 +14,10 @@ Usage:
     # Validate all active initiatives
     python3 validate_data_quality.py --quarter "26 Q2" --all-active
 
-    # Generate Slack messages
+    # Show only my teams' action items (configure my_teams in team_mappings.yaml)
+    python3 validate_data_quality.py --quarter "26 Q2" --me
+
+    # Generate Slack messages (always includes all teams)
     python3 validate_data_quality.py --quarter "26 Q2" --slack
 
     # Verbose output
@@ -86,6 +89,11 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
         '--show-exempt',
         action='store_true',
         help='Show skipped initiatives (exceptions, excluded teams)'
+    )
+    parser.add_argument(
+        '--me',
+        action='store_true',
+        help='Show only action items for my teams (configured in team_mappings.yaml)'
     )
 
     return parser.parse_args(args)
@@ -203,6 +211,65 @@ def load_team_managers() -> Dict[str, Dict[str, Optional[str]]]:
             return team_managers
     except Exception:
         return {}
+
+
+def load_my_teams() -> List[str]:
+    """Load my teams from configuration.
+
+    Returns:
+        List of project keys for teams I manage
+    """
+    mappings_file = Path('config/team_mappings.yaml')
+    if not mappings_file.exists():
+        return []
+
+    try:
+        with open(mappings_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            my_teams = data.get('my_teams', [])
+            return my_teams if isinstance(my_teams, list) else []
+    except Exception:
+        return []
+
+
+def filter_grouped_data_by_teams(grouped_data: Dict, my_teams: List[str]) -> tuple[Dict, int, int]:
+    """Filter grouped manager data to show only my teams' action items.
+
+    Args:
+        grouped_data: Grouped manager data
+        my_teams: List of my team project keys
+
+    Returns:
+        Tuple of (filtered_data, filtered_count, total_count)
+    """
+    if not my_teams:
+        # If no teams configured, return all data
+        total_count = sum(
+            len(init_data['issues'])
+            for manager_data in grouped_data.values()
+            for init_data in manager_data['initiatives'].values()
+        )
+        return grouped_data, total_count, total_count
+
+    my_teams_set = set(my_teams)
+    filtered_data = {}
+    filtered_count = 0
+    total_count = 0
+
+    for slack_id, manager_data in grouped_data.items():
+        team_key = manager_data['team']
+
+        # Count all action items (for total)
+        for init_data in manager_data['initiatives'].values():
+            total_count += len(init_data['issues'])
+
+        # Only include if team matches
+        if team_key in my_teams_set:
+            filtered_data[slack_id] = manager_data
+            for init_data in manager_data['initiatives'].values():
+                filtered_count += len(init_data['issues'])
+
+    return filtered_data, filtered_count, total_count
 
 
 def filter_initiatives(
@@ -449,7 +516,14 @@ def format_console_output(grouped_data: Dict, metadata: Dict) -> str:
         for init_data in manager_data['initiatives'].values()
     )
 
-    lines.append(f"Action Items by Manager ({total_managers} managers, {total_actions} action items):")
+    # Show filtered vs total if filtering is active
+    if metadata.get('filtered_count') is not None and metadata.get('total_count') is not None:
+        filtered_count = metadata['filtered_count']
+        total_count = metadata['total_count']
+        lines.append(f"Action Items by Manager ({total_managers} managers, {filtered_count} action items for your teams, {total_count} total):")
+    else:
+        lines.append(f"Action Items by Manager ({total_managers} managers, {total_actions} action items):")
+
     lines.append('-' * 80)
     lines.append('')
 
@@ -780,6 +854,23 @@ def main():
     # Group by manager
     grouped_data = group_by_manager(issues_by_initiative, team_managers, team_mappings)
 
+    # Filter by my teams if --me flag is set (console output only, not Slack)
+    filtered_count = None
+    total_count = None
+    console_grouped_data = grouped_data
+
+    if args.me:
+        my_teams = load_my_teams()
+        if my_teams:
+            console_grouped_data, filtered_count, total_count = filter_grouped_data_by_teams(
+                grouped_data, my_teams
+            )
+            if args.verbose:
+                print(f'Filtering to {len(my_teams)} teams: {", ".join(my_teams)}')
+                print(f'Showing {filtered_count} of {total_count} action items')
+        else:
+            print('Warning: --me flag used but no my_teams configured in team_mappings.yaml')
+
     # Prepare metadata
     metadata = {
         'quarter': args.quarter if args.quarter else 'All quarters',
@@ -788,10 +879,12 @@ def main():
         'initiatives_with_issues': len(issues_by_initiative),
         'exceptions_skipped': len(signed_off),
         'excluded_teams': excluded_teams,
+        'filtered_count': filtered_count,
+        'total_count': total_count,
     }
 
-    # Generate console output
-    console_output = format_console_output(grouped_data, metadata)
+    # Generate console output (filtered if --me flag set)
+    console_output = format_console_output(console_grouped_data, metadata)
     print(console_output)
 
     # Generate Slack messages if requested

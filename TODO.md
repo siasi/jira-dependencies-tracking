@@ -47,3 +47,43 @@
   - Set RAG status on their epics (they don't report to themselves)
 - **Files updated**:
   - `validate_prioritisation.py`: Added owner team filtering in `_build_commitment_matrix()` and `_build_initiative_health()` ✓
+
+### Filter action items on --me
+- [x] Implemented --me option in validate_data_quality.py (completed 2026-04-11)
+- **Description**: When `--me` flag is set, only violations related to the user's teams are reported in the console report. This is intended to be used by individual managers that can self-check their own issues proactively.
+- **Implementation**:
+  - Added `--me` flag to `validate_data_quality.py`
+  - Added `my_teams` configuration section to `config/team_mappings.yaml`
+  - Filters console output to show only action items for configured teams
+  - Slack output (`--slack`) is not affected and always shows all teams
+  - Display shows "X action items for your teams (Y total)" when filtering
+  - 6 comprehensive tests added
+- **Usage**:
+  - Configure your teams in `config/team_mappings.yaml`: `my_teams: ["CONSOLE", "PAYINS"]`
+  - Run: `./validate_data_quality.py --quarter "26 Q2" --me`
+  - Console shows only your teams' issues, Slack output unchanged 
+
+### Makes script names more consistent 
+[] Follow Mission Control metaphor                                                 
+                                                                       
+  Treats the toolkit as an engineering management control center. Clear, professional, and  familiar to technical audiences.                                                               
+                                                                                                 
+  Rename the script according to this naming pattern:                                                                                
+  - scan - Extract raw data (radar scan)                                                         
+  - check - Validate compliance (system checks)                                                  
+  - assess - Analyze patterns (situation assessment)                                             
+  - track - Monitor over time (trajectory tracking)                                              
+                                                                                                 
+  How to rename scripts:                                                                                      
+  - scan.py (was extract.py) - "Scan Jira for initiative data"                                   
+  - check_planning.py (was validate_planning.py) - "Check planning readiness"                    
+  - check_priorities.py (was validate_prioritisation.py)                                         
+  - check_quality.py (was validate_data_quality.py)                                              
+  - assess_workload.py (was analyze_workload.py) - "Assess team workload distribution"           
+                                                                                                 
+  Why this works:                                                                                
+  - Natural verb-noun combinations                                                               
+  - Evokes precision, control, oversight                                                         
+  - Works well for both technical and management audiences
+
+  Ensure documentation and code comments are all consistent with this new nomenclature.

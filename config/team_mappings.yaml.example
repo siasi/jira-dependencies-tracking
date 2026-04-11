@@ -44,6 +44,32 @@ team_managers:
   # Add more manager handles as needed
   # "PROJECT_KEY": "@notion.handle"
 
+# My teams for filtering action items (OPTIONAL)
+# List of project keys for teams you manage
+#
+# Use case:
+# - When running validate_data_quality.py with --me flag, only show action items
+#   for your teams instead of all teams
+#
+# Format:
+#   - "PROJECT_KEY"
+#
+# Example:
+#   my_teams:
+#     - "TEAMA"
+#     - "TEAMB"
+#
+# Usage:
+#   python validate_data_quality.py --quarter "26 Q2" --me
+#
+# Note: Slack output (--slack) is not affected and always shows all teams
+my_teams:
+  - "TEAMA"
+  - "TEAMB"
+
+  # Add your team project keys here
+  # - "PROJECT_KEY"
+
 # Teams exempt from RAG status checking (OPTIONAL)
 # List of project keys for teams that don't need to report RAG status
 #

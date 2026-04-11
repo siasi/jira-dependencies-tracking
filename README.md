@@ -438,6 +438,89 @@ Terminal report with four sections:
 
 See [brainstorm document](docs/brainstorms/2026-03-21-initiative-status-validation-brainstorm.md) for design decisions and approach rationale.
 
+## Validate Data Quality
+
+Validate initiative data quality using comprehensive baseline checks. Reports missing owner teams, assignees, strategic objectives, epics, and RAG status. Uses the shared validation library (`lib/validation.py`) for consistent validation across the toolkit.
+
+```bash
+# Validate current quarter
+python validate_data_quality.py --quarter "26 Q2"
+
+# Validate specific status
+python validate_data_quality.py --quarter "26 Q2" --status Proposed
+
+# Validate all active initiatives (Proposed, Planned, In Progress)
+python validate_data_quality.py --quarter "26 Q2" --all-active
+
+# Show only my teams' action items (configure my_teams in team_mappings.yaml)
+python validate_data_quality.py --quarter "26 Q2" --me
+
+# Generate Slack notifications (always includes all teams)
+python validate_data_quality.py --quarter "26 Q2" --slack
+
+# Verbose output with validation details
+python validate_data_quality.py --quarter "26 Q2" --verbose
+```
+
+**Options:**
+- `--quarter "YY QN"` - Filter by quarter (e.g., "26 Q2"). Combines with other filters using AND logic.
+- `--status STATUS` - Filter by specific status (e.g., "Proposed", "Planned", "In Progress")
+- `--all-active` - Filter to active statuses (Proposed, Planned, In Progress)
+- `--me` - Show only action items for my teams (configured in `team_mappings.yaml`)
+- `--slack` - Generate Slack bulk messages for all managers (not affected by `--me`)
+- `--verbose` - Show detailed validation rules applied
+- `--show-exempt` - Show skipped initiatives (exceptions, excluded teams)
+
+**Personal Filtering with --me:**
+
+Configure your teams in `config/team_mappings.yaml`:
+
+```yaml
+my_teams:
+  - "CONSOLE"
+  - "PAYINS"
+  # Add your team project keys here
+```
+
+When using `--me` flag:
+- Console output shows only action items for your configured teams
+- Summary displays: "Showing X action items for your teams (Y total)"
+- Slack output (`--slack`) is not affected and always shows all teams
+- Useful for engineering managers to self-check their teams proactively
+
+**What Gets Validated:**
+
+- **Owner Team** - All initiatives must have an owner team assigned (P1 - Critical)
+- **Assignee** - Status-aware validation:
+  - Proposed: P3 (Medium) - Can assign later
+  - Planned/In Progress: P1 (Critical) - Must have DRI
+- **Strategic Objective** - Missing or invalid values (P1 - Critical)
+- **Teams Involved** - All initiatives must list contributing teams (P1 - Critical)
+- **Missing Epics** - Teams in "teams_involved" must create epics:
+  - Proposed: P2 (High) - Important signal
+  - Planned/In Progress: P1 (Critical) - Dependencies must be confirmed
+  - Owner team is automatically exempt
+- **RAG Status** - Epics must have RAG status (Proposed/Planned only):
+  - Proposed: P2 (High) - Signal of confidence
+  - Planned: P1 (Critical) - Teams must track health
+  - Owner team and exempt teams automatically excluded
+
+**Discovery Initiatives:**
+- Initiatives with `[Discovery]` prefix skip epic and RAG validation
+- Still required to have owner team and strategic objective
+
+**Output:**
+
+Terminal report grouped by manager with priority labels (P1-P5):
+- Manager name and team
+- Action item count per initiative
+- Clickable Jira links
+- Priority-sorted action items
+
+**Exit Codes:**
+- `0` - No validation issues found
+- `1` - Data quality issues found
+
 ## Validate Initiative Priorities
 
 Validate team commitments to strategically prioritized initiatives and ensure teams respect relative initiative priorities. Identifies priority conflicts (teams committed to lower-priority work while skipping higher-priority initiatives) and missing commitments.
