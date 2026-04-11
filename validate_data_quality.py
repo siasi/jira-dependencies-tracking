@@ -469,8 +469,9 @@ def format_console_output(grouped_data: Dict, metadata: Dict) -> str:
         for init_key, init_data in sorted_initiatives:
             summary = init_data['summary']
             status = init_data['status']
+            init_url = f"{jira_base_url}/browse/{init_key}"
 
-            lines.append(f"  {init_key}: {summary}")
+            lines.append(f"  {make_clickable_link(init_key, init_url)}: {summary}")
             lines.append(f"  Status: {status}")
 
             # Sort issues by priority
