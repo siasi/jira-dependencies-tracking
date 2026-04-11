@@ -297,7 +297,7 @@ class InitiativeValidator:
                 issues.append(ValidationIssue(
                     type="missing_epic",
                     priority=priority,
-                    description=f"Missing epic from {team} team - Create epic",
+                    description=f"Missing epic from {team} team - Create epic ({team})",
                     initiative_key=initiative.get('key', ''),
                     initiative_summary=initiative.get('summary', ''),
                     initiative_status=initiative.get('status', ''),
@@ -363,7 +363,7 @@ class InitiativeValidator:
                     issues.append(ValidationIssue(
                         type="missing_rag_status",
                         priority=priority,
-                        description=f"Missing RAG status on {epic.get('key', 'epic')} ({team_key} team) - Set RAG",
+                        description=f"Missing RAG status on {epic.get('key', 'epic')} - Set RAG ({team_key})",
                         initiative_key=initiative.get('key', ''),
                         initiative_summary=initiative.get('summary', ''),
                         initiative_status=initiative.get('status', ''),

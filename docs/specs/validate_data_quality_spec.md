@@ -226,9 +226,9 @@ Action Items by Manager (5 managers, 38 action items):
 
   INIT-901: Search Optimization
   Status: Planned
-    P1 ⚠️  Create epic - @John Doe
-    P1 ⚠️  Set RAG - @John Doe
-    P2 ⚠️  Set RAG - @John Doe
+    P1 ⚠️  Create epic (Platform) - @John Doe
+    P1 ⚠️  Set RAG (Platform) - @John Doe
+    P2 ⚠️  Set RAG (Platform) - @John Doe
 
 --------------------------------------------------------------------------------
 
