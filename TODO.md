@@ -81,6 +81,21 @@
   - README.md: Quick reference table + detailed scope sections for each script
   - All scripts: --help output now includes clear scope information
 
+### Consolidate the behaviour of the action items
+[ ] The three scripts containing business logic should not report action items in console by default. Instead, they should only show a warning in case validations have found. The use can use the --verbose option to see the actions in console or the --slack option eventually. How this requirement compare to current implementation?
+- **Status**: Not implemented (2026-04-11)
+- **Investigation**: Analyzed current behavior across validate_planning.py, validate_prioritisation.py, and analyze_workload.py
+- **Current behavior**: All three scripts always show full action items in console by default
+- **Decision**: Changes were implemented but then rolled back. Task remains open for future consideration.
+- **Side change**: Removed non-functional `--verbose` flag from validate_data_quality.py (was only showing debug messages)
+
+### validate_planning.py - simplify
+Hypthesis: The console output section "PLANNED/IN PROGRESS INITIATIVES REQUIRING ATTENTION" should be completely removed and the correspondibg logic removed from the script. This is because the equivalent can be obtained by validate_data_quality.py filtering on in progress initiatives. 
+
+### Make the README lighter
+[ ] The current README is too long. Propose me restructuring it's content by braking it into a README with an overview and then specific pages, one per script, with detailed behaviour and use cases. 
+- Treat the snapshot function as experimental. Event if related to the extract.py script, put its behaviour in a separated and dedicated page. 
+
 ### Consolidate output format for action items
 [] In the same way we consolidated the validation logic in a library is there a way to ensure the format of the output (console and slack) related to action items is consistent across the scripts? If so is there an opprotunity to reduce the number of templates we have?
 

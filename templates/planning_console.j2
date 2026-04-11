@@ -1,5 +1,5 @@
 {# Console output template for initiative validation report #}
-{# Input: result (ValidationResult), json_file (Path), verbose (bool), team_mappings (Dict), team_managers (Dict) #}
+{# Input: result (ValidationResult), json_file (Path), verbose (bool), team_mappings (Dict), team_managers (Dict), reverse_team_mappings (Dict) #}
 
 ================================================================================
 Initiative Planning Readiness Tracker
@@ -84,11 +84,7 @@ Action required: Create missing epics and set initial RAG status
 {%- set teams_count = issue.teams_involved|length -%}
 {%- set epics_count = issue.teams_with_epics|length %}
    ⚠️  Missing dependencies - Action:
-{% if verbose %}
-       - Has {{ epic_keys|length }} epics: {{ epic_keys|join(', ') }}
-       - Teams Involved: {{ issue.teams_involved|join(', ') }}
-{%- endif %}
-{%- if epics_count < teams_count -%}
+{% if epics_count < teams_count -%}
 {%- set teams_with_epics_set = issue.teams_with_epics -%}
 {%- set owner_team = item.get('owner_team') -%}
 {%- set missing_teams = [] -%}
@@ -109,11 +105,11 @@ Action required: Create missing epics and set initial RAG status
 {%- set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
        [ ] {{ team_str }} to create epic{{ manager_suffix }}
 {% endfor %}
-{%- else -%}
+{% else -%}
 {%- set missing_count = teams_count - epics_count %}
        - Action: Create {{ missing_count }} missing epic{% if missing_count > 1 %}s{% endif %} or update Teams Involved field
-{%- endif -%}
-{%- elif epics_count > teams_count -%}
+{% endif -%}
+{% elif epics_count > teams_count -%}
 {%- set teams_involved_keys = [] -%}
 {%- for display_name in issue.teams_involved -%}
 {%- set project_key = team_mappings.get(display_name) -%}
@@ -129,33 +125,28 @@ Action required: Create missing epics and set initial RAG status
 {%- set _ = extra_teams.append(key) -%}
 {%- endif -%}
 {%- endfor -%}
-{%- if extra_teams %}
+{% if extra_teams %}
        - Action: Add {{ extra_teams|join(', ') }} to Teams Involved field
-{%- else %}
+{% else %}
        - Action: Update Teams Involved field to include all {{ epics_count }} teams with epics
-{%- endif -%}
+{% endif -%}
 {%- endif %}
 
 {% elif issue.type == 'missing_rag_status' %}
    ⚠️  Missing RAG status - Action:
 {% for team_data in issue.teams -%}
 {%- set team_name = team_data.team_name -%}
+{%- set team_key = team_data.team_key -%}
 {%- set epic_keys = [] -%}
 {%- for epic in team_data.epics -%}
 {%- set _ = epic_keys.append(epic.key) -%}
 {%- endfor -%}
 {%- set epics_str = epic_keys|join(', ') -%}
-{%- if verbose %}
-       - {{ team_name }}:
-{%- for epic in team_data.epics %}
-         {{ epic.key|hyperlink(epic.url) }}: "{{ epic.summary }}"
-{%- endfor %}
-{%- endif -%}
-{%- set project_key = team_mappings.get(team_name, team_name) -%}
-{%- set manager_info = team_managers.get(project_key, {}) -%}
+{%- set display_name = reverse_team_mappings.get(team_key, team_name) -%}
+{%- set manager_info = team_managers.get(team_key, {}) -%}
 {%- set manager_tag = manager_info.get('notion_handle', '') -%}
 {%- set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
-       [ ] {{ team_name }} to set RAG status for {{ epics_str }}{{ manager_suffix }}
+       [ ] {{ display_name }} to set RAG status for {{ epics_str }}{{ manager_suffix }}
 {% endfor %}
 
 {%- endif -%}
@@ -328,11 +319,7 @@ Help needed: Verify RAG status updates, confirm team commitment
 {%- set teams_count = issue.teams_involved|length -%}
 {%- set epics_count = issue.teams_with_epics|length %}
    ⚠️  Missing dependencies - Action:
-{% if verbose %}
-       - Has {{ epic_keys|length }} epics: {{ epic_keys|join(', ') }}
-       - Teams Involved: {{ issue.teams_involved|join(', ') }}
-{%- endif %}
-{%- if epics_count < teams_count -%}
+{% if epics_count < teams_count -%}
 {%- set teams_with_epics_set = issue.teams_with_epics -%}
 {%- set owner_team = item.get('owner_team') -%}
 {%- set missing_teams = [] -%}
@@ -353,11 +340,11 @@ Help needed: Verify RAG status updates, confirm team commitment
 {%- set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
        [ ] {{ team_str }} to create epic{{ manager_suffix }}
 {% endfor %}
-{%- else -%}
+{% else -%}
 {%- set missing_count = teams_count - epics_count %}
        - Action: Create {{ missing_count }} missing epic{% if missing_count > 1 %}s{% endif %} or update Teams Involved field
-{%- endif -%}
-{%- elif epics_count > teams_count -%}
+{% endif -%}
+{% elif epics_count > teams_count -%}
 {%- set teams_involved_keys = [] -%}
 {%- for display_name in issue.teams_involved -%}
 {%- set project_key = team_mappings.get(display_name) -%}
@@ -373,33 +360,28 @@ Help needed: Verify RAG status updates, confirm team commitment
 {%- set _ = extra_teams.append(key) -%}
 {%- endif -%}
 {%- endfor -%}
-{%- if extra_teams %}
+{% if extra_teams %}
        - Action: Add {{ extra_teams|join(', ') }} to Teams Involved field
-{%- else %}
+{% else %}
        - Action: Update Teams Involved field to include all {{ epics_count }} teams with epics
-{%- endif -%}
+{% endif -%}
 {%- endif %}
 
 {% elif issue.type == 'missing_rag_status' %}
    ⚠️  Missing RAG status - Action:
 {% for team_data in issue.teams -%}
 {%- set team_name = team_data.team_name -%}
+{%- set team_key = team_data.team_key -%}
 {%- set epic_keys = [] -%}
 {%- for epic in team_data.epics -%}
 {%- set _ = epic_keys.append(epic.key) -%}
 {%- endfor -%}
 {%- set epics_str = epic_keys|join(', ') -%}
-{%- if verbose %}
-       - {{ team_name }}:
-{%- for epic in team_data.epics %}
-         {{ epic.key|hyperlink(epic.url) }}: "{{ epic.summary }}"
-{%- endfor %}
-{%- endif -%}
-{%- set project_key = team_mappings.get(team_name, team_name) -%}
-{%- set manager_info = team_managers.get(project_key, {}) -%}
+{%- set display_name = reverse_team_mappings.get(team_key, team_name) -%}
+{%- set manager_info = team_managers.get(team_key, {}) -%}
 {%- set manager_tag = manager_info.get('notion_handle', '') -%}
 {%- set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
-       [ ] {{ team_name }} to set RAG status for {{ epics_str }}{{ manager_suffix }}
+       [ ] {{ display_name }} to set RAG status for {{ epics_str }}{{ manager_suffix }}
 {% endfor %}
 
 {% elif issue.type == 'red_epics' %}
@@ -452,7 +434,7 @@ These initiatives are not included in the analysis:
 {{ item.key|hyperlink(item.url) }}: {{ item.summary }}
    Status: {{ item.status }}
 
-{%- endfor %}
+{% endfor %}
 --------------------------------------------------------------------------------
 
 {%- endif %}

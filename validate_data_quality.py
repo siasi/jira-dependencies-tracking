@@ -19,9 +19,6 @@ Usage:
 
     # Generate Slack messages (always includes all teams)
     python3 validate_data_quality.py --quarter "26 Q2" --slack
-
-    # Verbose output
-    python3 validate_data_quality.py --quarter "26 Q2" --verbose
 """
 
 import argparse
@@ -104,11 +101,6 @@ Scope (which initiatives are validated):
         '--slack',
         action='store_true',
         help='Generate Slack bulk messages'
-    )
-    parser.add_argument(
-        '--verbose',
-        action='store_true',
-        help='Show detailed validation rules applied'
     )
     parser.add_argument(
         '--show-exempt',
@@ -806,25 +798,16 @@ def main():
         print('Error: No Jira extract found in data/ directory', file=sys.stderr)
         return 1
 
-    if args.verbose:
-        print(f'Loading data from: {extract_file}')
-
     with open(extract_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
     initiatives = data.get('initiatives', [])
-    if args.verbose:
-        print(f'Loaded {len(initiatives)} initiatives')
 
     # Load exceptions
     signed_off = load_signed_off_initiatives()
-    if args.verbose and signed_off:
-        print(f'Loaded {len(signed_off)} signed-off exceptions')
 
     # Load excluded teams
     excluded_teams = load_excluded_teams()
-    if args.verbose and excluded_teams:
-        print(f'Loaded {len(excluded_teams)} excluded teams: {", ".join(excluded_teams)}')
 
     # Filter initiatives
     filtered = filter_initiatives(
@@ -835,9 +818,6 @@ def main():
         signed_off=signed_off,
         excluded_teams=excluded_teams
     )
-
-    if args.verbose:
-        print(f'Filtered to {len(filtered)} initiatives')
 
     # Determine filter description
     parts = []
@@ -869,9 +849,6 @@ def main():
     # Validate initiatives
     issues_by_initiative = validate_initiatives(filtered, config)
 
-    if args.verbose:
-        print(f'Found issues in {len(issues_by_initiative)} initiatives')
-
     # Load manager info and team mappings
     team_managers = load_team_managers()
     team_mappings = load_team_mappings()
@@ -890,9 +867,6 @@ def main():
             console_grouped_data, filtered_count, total_count = filter_grouped_data_by_teams(
                 grouped_data, my_teams
             )
-            if args.verbose:
-                print(f'Filtering to {len(my_teams)} teams: {", ".join(my_teams)}')
-                print(f'Showing {filtered_count} of {total_count} action items')
         else:
             print('Warning: --me flag used but no my_teams configured in team_mappings.yaml')
 

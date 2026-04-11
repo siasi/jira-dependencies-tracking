@@ -1304,6 +1304,9 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
     team_mappings = _load_team_mappings()
     team_managers = _load_team_managers()
 
+    # Create reverse mapping: project_key -> display_name
+    reverse_team_mappings = {v: k for k, v in team_mappings.items()}
+
     # Setup Jinja2 environment
     env = get_template_environment()
 
@@ -1314,7 +1317,8 @@ def print_validation_report(result: ValidationResult, json_file: Path, verbose: 
         json_file=json_file,
         verbose=verbose,
         team_mappings=team_mappings,
-        team_managers=team_managers
+        team_managers=team_managers,
+        reverse_team_mappings=reverse_team_mappings
     )
 
     # Print output
@@ -1339,6 +1343,9 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
     team_managers = _load_team_managers()
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
+    # Create reverse mapping: project_key -> display_name
+    reverse_team_mappings = {v: k for k, v in team_mappings.items()}
+
     # Setup Jinja2 environment
     env = get_template_environment()
 
@@ -1350,6 +1357,7 @@ def generate_markdown_report(result: ValidationResult, json_file: Path, verbose:
         verbose=verbose,
         team_mappings=team_mappings,
         team_managers=team_managers,
+        reverse_team_mappings=reverse_team_mappings,
         timestamp=timestamp
     )
 
@@ -1414,7 +1422,7 @@ Examples:
     parser.add_argument(
         '--verbose',
         action='store_true',
-        help='Show detailed epic and team information in validation output'
+        help='Show "Not Analyzed" section with excluded initiatives'
     )
     parser.add_argument(
         '--markdown',

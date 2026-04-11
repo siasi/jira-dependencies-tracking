@@ -515,9 +515,6 @@ python validate_data_quality.py --quarter "26 Q2" --me
 
 # Generate Slack notifications (always includes all teams)
 python validate_data_quality.py --quarter "26 Q2" --slack
-
-# Verbose output with validation details
-python validate_data_quality.py --quarter "26 Q2" --verbose
 ```
 
 **Options:**
@@ -526,7 +523,6 @@ python validate_data_quality.py --quarter "26 Q2" --verbose
 - `--all-active` - Filter to active statuses (Proposed, Planned, In Progress)
 - `--me` - Show only action items for my teams (configured in `team_mappings.yaml`)
 - `--slack` - Generate Slack bulk messages for all managers (not affected by `--me`)
-- `--verbose` - Show detailed validation rules applied
 - `--show-exempt` - Show skipped initiatives (exceptions, excluded teams)
 
 **Personal Filtering with --me:**
