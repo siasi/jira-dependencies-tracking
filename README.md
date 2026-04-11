@@ -36,6 +36,33 @@ jira-em-toolkit/
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture documentation.
 
+## Shared Validation Library
+
+All validation scripts (`validate_planning.py`, `validate_prioritisation.py`, `analyze_workload.py`) now use a centralized validation library (`lib/validation.py`) that provides consistent data quality checks across the toolkit.
+
+**What Gets Validated:**
+- **Owner Team** - All initiatives must have an owner team assigned
+- **Assignee** - Status-aware validation (P3 for Proposed, P1 for Planned/In Progress)
+- **Strategic Objective** - Missing or invalid values (supports comma-separated multi-objective format)
+- **Teams Involved** - All initiatives must list contributing teams
+- **Missing Epics** - Teams listed in "teams_involved" must have epics (owner team exempt)
+- **RAG Status** - Epics must have RAG status set (Proposed/Planned only, owner team and exempt teams excluded)
+
+**Status-Aware Priority Escalation:**
+- Proposed → Lower priority for assignee (P3) and dependencies (P2)
+- Planned → Higher priority for assignee (P1) and dependencies (P1)
+- In Progress → No RAG validation, but assignee and dependencies required (P1)
+
+**Discovery Initiative Handling:**
+- Initiatives with `[Discovery]` prefix skip epic and RAG validation
+- Still required to have owner team and strategic objective
+
+**Benefits:**
+- Consistent validation rules across all scripts
+- Single source of truth for data quality checks
+- Easier to maintain and extend validation logic
+- Comprehensive baseline validation (added to `validate_prioritisation.py`)
+
 ## Output Structure
 
 All report-generating scripts (with `--html`, `--markdown`, or `--csv` options) follow a consistent output structure:
