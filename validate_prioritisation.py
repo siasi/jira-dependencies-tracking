@@ -462,6 +462,11 @@ def _build_commitment_matrix(
         teams_involved = _normalize_teams_involved(initiative.get('teams_involved'))
         teams_involved = _filter_excluded_teams(teams_involved, excluded_teams)
 
+        # Filter out owner team (they don't need to create epics for their own initiatives)
+        owner_team = initiative.get('owner_team')
+        if owner_team and owner_team in teams_involved:
+            teams_involved = [team for team in teams_involved if team != owner_team]
+
         for team_display in teams_involved:
             team_key = team_mappings.get(team_display, team_display)
 
@@ -669,6 +674,11 @@ def _build_initiative_health(
         # Get expected teams and filter excluded ones
         teams_involved = _normalize_teams_involved(initiative.get('teams_involved'))
         teams_involved = _filter_excluded_teams(teams_involved, excluded_teams)
+
+        # Filter out owner team (they don't need to create epics for their own initiatives)
+        owner_team = initiative.get('owner_team')
+        if owner_team and owner_team in teams_involved:
+            teams_involved = [team for team in teams_involved if team != owner_team]
 
         # Get committed teams
         committed = []

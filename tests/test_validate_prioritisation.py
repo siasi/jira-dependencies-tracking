@@ -1087,3 +1087,196 @@ team_mappings:
     assert 'INIT-1111' not in all_keys
     assert 'INIT-2222' in all_keys
     assert 'INIT-3333' in all_keys
+
+
+# ============================================================================
+# Owner Team Exemption Tests
+# ============================================================================
+
+def test_owner_team_not_required_to_commit(tmp_path, monkeypatch):
+    """Test that owner teams are not required to create epics for their own initiatives."""
+    # Create priority config
+    config_file = tmp_path / "priorities.yaml"
+    config_file.write_text("""
+priorities:
+  - INIT-1
+""")
+
+    # Create test data where owner team is in teams_involved but has no epic
+    data_file = tmp_path / "test_data.json"
+    data = {
+        'initiatives': [
+            {
+                'key': 'INIT-1',
+                'summary': 'Test Initiative',
+                'owner_team': 'Team A',  # Owner team
+                'status': 'In Progress',
+                'teams_involved': ['Team A', 'Team B'],  # Owner team is involved
+                'contributing_teams': [
+                    {
+                        'team_project_key': 'TEAMB',
+                        'epics': [{'key': 'TEAMB-1', 'rag_status': '🟢', 'status': 'In Progress'}]
+                    }
+                    # Team A (owner) has NO epic - this should be OK
+                ]
+            }
+        ]
+    }
+    data_file.write_text(json.dumps(data))
+
+    # Setup config
+    test_config_dir = tmp_path / "config"
+    test_config_dir.mkdir()
+    mappings_file = test_config_dir / "team_mappings.yaml"
+    mappings_file.write_text("""
+team_mappings:
+  "Team A": "TEAMA"
+  "Team B": "TEAMB"
+""")
+
+    # Patch config location
+    import validate_prioritisation as vtl_module
+    monkeypatch.setattr(vtl_module, '__file__', str(tmp_path / "validate_prioritisation.py"))
+
+    # Run validation
+    from validate_prioritisation import validate_prioritisation as validate_fn
+    result = validate_fn(data_file, config_file)
+
+    # Team A (owner) should NOT appear in missing commitments
+    missing_teams = [missing['team_display'] for missing in result.missing_commitments]
+    assert 'Team A' not in missing_teams
+
+    # Team B should have commitment (has green epic)
+    # Initiative should be in health dashboard with Team A filtered out
+    assert len(result.initiative_health) == 1
+    health = result.initiative_health[0]
+    assert health['key'] == 'INIT-1'
+
+    # Only Team B should be in expected teams (Team A filtered out as owner)
+    assert 'Team B' in [t['team'] for t in health['active_teams']]
+    assert 'Team A' not in [t['team'] for t in health['active_teams']]
+    assert 'Team A' not in [t['team'] for t in health['missing_teams']]
+
+
+def test_owner_team_mixed_with_contributing_teams(tmp_path, monkeypatch):
+    """Test owner team exemption with multiple contributing teams."""
+    # Create priority config
+    config_file = tmp_path / "priorities.yaml"
+    config_file.write_text("""
+priorities:
+  - INIT-1
+  - INIT-2
+""")
+
+    # Create test data
+    data_file = tmp_path / "test_data.json"
+    data = {
+        'initiatives': [
+            {
+                'key': 'INIT-1',
+                'summary': 'Initiative owned by Team A',
+                'owner_team': 'Team A',
+                'status': 'In Progress',
+                'teams_involved': ['Team A', 'Team B', 'Team C'],
+                'contributing_teams': [
+                    {'team_project_key': 'TEAMB', 'epics': [{'key': 'TEAMB-1', 'rag_status': '🟢', 'status': 'In Progress'}]},
+                    {'team_project_key': 'TEAMC', 'epics': [{'key': 'TEAMC-1', 'rag_status': '🟢', 'status': 'In Progress'}]}
+                    # Team A has no epic - OK since they're the owner
+                ]
+            },
+            {
+                'key': 'INIT-2',
+                'summary': 'Initiative owned by Team B',
+                'owner_team': 'Team B',
+                'status': 'In Progress',
+                'teams_involved': ['Team A', 'Team B'],
+                'contributing_teams': [
+                    # Team A has no epic - should be flagged
+                    # Team B has no epic - OK since they're the owner
+                ]
+            }
+        ]
+    }
+    data_file.write_text(json.dumps(data))
+
+    # Setup config
+    test_config_dir = tmp_path / "config"
+    test_config_dir.mkdir()
+    mappings_file = test_config_dir / "team_mappings.yaml"
+    mappings_file.write_text("""
+team_mappings:
+  "Team A": "TEAMA"
+  "Team B": "TEAMB"
+  "Team C": "TEAMC"
+""")
+
+    # Patch config location
+    import validate_prioritisation as vtl_module
+    monkeypatch.setattr(vtl_module, '__file__', str(tmp_path / "validate_prioritisation.py"))
+
+    # Run validation
+    from validate_prioritisation import validate_prioritisation as validate_fn
+    result = validate_fn(data_file, config_file)
+
+    # INIT-1: Team A (owner) not flagged, Team B and C have commitments
+    # INIT-2: Team B (owner) not flagged, Team A should be flagged
+
+    # Only Team A for INIT-2 should be in missing commitments
+    assert len(result.missing_commitments) == 1
+    missing = result.missing_commitments[0]
+    assert missing['team_display'] == 'Team A'
+    assert len(missing['issues']) == 1
+    assert missing['issues'][0]['key'] == 'INIT-2'
+
+
+def test_non_owner_team_required_to_commit(tmp_path, monkeypatch):
+    """Test that non-owner teams are still required to create epics."""
+    # Create priority config
+    config_file = tmp_path / "priorities.yaml"
+    config_file.write_text("""
+priorities:
+  - INIT-1
+""")
+
+    # Create test data where non-owner team has no epic
+    data_file = tmp_path / "test_data.json"
+    data = {
+        'initiatives': [
+            {
+                'key': 'INIT-1',
+                'summary': 'Test Initiative',
+                'owner_team': 'Team A',  # Owner team
+                'status': 'In Progress',
+                'teams_involved': ['Team A', 'Team B'],
+                'contributing_teams': [
+                    # Team A (owner) has no epic - OK
+                    # Team B (non-owner) has no epic - should be flagged
+                ]
+            }
+        ]
+    }
+    data_file.write_text(json.dumps(data))
+
+    # Setup config
+    test_config_dir = tmp_path / "config"
+    test_config_dir.mkdir()
+    mappings_file = test_config_dir / "team_mappings.yaml"
+    mappings_file.write_text("""
+team_mappings:
+  "Team A": "TEAMA"
+  "Team B": "TEAMB"
+""")
+
+    # Patch config location
+    import validate_prioritisation as vtl_module
+    monkeypatch.setattr(vtl_module, '__file__', str(tmp_path / "validate_prioritisation.py"))
+
+    # Run validation
+    from validate_prioritisation import validate_prioritisation as validate_fn
+    result = validate_fn(data_file, config_file)
+
+    # Team B should be flagged for missing commitment
+    assert len(result.missing_commitments) == 1
+    missing = result.missing_commitments[0]
+    assert missing['team_display'] == 'Team B'
+    assert missing['issues'][0]['reason'] == 'no_epic'

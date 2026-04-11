@@ -17,15 +17,14 @@
   - `validate_prioritisation.py`: Not needed - this script doesn't validate strategic objectives
 
 ### Owner Team Expectations Alignment
-- [ ] Align `validate_prioritisation.py` owner team handling with other scripts
+- [x] Align `validate_prioritisation.py` owner team handling with other scripts (completed 2026-04-11)
 - **Issue**: Inconsistent treatment of owner teams across scripts
 - **Current behavior**:
   - `analyze_workload.py`: Owner team exempt from creating epics ✓
   - `validate_planning.py`: Owner team exempt from creating epics and setting RAG ✓
-  - `validate_prioritisation.py`: Owner team treated like any contributing team ✗
-- **Decision needed**: Should owner teams:
-  - Create epics for their own initiatives? (Currently: No in 2 scripts, Yes in 1)
-  - Set RAG status on their epics? (Currently: No in planning, Yes in prioritisation)
-- **Files to update**:
-  - `validate_prioritisation.py`: Add owner team exemption logic to `_detect_missing_commitments()` and `_is_team_committed_with_epics()`
-  - Document the decision in README or architecture docs
+  - `validate_prioritisation.py`: Owner team exempt from creating epics ✓ (now consistent)
+- **Decision**: Owner teams do NOT need to:
+  - Create epics for their own initiatives (they're leading, not contributing)
+  - Set RAG status on their epics (they don't report to themselves)
+- **Files updated**:
+  - `validate_prioritisation.py`: Added owner team filtering in `_build_commitment_matrix()` and `_build_initiative_health()` ✓
