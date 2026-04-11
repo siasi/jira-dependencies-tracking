@@ -8,12 +8,12 @@ Different validation rules apply based on initiative status.
 
 These checks apply to all initiatives regardless of status:
 
-| Check | Priority | Description |
-|-------|----------|-------------|
-| Missing owner_team | P1 | Blocks everything - initiative needs an owner team |
-| Missing teams_involved | P1 | Data quality issue - should list contributing teams |
-| Missing strategic_objective | P1 | Blocks planning - initiative needs strategic alignment |
-| Invalid strategic_objective | P3 | Not in approved list - needs correction (see definitions below) |
+| Check | Priority | Description | Owner |
+|-------|----------|-------------|-------|
+| Missing owner_team | P1 | Blocks everything - initiative needs an owner team | None |
+| Missing teams_involved | P1 | Data quality issue - should list contributing teams | Owner Team Manager |
+| Missing strategic_objective | P1 | Blocks planning - initiative needs strategic alignment | Owner Team Manager |
+| Invalid strategic_objective | P3 | Not in approved list - needs correction (see definitions below) | Owner Team Manager |
 
 
 **Rationale**: These are fundamental data quality requirements. Without owner team (P1), we don't know who to hold accountable. Without strategic objective (P1), we can't prioritize or align work. Without teams_involved (P1), we can't track dependencies.
@@ -22,11 +22,11 @@ These checks apply to all initiatives regardless of status:
 
 Additional checks beyond universal:
 
-| Check | Priority | Description |
-|-------|----------|-------------|
-| Missing epics from teams_involved | P2 | Teams need to create epics to signal commitment |
-| Missing RAG status | P2 | Teams need to communicate commitment level |
-| Missing assignee | P3 | Blocks execution - needs person responsible |
+| Check | Priority | Description | Owner |
+|-------|----------|-------------|-------|
+| Missing epics from teams_involved | P2 | Teams need to create epics to signal commitment | Dependant team manager | 
+| Missing RAG status | P2 | Teams need to communicate commitment level | Dependant Team Manager | 
+| Missing assignee | P3 | Blocks execution - needs person responsible | Owner Team Manager |
 
 **Rationale**: Proposed initiatives are being evaluated for readiness to move to Planned status. Before committing to the quarter, we need:
 - **Epics (P2)**: Teams confirm dependencies by creating epics
@@ -41,9 +41,9 @@ Additional checks beyond universal:
 
 | Check | Priority | Description |
 |-------|----------|-------------|
-| Missing assignee | P1 | Should have DRI by now - initiative is committed |
-| Missing epics from teams_involved | P1 | Teams should have created epics to confirm dependencies |
-| Missing RAG status | P1 | Teams should be tracking and communicating health |
+| Missing assignee | P1 | Should have DRI by now - initiative is committed | Owner Team Manager |
+| Missing epics from teams_involved | P1 | Teams should have created epics to confirm dependencies | Dependant Team Manager |
+| Missing RAG status | P1 | Teams should be tracking and communicating health | Dependant Team Manager |
 
 **Rationale**: Planned initiatives are committed for the quarter. By this stage:
 - **Assignee (P1)**: Must have someone accountable for delivery
@@ -56,8 +56,8 @@ Additional checks beyond universal:
 
 | Check | Priority | Description |
 |-------|----------|-------------|
-| Missing assignee | P1 | Active work must have owner to coordinate execution |
-| Missing epics from teams_involved | P1 | Contributing teams should have epics for active work |
+| Missing assignee | P1 | Active work must have owner to coordinate execution | Owner Team Manager |
+| Missing epics from teams_involved | P1 | Contributing teams should have epics for active work | Dependant Team Manager |
 
 **Rationale**: In Progress initiatives are actively being worked on. By this stage:
 - **Assignee (P1)**: Critical to have someone coordinating the work
@@ -70,9 +70,9 @@ Only checked if `--all-active` or explicit `--status Done` is used:
 
 | Check | Priority | Description |
 |-------|----------|-------------|
-| Missing strategic_objective | P3 | Historical data completeness for reporting |
-| Epics not marked Done | INFO | Cleanup opportunity - close completed work |
-| RAG status on Done epics | INFO | Cleanup opportunity - clear stale signals |
+| Missing strategic_objective | P3 | Historical data completeness for reporting | Owner Team Manager |
+| Epics not marked Done | INFO | Cleanup opportunity - close completed work | Owner Team Manager |
+| RAG status on Done epics | INFO | Cleanup opportunity - clear stale signals | Dependant Team Manager |
 
 **Rationale**: Only validate if explicitly requested. Focus is on data completeness for historical analysis and cleanup opportunities.
 

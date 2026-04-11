@@ -212,27 +212,23 @@ Exceptions Skipped: 3 (INIT-1301, INIT-1302, INIT-1303)
 Action Items by Manager (5 managers, 38 action items):
 --------------------------------------------------------------------------------
 
-Jane Smith (@jane.smith) - Platform Team
-  8 action items across 4 initiatives
+@Jane Smith - Platform Team
+  6 action items across 3 initiatives
 
   INIT-456: Payment Gateway Integration
-    Status: Planned | Owner: Platform | Quarter: 26 Q2
-    P2 ⚠️  Missing assignee - Assign initiative owner
-    P4 ⚠️  Missing epic from Mobile team - Create epic
+  Status: Planned
+    P1 ⚠️  Missing assignee - Assign initiative owner - Jane Smith
+    P3 ⚠️  Invalid strategic objective: "customer_experiance" - Fix typo - Jane Smith
 
   INIT-789: Customer Portal Redesign
-    Status: In Progress | Owner: Platform | Quarter: 26 Q2
-    P4 ⚠️  Missing epic from Frontend team - Create epic
-    P4 ⚠️  Missing epic from API team - Create epic
-
-  INIT-890: Analytics Dashboard
-    Status: Planned | Owner: Platform | Quarter: 26 Q2
-    P3 ⚠️  Invalid strategic objective: "customer_experiance" - Fix typo
-    P5 ⚠️  Missing RAG status on EPIC-123 (Mobile team) - Set RAG
+  Status: In Progress
+    P1 ⚠️  Missing strategic objective - Set strategic objective - Jane Smith
 
   INIT-901: Search Optimization
-    Status: In Progress | Owner: Platform | Quarter: 26 Q2
-    P2 ⚠️  Missing strategic objective - Set strategic objective
+  Status: Planned
+    P1 ⚠️  Missing epic from Platform team - Create epic - @John Doe
+    P1 ⚠️  Missing RAG status on EPIC-123 (Platform team) - Set RAG - @John Doe
+    P2 ⚠️  Missing RAG status on EPIC-124 (Platform team) - Set RAG - @John Doe
 
 --------------------------------------------------------------------------------
 

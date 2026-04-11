@@ -301,14 +301,18 @@ def test_group_by_manager():
     team_managers = {
         'TEAM1': {'notion_handle': '@Manager A', 'slack_id': 'U111'},
         'TEAM2': {'notion_handle': '@Manager B', 'slack_id': 'U222'},
+        'TEAM3': {'notion_handle': '@Manager C', 'slack_id': 'U333'},
     }
 
     team_mappings = {}  # No mappings needed for this test
 
     grouped = group_by_manager(issues_by_initiative, team_managers, team_mappings)
 
-    # Should have 2 managers
+    # Should have 2 managers (TEAM1 for owner issue, TEAM3 for dependency issue)
     assert len(grouped) == 2
+    assert 'U111' in grouped  # TEAM1 manager gets owner issue
+    assert 'U333' in grouped  # TEAM3 manager gets dependency issue
+    assert 'U222' not in grouped  # TEAM2 manager gets nothing (they own INIT-2 but issue goes to TEAM3)
 
     # Check structure
     for manager_id, data in grouped.items():
@@ -577,3 +581,36 @@ def test_group_by_manager_with_team_mappings():
     assert 'U013U600TT9' in grouped
     assert grouped['U013U600TT9']['manager_name'] == 'Kevin Plattern'
     assert grouped['U013U600TT9']['team'] == 'MAP'  # Original display name preserved
+
+
+def test_is_owned_initiative():
+    """Test initiative ownership determination."""
+    from validate_data_quality import is_owned_initiative
+    from lib.validation import ValidationIssue, Priority
+
+    team_mappings = {}  # No mappings for simple test
+
+    # Manager owns initiative
+    owner_issue = ValidationIssue(
+        type='missing_assignee',
+        priority=Priority.CRITICAL,
+        description='Assign owner',
+        initiative_key='INIT-1',
+        initiative_summary='Test',
+        initiative_status='Planned',
+        owner_team='TEAM1',
+    )
+    assert is_owned_initiative(owner_issue, 'TEAM1', team_mappings) is True
+
+    # Manager doesn't own initiative
+    dependency_issue = ValidationIssue(
+        type='missing_epic',
+        priority=Priority.CRITICAL,
+        description='Create epic',
+        initiative_key='INIT-1',
+        initiative_summary='Test',
+        initiative_status='Planned',
+        owner_team='TEAM1',
+        team_affected='TEAM2',
+    )
+    assert is_owned_initiative(dependency_issue, 'TEAM2', team_mappings) is False

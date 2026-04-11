@@ -317,17 +317,24 @@ def group_by_manager(
 
     for init_key, issues in issues_by_initiative.items():
         for issue in issues:
-            owner_team = issue.owner_team
-            if not owner_team:
-                # Can't group without owner team
+            # Determine which team should act on this issue
+            # Dependency issues: team_affected acts
+            # Owner issues: owner_team acts
+            if issue.type in ['missing_epic', 'missing_rag_status']:
+                acting_team = issue.team_affected
+            else:
+                acting_team = issue.owner_team
+
+            if not acting_team:
+                # Can't group without a team to act
                 continue
 
             # Map display name to project key if needed
-            project_key = team_mappings.get(owner_team, owner_team)
+            project_key = team_mappings.get(acting_team, acting_team)
 
             manager_info = team_managers.get(project_key, {})
             manager_name = manager_info.get('notion_handle', 'Unknown')
-            slack_id = manager_info.get('slack_id', f'unknown_{owner_team}')
+            slack_id = manager_info.get('slack_id', f'unknown_{acting_team}')
 
             # Remove @ prefix from manager name if present
             if manager_name.startswith('@'):
@@ -337,7 +344,7 @@ def group_by_manager(
             if grouped[slack_id]['slack_id'] is None:
                 grouped[slack_id]['manager_name'] = manager_name
                 grouped[slack_id]['slack_id'] = slack_id
-                grouped[slack_id]['team'] = owner_team
+                grouped[slack_id]['team'] = acting_team
 
             # Add initiative if not already present
             if init_key not in grouped[slack_id]['initiatives']:
@@ -374,6 +381,24 @@ def calculate_priority_summary(grouped_data: Dict) -> Dict[str, int]:
     return summary
 
 
+def is_owned_initiative(issue: ValidationIssue, manager_team: str, team_mappings: Dict[str, str]) -> bool:
+    """Check if this initiative is owned by the manager's team.
+
+    Args:
+        issue: ValidationIssue instance
+        manager_team: The team of the manager
+        team_mappings: Team name to project key mappings
+
+    Returns:
+        True if manager owns this initiative
+    """
+    # Normalize team names for comparison
+    manager_key = team_mappings.get(manager_team, manager_team)
+    owner_key = team_mappings.get(issue.owner_team or '', issue.owner_team or '')
+
+    return manager_key == owner_key
+
+
 def format_console_output(grouped_data: Dict, metadata: Dict) -> str:
     """Format console output showing action items by manager.
 
@@ -386,6 +411,8 @@ def format_console_output(grouped_data: Dict, metadata: Dict) -> str:
     """
     lines = []
     jira_base_url = get_jira_base_url()
+    team_mappings = load_team_mappings()
+    team_managers = load_team_managers()
 
     # Header
     lines.append('=' * 80)
@@ -434,6 +461,10 @@ def format_console_output(grouped_data: Dict, metadata: Dict) -> str:
         )
         manager_initiatives = len(manager_data['initiatives'])
 
+        # Add @ prefix if not already present
+        if not manager_name.startswith('@'):
+            manager_name = f'@{manager_name}'
+
         lines.append(f"{manager_name} - {team}")
         lines.append(f"  {manager_actions} action items across {manager_initiatives} initiatives")
         lines.append('')
@@ -446,14 +477,31 @@ def format_console_output(grouped_data: Dict, metadata: Dict) -> str:
             status = init_data['status']
 
             lines.append(f"  {init_key}: {summary}")
-            lines.append(f"    Status: {status}")
+            lines.append(f"  Status: {status}")
 
             # Sort issues by priority
             sorted_issues = sorted(init_data['issues'], key=lambda i: i.priority)
 
             for issue in sorted_issues:
                 priority_label = f'P{int(issue.priority)}'
-                lines.append(f"    {priority_label} ⚠️  {issue.description}")
+
+                # Determine action owner for this issue
+                is_owner = is_owned_initiative(issue, team, team_mappings)
+                if is_owner:
+                    # Owner action - just show manager name (without @)
+                    action_owner = manager_name.lstrip('@')
+                else:
+                    # Dependency action - show dependent team's manager with @
+                    # For dependency issues, we need to find the manager of the owner team
+                    owner_team = issue.owner_team
+                    owner_project_key = team_mappings.get(owner_team, owner_team)
+                    owner_manager_info = team_managers.get(owner_project_key, {})
+                    owner_manager_name = owner_manager_info.get('notion_handle', 'Unknown')
+                    if owner_manager_name.startswith('@'):
+                        owner_manager_name = owner_manager_name[1:].strip()
+                    action_owner = f'@{owner_manager_name}'
+
+                lines.append(f"    {priority_label} ⚠️  {issue.description} - {action_owner}")
 
             lines.append('')
 
