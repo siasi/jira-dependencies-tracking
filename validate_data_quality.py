@@ -553,35 +553,85 @@ def format_console_output(grouped_data: Dict, metadata: Dict) -> str:
 def generate_slack_messages(grouped_data: Dict) -> List[Dict]:
     """Generate Slack messages from grouped data.
 
+    Each manager only receives actions they're responsible for:
+    - Owner actions (missing assignee, strategic objective, etc.) for their own initiatives
+    - Dependency actions (create epic, set RAG) for their team as a dependent
+
     Args:
-        grouped_data: Grouped manager data
+        grouped_data: Grouped manager data (grouped by initiative owner)
 
     Returns:
         List of message dicts for Slack template
     """
     messages = []
     jira_base_url = get_jira_base_url()
+    team_mappings = load_team_mappings()
+    team_managers = load_team_managers()
 
-    for slack_id, manager_data in grouped_data.items():
-        if not manager_data['slack_id'] or manager_data['slack_id'].startswith('unknown_'):
-            # Skip managers without valid Slack ID
-            continue
+    # Regroup actions by who is responsible (not by initiative owner)
+    actions_by_manager = defaultdict(lambda: {
+        'manager_name': None,
+        'slack_id': None,
+        'team': None,
+        'initiatives': defaultdict(lambda: {
+            'key': None,
+            'title': None,
+            'url': None,
+            'actions': []
+        })
+    })
 
-        # Calculate totals
-        total_actions = sum(
-            len(init_data['issues'])
-            for init_data in manager_data['initiatives'].values()
-        )
-        total_initiatives = len(manager_data['initiatives'])
+    # Iterate through all issues and assign to responsible manager
+    for owner_slack_id, owner_manager_data in grouped_data.items():
+        for init_key, init_data in owner_manager_data['initiatives'].items():
+            for issue in init_data['issues']:
+                # Determine who is responsible for this action
+                if issue.type in ['missing_epic', 'missing_rag_status']:
+                    # Dependency action - team_affected manager is responsible
+                    responsible_team = issue.team_affected
+                    responsible_key = team_mappings.get(responsible_team, responsible_team) if team_mappings else responsible_team
+                else:
+                    # Owner action - initiative owner manager is responsible
+                    responsible_team = issue.owner_team
+                    responsible_key = team_mappings.get(responsible_team, responsible_team) if team_mappings else responsible_team
 
-        # Build initiatives list
-        initiatives = []
-        for init_key, init_data in sorted(manager_data['initiatives'].items()):
-            # Sort issues by priority
-            sorted_issues = sorted(init_data['issues'], key=lambda i: i.priority)
+                if not responsible_key:
+                    continue
 
-            actions = []
-            for issue in sorted_issues:
+                # Get manager info for responsible team
+                if team_managers and responsible_key in team_managers:
+                    # Use loaded team_managers config
+                    manager_info = team_managers.get(responsible_key, {})
+                    responsible_slack_id = manager_info.get('slack_id')
+                    responsible_manager_name = manager_info.get('notion_handle', 'Unknown')
+                elif responsible_key == owner_manager_data.get('team'):
+                    # Fall back to owner manager data if team matches
+                    responsible_slack_id = owner_slack_id
+                    responsible_manager_name = owner_manager_data['manager_name']
+                else:
+                    # Can't find manager info, skip this action
+                    continue
+
+                if not responsible_slack_id or responsible_slack_id.startswith('unknown_'):
+                    continue
+
+                # Remove @ prefix
+                if responsible_manager_name and responsible_manager_name.startswith('@'):
+                    responsible_manager_name = responsible_manager_name[1:].strip()
+
+                # Initialize manager entry
+                if actions_by_manager[responsible_slack_id]['slack_id'] is None:
+                    actions_by_manager[responsible_slack_id]['manager_name'] = responsible_manager_name
+                    actions_by_manager[responsible_slack_id]['slack_id'] = responsible_slack_id
+                    actions_by_manager[responsible_slack_id]['team'] = responsible_team
+
+                # Initialize initiative entry
+                if actions_by_manager[responsible_slack_id]['initiatives'][init_key]['key'] is None:
+                    actions_by_manager[responsible_slack_id]['initiatives'][init_key]['key'] = init_key
+                    actions_by_manager[responsible_slack_id]['initiatives'][init_key]['title'] = init_data['summary']
+                    actions_by_manager[responsible_slack_id]['initiatives'][init_key]['url'] = f"{jira_base_url}/browse/{init_key}"
+
+                # Add action
                 action = {
                     'action_type': issue.type,
                     'description': issue.description,
@@ -589,20 +639,31 @@ def generate_slack_messages(grouped_data: Dict) -> List[Dict]:
                     'priority': int(issue.priority),
                     'current_value': issue.current_value,
                 }
-                actions.append(action)
+                actions_by_manager[responsible_slack_id]['initiatives'][init_key]['actions'].append(action)
+
+    # Convert to message format
+    for slack_id, manager_data in actions_by_manager.items():
+        # Build initiatives list
+        initiatives = []
+        total_actions = 0
+
+        for init_key, init_data in sorted(manager_data['initiatives'].items()):
+            # Sort actions by priority
+            sorted_actions = sorted(init_data['actions'], key=lambda a: a['priority'])
+            total_actions += len(sorted_actions)
 
             initiatives.append({
-                'key': init_key,
-                'title': init_data['summary'],
-                'url': f"{jira_base_url}/browse/{init_key}",
-                'actions': actions,
+                'key': init_data['key'],
+                'title': init_data['title'],
+                'url': init_data['url'],
+                'actions': sorted_actions,
             })
 
         messages.append({
             'manager_name': manager_data['manager_name'],
             'slack_id': slack_id,
             'total_actions': total_actions,
-            'total_initiatives': total_initiatives,
+            'total_initiatives': len(initiatives),
             'teams': [{
                 'team_name': manager_data['team'],
                 'team_key': manager_data['team'],

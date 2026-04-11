@@ -473,6 +473,65 @@ def test_generate_slack_messages():
     assert messages[0]['total_initiatives'] == 1
 
 
+def test_generate_slack_messages_filters_by_responsibility():
+    """Test that Slack messages are filtered by who is responsible for the action."""
+    from validate_data_quality import generate_slack_messages
+    from lib.validation import ValidationIssue, Priority
+
+    grouped_data = {
+        'U111': {
+            'manager_name': 'Manager A',
+            'slack_id': 'U111',
+            'team': 'TEAM1',
+            'initiatives': {
+                'INIT-1': {
+                    'summary': 'Test Initiative',
+                    'status': 'Proposed',
+                    'quarter': '26 Q2',
+                    'issues': [
+                        # Owner action - Manager A should receive this
+                        ValidationIssue(
+                            type='missing_assignee',
+                            priority=Priority.HIGH,
+                            description='Assign owner',
+                            initiative_key='INIT-1',
+                            initiative_summary='Test Initiative',
+                            initiative_status='Proposed',
+                            owner_team='TEAM1',
+                        ),
+                        # Dependency action for TEAM2 - Manager A should NOT receive this
+                        ValidationIssue(
+                            type='missing_epic',
+                            priority=Priority.LOW,
+                            description='Create epic',
+                            initiative_key='INIT-1',
+                            initiative_summary='Test Initiative',
+                            initiative_status='Proposed',
+                            owner_team='TEAM1',
+                            team_affected='TEAM2',  # Different team
+                        ),
+                    ]
+                }
+            }
+        }
+    }
+
+    messages = generate_slack_messages(grouped_data)
+
+    # Should only have 1 message for Manager A
+    assert len(messages) == 1
+    assert messages[0]['slack_id'] == 'U111'
+
+    # Should only have 1 action (missing_assignee), not 2
+    # The missing_epic for TEAM2 should not be included
+    assert messages[0]['total_actions'] == 1
+
+    # Verify the action is the owner action
+    initiative = messages[0]['teams'][0]['initiatives'][0]
+    assert len(initiative['actions']) == 1
+    assert initiative['actions'][0]['action_type'] == 'missing_assignee'
+
+
 # Test Output File Generation
 def test_save_slack_output(tmp_path):
     """Test saving Slack output to file."""
