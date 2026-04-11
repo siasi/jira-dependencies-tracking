@@ -27,6 +27,7 @@ from typing import Any, Optional
 
 from lib.common_formatting import make_clickable_link
 from lib.config_utils import get_jira_base_url
+from lib.output_utils import generate_output_path
 from lib.template_renderer import get_template_environment
 
 
@@ -910,7 +911,7 @@ def extract_manager_actions(result: ValidationResult) -> list[dict[str, Any]]:
     return actions
 
 
-def generate_slack_messages(result: ValidationResult, output_dir: Path) -> None:
+def generate_slack_messages(result: ValidationResult) -> None:
     """Generate Slack-compatible bulk messages for engineering managers.
 
     Extracts action items from validation result, groups by manager,
@@ -918,7 +919,6 @@ def generate_slack_messages(result: ValidationResult, output_dir: Path) -> None:
 
     Args:
         result: Validation result containing initiatives and issues
-        output_dir: Directory to save output file (typically extracts/)
 
     Raises:
         ValueError: If team_managers config is missing Slack IDs
@@ -1051,8 +1051,7 @@ def generate_slack_messages(result: ValidationResult, output_dir: Path) -> None:
     print("="*60)
 
     # Save to file
-    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-    output_file = output_dir / f'slack_messages_{timestamp}.txt'
+    output_file = generate_output_path('planning_validation', 'txt')
 
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(output)
@@ -1380,10 +1379,10 @@ def main():
         '--markdown',
         type=str,
         nargs='?',
-        const='auto',
+        const='',
         metavar='FILENAME',
         help='Export report as markdown file (Notion-friendly format). '
-             'Optionally specify filename, otherwise auto-generates with timestamp.'
+             'Optionally specify filename, otherwise saves to output/planning_validation/ with progressive numbering.'
     )
     parser.add_argument(
         '--slack',
@@ -1421,13 +1420,10 @@ def main():
         print_validation_report(result, json_file, verbose=args.verbose)
 
         # Generate markdown export if requested
-        if args.markdown:
-            if args.markdown == 'auto':
-                # Auto-generate filename with timestamp
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                markdown_file = Path(f"initiative_validation_report_{timestamp}.md")
-            else:
-                markdown_file = Path(args.markdown)
+        if args.markdown is not None:
+            # Use generate_output_path for default (empty string), or custom filename if provided
+            markdown_filename = args.markdown if args.markdown else None
+            markdown_file = generate_output_path('planning_validation', 'md', markdown_filename)
 
             # Generate markdown content
             markdown_content = generate_markdown_report(
@@ -1442,8 +1438,7 @@ def main():
 
         # Generate Slack messages if requested
         if args.slack:
-            output_dir = json_file.parent
-            generate_slack_messages(result, output_dir)
+            generate_slack_messages(result)
 
         # Always exit successfully (validation issues are informational, not failures)
         sys.exit(0)

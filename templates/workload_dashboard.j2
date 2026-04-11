@@ -192,7 +192,7 @@
 <div class="card">
   <div class="card-title">Work Type Distribution — Engineering vs Product</div>
   <div class="card-subtitle">Shows engineering work (strategic_objective = "engineering_pillars") vs product work for each team. Leading + Contributing combined.</div>
-  <div class="chart-wrap" style="height: 300px;">
+  <div class="chart-wrap">
     <canvas id="workTypeChart"></canvas>
   </div>
 </div>
@@ -276,7 +276,7 @@ function showModal(title, items) {
   items.forEach(item => {
     const li = document.createElement('li');
     const a = document.createElement('a');
-    a.href = JIRA_BASE + item.key;
+    a.href = JIRA_BASE + '/browse/' + item.key;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
     a.innerHTML = `<span class="init-key">${item.key}</span>${item.name}`;
@@ -354,6 +354,10 @@ function getTeamName(teamKey) {
 // ─── WORK TYPE STATS (from server) ──────────────────────────────────────────
 // Pre-calculated engineering vs product work per team
 const TEAM_WORK_TYPE_STATS = {{ team_work_type_stats_json | safe }};
+
+// ─── PRE-COMPUTED METRICS (from server) ─────────────────────────────────────
+// All KPIs and dashboard metrics calculated in Python
+const METRICS = {{ metrics_json | safe }};
 
 // ─── PARSE CSV ───────────────────────────────────────────────────────────────
 function parseCSVLine(line) {
@@ -480,50 +484,36 @@ allObjs.forEach(obj => {
 });
 
 // ─── STAT CARDS ──────────────────────────────────────────────────────────────
-const topTeam  = allTeams[0];
-const topObj   = allObjs[0];
-const topL     = teamLeading[topTeam]?.total || 0;
-const topC     = teamContrib[topTeam]?.total || 0;
-
-// Calculate engineering vs product totals from server-side data
-let totalEngCount = 0;
-let totalProdCount = 0;
-Object.values(TEAM_WORK_TYPE_STATS).forEach(stats => {
-  totalEngCount += stats.engineering.total || 0;
-  totalProdCount += stats.product.total || 0;
-});
-const totalWorkCount = totalEngCount + totalProdCount;
-const engPct = totalWorkCount > 0 ? Math.round(totalEngCount / totalWorkCount * 100) : 0;
-
-// Calculate average initiatives per team
-const activeTeams = allTeams.length;
-const avgInitiativesPerTeam = activeTeams > 0 ? (initiatives.length / activeTeams).toFixed(1) : 0;
+// Use pre-computed KPIs from Python (no calculation needed)
+const kpis = METRICS.kpis;
+const engPct = kpis.total_initiatives > 0 ? Math.round(kpis.engineering_count / kpis.total_initiatives * 100) : 0;
+const prodPct = 100 - engPct;
 
 document.getElementById('stats').innerHTML = `
   <div class="stat-card blue">
     <div class="stat-label">Total Initiatives</div>
-    <div class="stat-value">${initiatives.length}</div>
+    <div class="stat-value">${kpis.total_initiatives}</div>
     <div class="stat-sub">tracked this snapshot</div>
   </div>
   <div class="stat-card cyan">
     <div class="stat-label">Avg per Team</div>
-    <div class="stat-value">${avgInitiativesPerTeam}</div>
-    <div class="stat-sub">${activeTeams} active teams</div>
+    <div class="stat-value">${kpis.avg_per_team}</div>
+    <div class="stat-sub">${kpis.active_teams} active teams</div>
   </div>
   <div class="stat-card green">
     <div class="stat-label">Work Type Split</div>
-    <div class="stat-value">${engPct}% / ${100 - engPct}%</div>
-    <div class="stat-sub">${totalEngCount} engineering · ${totalProdCount} product</div>
+    <div class="stat-value">${engPct}% / ${prodPct}%</div>
+    <div class="stat-sub">${kpis.engineering_count} engineering · ${kpis.product_count} product</div>
   </div>
   <div class="stat-card purple">
     <div class="stat-label">Most Loaded Team</div>
-    <div class="stat-value" style="font-size:19px;padding-top:3px">${getTeamName(topTeam)}</div>
-    <div class="stat-sub">${topL + topC} total · ${topL} led · ${topC} contributing</div>
+    <div class="stat-value" style="font-size:19px;padding-top:3px">${kpis.most_loaded_display_name}</div>
+    <div class="stat-sub">${kpis.most_loaded_count} total · ${kpis.most_loaded_leading} led · ${kpis.most_loaded_contributing} contributing</div>
   </div>
   <div class="stat-card orange">
     <div class="stat-label">Top Strategic Objective</div>
-    <div class="stat-value" style="font-size:15px;padding-top:5px">${OBJ_LABELS[topObj] || topObj}</div>
-    <div class="stat-sub">${objInitCount[topObj]} initiatives</div>
+    <div class="stat-value" style="font-size:15px;padding-top:5px">${kpis.top_objective_label}</div>
+    <div class="stat-sub">${kpis.top_objective_count} initiatives</div>
   </div>
 `;
 
@@ -568,7 +558,7 @@ const collabHTML = topCollaborative.length > 0
         <div style="padding:10px 0;border-bottom:1px solid #e2e8f0">
           <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">
             <span style="color:#718096;font-weight:600;min-width:20px">${idx + 1}.</span>
-            <a href="${JIRA_BASE}${init.key}" target="_blank" style="color:#3182ce;text-decoration:none;font-weight:500">${init.key}</a>
+            <a href="${JIRA_BASE}/browse/${init.key}" target="_blank" style="color:#3182ce;text-decoration:none;font-weight:500">${init.key}</a>
             <span style="flex:1;color:#2d3748">${init.name}</span>
             <span style="background:#edf2f7;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;color:#4a5568">${init.totalTeams} teams</span>
           </div>
@@ -634,7 +624,7 @@ const bottleneckHTML = bottleneckTeams.length > 0
         const contributors = init.contributors.map(t => getTeamName(t)).join(', ');
         return `
           <div style="margin-left:20px;padding:4px 0;font-size:13px;color:#718096">
-            <a href="${JIRA_BASE}${init.key}" target="_blank" style="color:#3182ce;text-decoration:none">${init.key}</a>
+            <a href="${JIRA_BASE}/browse/${init.key}" target="_blank" style="color:#3182ce;text-decoration:none">${init.key}</a>
             <span style="color:#a0aec0">·</span>
             <span style="color:#4a5568">${init.contributorCount} team${init.contributorCount > 1 ? 's' : ''}</span>
             <span style="color:#a0aec0">waiting:</span>
@@ -736,14 +726,14 @@ new Chart(workTypeCtx, {
       {
         label: 'Engineering-led',
         data: sortedTeamsForWorkType.map(t => teamWorkType[t]?.engineering || 0),
-        backgroundColor: '#805ad5',
+        backgroundColor: '#3182ce',
         borderRadius: 3,
         borderSkipped: false,
       },
       {
         label: 'Product-led',
         data: sortedTeamsForWorkType.map(t => teamWorkType[t]?.product || 0),
-        backgroundColor: '#38a169',
+        backgroundColor: '#48bb78',
         borderRadius: 3,
         borderSkipped: false,
       }
@@ -992,45 +982,18 @@ ttd.className = 'row-total';
 ttd.textContent = grandTotal;
 
 // ─── INITIATIVES BY STRATEGIC OBJECTIVE ──────────────────────────────────────
-// Group initiatives by strategic objective (unique initiatives, not touchpoints)
-const initiativesByObjective = {};
-initiatives.forEach(row => {
-  const objRaw = row.strategic_objective || '';
-  // Split comma-separated objectives
-  let objectives = objRaw.split(',').map(o => o.trim()).filter(Boolean);
-  if (objectives.length === 0) {
-    objectives = [''];
-  }
+// Use pre-computed objectives data from Python
+// Store initiatives data for click handlers
+const objectivesInitiatives = METRICS.objectives_data.map(obj => obj.initiatives);
 
-  const init = {
-    key: row.initiative_key,
-    name: row.initiative_name,
-    objectives: objectives
-  };
-
-  // Add to each objective (initiatives with multiple objectives appear in each)
-  objectives.forEach(obj => {
-    if (!initiativesByObjective[obj]) {
-      initiativesByObjective[obj] = [];
-    }
-    initiativesByObjective[obj].push(init);
-  });
-});
-
-// Sort objectives by initiative count (descending)
-const sortedObjectives = Object.keys(initiativesByObjective)
-  .sort((a, b) => initiativesByObjective[b].length - initiativesByObjective[a].length);
-
-// Render objectives list
-const objectivesHTML = sortedObjectives.map((obj, idx) => {
-  const inits = initiativesByObjective[obj];
-  const count = inits.length;
-  const objLabel = OBJ_LABELS[obj] || obj || 'Unassigned';
-  const touchpoints = objTouchpoints[obj] || 0;
+const objectivesHTML = METRICS.objectives_data.map((objData, idx) => {
+  const count = objData.count;
+  const objLabel = objData.label;
+  const touchpoints = objData.touchpoints;
 
   return `
     <div style="padding:10px 0;border-bottom:1px solid #e2e8f0;cursor:pointer;transition:background 0.15s"
-         onclick="showModal('${objLabel.replace(/'/g, "\\'")}', ${JSON.stringify(inits).replace(/'/g, "\\'")})"
+         onclick="showModal('${objLabel.replace(/'/g, "\\'")}', objectivesInitiatives[${idx}])"
          onmouseover="this.style.background='#f7fafc'"
          onmouseout="this.style.background='white'">
       <div style="display:flex;align-items:center;gap:12px">
@@ -1039,7 +1002,7 @@ const objectivesHTML = sortedObjectives.map((obj, idx) => {
         <span style="background:#edf2f7;padding:3px 10px;border-radius:4px;font-size:13px;font-weight:600;color:#2d3748">${count} initiative${count !== 1 ? 's' : ''}</span>
       </div>
       <div style="padding-left:32px;font-size:12px;color:#a0aec0;margin-top:2px">
-        ${touchpoints} total touchpoints (team-initiative pairs) · Click to see initiatives
+        ${touchpoints} total touchpoints (team-initiative pairs)
       </div>
     </div>
   `;

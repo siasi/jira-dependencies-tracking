@@ -16,6 +16,7 @@ import yaml
 
 from lib.common_formatting import make_clickable_link
 from lib.config_utils import get_jira_base_url
+from lib.output_utils import generate_output_path
 
 # Constants
 DISCOVERY_PREFIX = '[Discovery]'
@@ -191,6 +192,45 @@ def load_valid_strategic_objectives() -> list[str]:
         return []
 
 
+def load_signed_off_initiatives() -> set[str]:
+    """Load list of initiative keys that have manager sign-off.
+
+    Signed-off initiatives are completely excluded from validation reports
+    because managers have explicitly approved their current state despite
+    any inconsistencies.
+
+    Returns:
+        Set of initiative keys to skip validation (e.g., {"INIT-1234"})
+    """
+    exceptions_file = Path(__file__).parent / 'config' / 'initiative_exceptions.yaml'
+    if not exceptions_file.exists():
+        return set()
+
+    try:
+        with open(exceptions_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+            signed_off = data.get('signed_off_initiatives', [])
+
+            # Extract keys from list of dicts
+            keys = set()
+            for item in signed_off:
+                if not isinstance(item, dict):
+                    continue  # Skip malformed items silently
+                if 'key' not in item:
+                    continue  # Skip items without key
+                keys.add(item['key'])
+
+            return keys
+    except yaml.YAMLError as e:
+        # Invalid YAML is a config error (fail fast)
+        print(f"Error: Invalid YAML in initiative_exceptions.yaml: {e}", file=sys.stderr)
+        sys.exit(2)
+    except Exception as e:
+        # Unexpected errors are fatal
+        print(f"Error: Could not load initiative_exceptions.yaml: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
 def normalize_teams_involved(teams_involved: Any) -> list[str]:
     """Normalize teams_involved field to a list.
 
@@ -254,6 +294,19 @@ def analyze_workload(json_file: Path, team_mappings: dict[str, str], excluded_te
         else:
             filtered_count += 1
 
+    # Filter out signed-off initiatives (manager-approved exceptions)
+    signed_off_keys = load_signed_off_initiatives()
+    if signed_off_keys:
+        signed_off_count = 0
+        filtered_initiatives = []
+        for initiative in initiatives:
+            if initiative.get('key') in signed_off_keys:
+                signed_off_count += 1
+            else:
+                filtered_initiatives.append(initiative)
+        initiatives = filtered_initiatives
+        filtered_count += signed_off_count
+
     # Data structures for analysis
     workload = defaultdict(lambda: {'leading': set(), 'contributing': set()})
     contributing_rag = defaultdict(lambda: defaultdict(list))  # Map team -> initiative -> [rag statuses]
@@ -289,13 +342,19 @@ def analyze_workload(json_file: Path, team_mappings: dict[str, str], excluded_te
         initiative_urls[initiative_key] = initiative.get('url', '')
 
         # Apply strategic objective mapping (consolidate old objectives to current ones)
+        # Handle comma-separated multiple objectives
         mapped_objective = strategic_objective or ''
         if mapped_objective and strategic_objective_mappings:
-            mapped_objective = strategic_objective_mappings.get(strategic_objective, strategic_objective)
+            # Split by comma, map each objective individually, then rejoin
+            objectives = [obj.strip() for obj in mapped_objective.split(',')]
+            mapped_objectives = [strategic_objective_mappings.get(obj, obj) for obj in objectives]
+            mapped_objective = ', '.join(mapped_objectives)
         initiative_strategic_objectives[initiative_key] = mapped_objective
 
         # Classify as engineering-led or product-led
-        is_engineering_led = mapped_objective == 'engineering_pillars'
+        # An initiative is engineering-led if ANY of its objectives is 'engineering_pillars'
+        objectives_list = [obj.strip() for obj in mapped_objective.split(',')] if mapped_objective else []
+        is_engineering_led = 'engineering_pillars' in objectives_list
         if is_engineering_led:
             engineering_led_count += 1
         else:
@@ -314,14 +373,20 @@ def analyze_workload(json_file: Path, team_mappings: dict[str, str], excluded_te
                     'summary': initiative_summary,
                     'owner_team': normalized_owner or 'None'
                 })
-            elif valid_strategic_objectives and strategic_objective not in valid_strategic_objectives:
-                # Invalid strategic objective
-                initiatives_invalid_strategic_objective.append({
-                    'key': initiative_key,
-                    'summary': initiative_summary,
-                    'owner_team': normalized_owner or 'None',
-                    'current_value': strategic_objective
-                })
+            elif valid_strategic_objectives and strategic_objective:
+                # Check each objective individually (handles comma-separated multiple objectives)
+                objectives = [obj.strip() for obj in strategic_objective.split(',')]
+                invalid_objectives = [obj for obj in objectives if obj not in valid_strategic_objectives]
+
+                if invalid_objectives:
+                    # At least one objective is invalid
+                    initiatives_invalid_strategic_objective.append({
+                        'key': initiative_key,
+                        'summary': initiative_summary,
+                        'owner_team': normalized_owner or 'None',
+                        'current_value': strategic_objective,
+                        'invalid_values': invalid_objectives
+                    })
 
         # Track initiatives without owner
         if not normalized_owner:
@@ -653,7 +718,8 @@ def extract_workload_actions(analysis: dict[str, Any], team_managers: dict[str, 
             'epic_key': None,
             'epic_title': None,
             'epic_rag': None,
-            'current_value': initiative.get('current_value', '')
+            'current_value': initiative.get('current_value', ''),
+            'invalid_values': initiative.get('invalid_values', [])
         }
         _add_manager_info(action, owner_team, owner_display)
         actions.append(action)
@@ -692,7 +758,7 @@ def extract_workload_actions(analysis: dict[str, Any], team_managers: dict[str, 
 
 
 def generate_workload_slack_messages(analysis: dict[str, Any], team_managers: dict[str, dict[str, str]],
-                                     reverse_team_mappings: dict[str, str], output_dir: Path) -> None:
+                                     reverse_team_mappings: dict[str, str]) -> None:
     """Generate Slack-compatible bulk messages for workload quality action items.
 
     Extracts action items from workload analysis, groups by manager,
@@ -702,7 +768,6 @@ def generate_workload_slack_messages(analysis: dict[str, Any], team_managers: di
         analysis: Workload analysis results from analyze_workload()
         team_managers: Mapping of team keys to manager information
         reverse_team_mappings: Mapping of project keys to display names
-        output_dir: Directory to save output file (typically data/)
 
     Raises:
         ValueError: If team_managers config is missing Slack IDs
@@ -840,8 +905,7 @@ def generate_workload_slack_messages(analysis: dict[str, Any], team_managers: di
     print(output)
 
     # Save to file
-    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-    output_file = output_dir / f'slack_messages_workload_{timestamp}.txt'
+    output_file = generate_output_path('workload_analysis', 'txt')
     output_file.write_text(output)
 
     print(f"\nSlack messages saved to: {output_file}")
@@ -892,24 +956,42 @@ def print_workload_report(analysis: dict[str, Any], team_managers: dict[str, dic
     total_initiatives = analysis['total_initiatives']
     excluded_teams = analysis['excluded_teams']
 
+    # Compute dashboard metrics for KPIs
+    metrics = compute_dashboard_metrics(
+        analysis,
+        initiative_summaries,
+        initiative_urls,
+        initiative_strategic_objectives,
+        initiative_owner_teams,
+        initiative_contributing_teams,
+        reverse_team_mappings
+    )
+
+    kpis = metrics['kpis']
+
     # Header
     print("\n" + "=" * 70)
     print("Team Workload Report")
     print("=" * 70)
-    print(f"\nTotal initiatives analyzed: {total_initiatives}")
+
+    # KPI Section
+    print("\n" + "-" * 70)
+    print("KEY PERFORMANCE INDICATORS")
+    print("-" * 70)
+    print(f"Total Initiatives:          {kpis['total_initiatives']}")
+    print(f"Active Teams:               {kpis['active_teams']}")
+    print(f"Average per Team:           {kpis['avg_per_team']}")
+    print(f"\nWork Type Distribution:     {kpis['engineering_count']} Engineering · {kpis['product_count']} Product")
+    eng_pct = round(kpis['engineering_count'] / kpis['total_initiatives'] * 100) if kpis['total_initiatives'] > 0 else 0
+    prod_pct = 100 - eng_pct
+    print(f"                            ({eng_pct}% Engineering · {prod_pct}% Product)")
+    print(f"\nMost Loaded Team:           {kpis['most_loaded_display_name']}")
+    print(f"                            {kpis['most_loaded_count']} total · {kpis['most_loaded_leading']} led · {kpis['most_loaded_contributing']} contributing")
+    print(f"\nTop Strategic Objective:    {kpis['top_objective_label']}")
+    print(f"                            {kpis['top_objective_count']} initiatives")
 
     if excluded_teams:
-        print(f"Excluded teams: {', '.join(excluded_teams)}")
-
-    # Engineering vs Product Distribution
-    engineering_led_count = analysis.get('engineering_led_count', 0)
-    product_led_count = analysis.get('product_led_count', 0)
-    if engineering_led_count + product_led_count > 0:
-        eng_pct = round(engineering_led_count / (engineering_led_count + product_led_count) * 100)
-        prod_pct = round(product_led_count / (engineering_led_count + product_led_count) * 100)
-        print(f"\nWork Type Distribution:")
-        print(f"  Engineering-led (engineering_pillars): {engineering_led_count} initiatives ({eng_pct}%)")
-        print(f"  Product-led (all other objectives):    {product_led_count} initiatives ({prod_pct}%)")
+        print(f"\nExcluded teams: {', '.join(excluded_teams)}")
 
     print("\n" + "-" * 70)
     print("Team Analysis (sorted by total initiatives, descending):")
@@ -994,6 +1076,15 @@ def print_workload_report(analysis: dict[str, Any], team_managers: dict[str, dic
                     print(f"  {rag_circle} {clickable_key}: {summary}")
             else:
                 print(f"\nContributing: None")
+
+    # Initiatives by Strategic Objective section
+    print("\n" + "=" * 70)
+    print("INITIATIVES BY STRATEGIC OBJECTIVE")
+    print("=" * 70)
+    print("Initiatives counted in ALL their objectives (not just primary)\n")
+
+    for obj_data in metrics['objectives_data']:
+        print(f"{obj_data['label']}: {obj_data['count']} initiatives ({obj_data['touchpoints']} touchpoints)")
 
     # Most Collaborative Initiatives section
     initiative_team_counts = {}
@@ -1129,10 +1220,13 @@ def print_workload_report(analysis: dict[str, Any], team_managers: dict[str, dic
                     elif action_type == 'invalid_strategic_objective':
                         manager_mention = f" {action['responsible_manager_notion']}" if action['responsible_manager_notion'] else ""
                         current_value = action.get('current_value', '')
+                        invalid_values = action.get('invalid_values', [])
                         print("\n   ⚠️  Invalid strategic objective - Action:")
                         print(f"       [ ] Fix invalid strategic objective value{manager_mention}")
                         if current_value:
                             print(f"       Current value: \"{current_value}\"")
+                        if invalid_values:
+                            print(f"       Invalid: {', '.join(invalid_values)}")
 
                     elif action_type == 'missing_epics':
                         team_display = action['responsible_team']
@@ -1352,9 +1446,234 @@ def print_markdown_report(analysis: dict[str, Any], team_managers: dict[str, dic
                 link = init['key']
             print(f"- {link} (owner: {owner_display}{manager_display}): \"{summary}\"")
             print(f"  - Current value: \"{current}\"")
+            invalid_values = init.get('invalid_values', [])
+            if invalid_values:
+                print(f"  - Invalid: {', '.join(invalid_values)}")
         print()
     else:
         print("✓ All strategic objectives are valid\n")
+
+
+def compute_dashboard_metrics(analysis: dict[str, Any],
+                              initiative_summaries: dict[str, str],
+                              initiative_urls: dict[str, str],
+                              initiative_strategic_objectives: dict[str, str],
+                              initiative_owner_teams: dict[str, str],
+                              initiative_contributing_teams: dict[str, list[str]],
+                              reverse_team_mappings: dict[str, str] = None) -> dict[str, Any]:
+    """Compute all dashboard metrics and KPIs.
+
+    Counts initiatives in ALL their objectives (not just primary), so multi-objective
+    initiatives contribute to the count of each objective they belong to.
+
+    Args:
+        analysis: Workload analysis results from analyze_workload()
+        initiative_summaries: Map of initiative key to summary
+        initiative_urls: Map of initiative key to Jira URL
+        initiative_strategic_objectives: Map of initiative key to strategic objective(s)
+        initiative_owner_teams: Map of initiative key to owner team
+        initiative_contributing_teams: Map of initiative key to contributing teams list
+        reverse_team_mappings: Optional mapping from project keys to display names
+
+    Returns:
+        Dict containing:
+        - kpis: Dict with total_initiatives, active_teams, engineering_count, product_count,
+                avg_per_team, most_loaded_team, top_objective
+        - objectives_data: List of {objective, label, count, touchpoints, initiatives}
+        - team_workload: Dict of team -> {leading, contributing, total, engineering, product}
+        - bottleneck_teams: List of top 3 bottleneck teams
+        - collaborative_initiatives: List of top 3 most collaborative initiatives
+    """
+    if reverse_team_mappings is None:
+        reverse_team_mappings = {}
+
+    team_details = analysis.get('team_details', {})
+    team_stats = analysis['team_stats']
+    team_work_type_stats = analysis.get('team_work_type_stats', {})
+
+    # Collect all unique initiatives
+    all_initiative_keys = set()
+    for team_data in team_details.values():
+        all_initiative_keys.update(team_data['leading'])
+        all_initiative_keys.update(team_data['contributing'])
+
+    total_initiatives = len(all_initiative_keys)
+    active_teams = len([t for t, s in team_stats.items() if s['total'] > 0])
+
+    # Count initiatives by strategic objective (ALL objectives, not just primary)
+    # Initiative can be counted in multiple objectives if it has multiple objectives
+    objective_initiatives = defaultdict(set)  # objective -> set of initiative keys
+    objective_touchpoints = defaultdict(int)  # objective -> team-initiative pair count
+
+    for init_key in all_initiative_keys:
+        obj_raw = initiative_strategic_objectives.get(init_key, '')
+        # Split comma-separated objectives
+        objectives = [o.strip() for o in obj_raw.split(',') if o.strip()]
+        if not objectives:
+            objectives = ['']  # Empty/unassigned
+
+        # Add to each objective
+        for obj in objectives:
+            objective_initiatives[obj].add(init_key)
+
+    # Calculate touchpoints (team-initiative pairs) per objective
+    for team, team_data in team_details.items():
+        for role in ['leading', 'contributing']:
+            for init_key in team_data.get(role, []):
+                obj_raw = initiative_strategic_objectives.get(init_key, '')
+                objectives = [o.strip() for o in obj_raw.split(',') if o.strip()]
+                if not objectives:
+                    objectives = ['']
+
+                for obj in objectives:
+                    objective_touchpoints[obj] += 1
+
+    # Find top objective (by initiative count in ALL objectives)
+    top_objective = ''
+    top_objective_count = 0
+    if objective_initiatives:
+        top_objective = max(objective_initiatives.keys(),
+                           key=lambda o: len(objective_initiatives[o]))
+        top_objective_count = len(objective_initiatives[top_objective])
+
+    # Count engineering vs product initiatives
+    engineering_count = len([k for k in all_initiative_keys
+                            if 'engineering_pillars' in initiative_strategic_objectives.get(k, '')])
+    product_count = total_initiatives - engineering_count
+
+    # Find most loaded team
+    most_loaded_team = ''
+    most_loaded_count = 0
+    most_loaded_leading = 0
+    most_loaded_contributing = 0
+    if team_stats:
+        most_loaded_team = max(team_stats.keys(), key=lambda t: team_stats[t]['total'])
+        most_loaded_count = team_stats[most_loaded_team]['total']
+        most_loaded_leading = team_stats[most_loaded_team]['leading']
+        most_loaded_contributing = team_stats[most_loaded_team]['contributing']
+
+    # Average initiatives per team
+    avg_per_team = round(total_initiatives / active_teams, 1) if active_teams > 0 else 0
+
+    # Prepare objectives data (sorted by count descending)
+    objective_labels = {
+        '2026_fuel_regulated': '2026 · Fuel Regulated',
+        '2026_scale_ecom': '2026 · Scale eCommerce',
+        '2026_network': '2026 · Network',
+        '2026_recurring_payments': '2026 · Recurring Payments',
+        'engineering_pillars': 'Engineering Pillars',
+        'beyond_strategic': 'Beyond Strategic',
+        '': 'Unassigned'
+    }
+
+    objectives_data = []
+    for obj in sorted(objective_initiatives.keys(),
+                     key=lambda o: len(objective_initiatives[o]),
+                     reverse=True):
+        initiatives = []
+        for init_key in objective_initiatives[obj]:
+            initiatives.append({
+                'key': init_key,
+                'name': initiative_summaries.get(init_key, ''),
+                'url': initiative_urls.get(init_key, ''),
+                'objectives': [o.strip() for o in
+                             initiative_strategic_objectives.get(init_key, '').split(',')
+                             if o.strip()] or ['']
+            })
+
+        objectives_data.append({
+            'objective': obj,
+            'label': objective_labels.get(obj, obj),
+            'count': len(objective_initiatives[obj]),
+            'touchpoints': objective_touchpoints[obj],
+            'initiatives': initiatives
+        })
+
+    # Prepare team workload data
+    team_workload = {}
+    for team, stats in team_stats.items():
+        eng_count = 0
+        prod_count = 0
+        if team in team_work_type_stats:
+            eng_count = team_work_type_stats[team]['engineering']['total']
+            prod_count = team_work_type_stats[team]['product']['total']
+
+        team_workload[team] = {
+            'leading': stats['leading'],
+            'contributing': stats['contributing'],
+            'total': stats['total'],
+            'engineering': eng_count,
+            'product': prod_count,
+            'display_name': reverse_team_mappings.get(team, team)
+        }
+
+    # Calculate bottleneck teams (teams that many others depend on)
+    bottleneck_teams = []
+    for team, team_data in team_details.items():
+        leading_count = len(team_data['leading'])
+        if leading_count > 0:
+            dependent_teams = set()
+            for init_key in team_data['leading']:
+                for other_team, other_data in team_details.items():
+                    if other_team != team and init_key in other_data['contributing']:
+                        dependent_teams.add(other_team)
+
+            if len(dependent_teams) > 0:
+                bottleneck_teams.append({
+                    'team': team,
+                    'display_name': reverse_team_mappings.get(team, team),
+                    'leading_count': leading_count,
+                    'dependent_count': len(dependent_teams),
+                    'dependent_teams': [reverse_team_mappings.get(t, t) for t in dependent_teams]
+                })
+
+    bottleneck_teams.sort(key=lambda x: x['dependent_count'], reverse=True)
+    top_bottlenecks = bottleneck_teams[:3]
+
+    # Calculate most collaborative initiatives (initiatives with most teams involved)
+    initiative_team_counts = {}
+    for team_data in team_details.values():
+        for init_key in team_data['leading']:
+            initiative_team_counts[init_key] = initiative_team_counts.get(init_key, 0) + 1
+        for init_key in team_data['contributing']:
+            initiative_team_counts[init_key] = initiative_team_counts.get(init_key, 0) + 1
+
+    collaborative_initiatives = []
+    for init_key, team_count in sorted(initiative_team_counts.items(),
+                                       key=lambda x: x[1],
+                                       reverse=True):
+        if team_count >= 2:
+            collaborative_initiatives.append({
+                'key': init_key,
+                'name': initiative_summaries.get(init_key, ''),
+                'url': initiative_urls.get(init_key, ''),
+                'team_count': team_count,
+                'objective': initiative_strategic_objectives.get(init_key, '')
+            })
+
+    top_collaborative = collaborative_initiatives[:3]
+
+    return {
+        'kpis': {
+            'total_initiatives': total_initiatives,
+            'active_teams': active_teams,
+            'engineering_count': engineering_count,
+            'product_count': product_count,
+            'avg_per_team': avg_per_team,
+            'most_loaded_team': most_loaded_team,
+            'most_loaded_display_name': reverse_team_mappings.get(most_loaded_team, most_loaded_team),
+            'most_loaded_count': most_loaded_count,
+            'most_loaded_leading': most_loaded_leading,
+            'most_loaded_contributing': most_loaded_contributing,
+            'top_objective': top_objective,
+            'top_objective_label': objective_labels.get(top_objective, top_objective),
+            'top_objective_count': top_objective_count
+        },
+        'objectives_data': objectives_data,
+        'team_workload': team_workload,
+        'bottleneck_teams': top_bottlenecks,
+        'collaborative_initiatives': top_collaborative
+    }
 
 
 def generate_dashboard_csv(analysis: dict[str, Any], initiative_summaries: dict[str, str],
@@ -1443,8 +1762,26 @@ def generate_html_dashboard(analysis: dict[str, Any], initiative_summaries: dict
     """
     from lib.template_renderer import get_template_environment
     from datetime import datetime
+    import json as json_lib
 
-    # Generate CSV data for the dashboard
+    # Prepare defaults
+    if reverse_team_mappings is None:
+        reverse_team_mappings = {}
+    if team_work_type_stats is None:
+        team_work_type_stats = {}
+
+    # Compute all dashboard metrics in Python
+    metrics = compute_dashboard_metrics(
+        analysis,
+        initiative_summaries,
+        initiative_urls,
+        initiative_strategic_objectives,
+        initiative_owner_teams,
+        initiative_contributing_teams,
+        reverse_team_mappings
+    )
+
+    # Generate CSV data for backward compatibility (still used for heatmap)
     csv_data = generate_dashboard_csv(
         analysis,
         initiative_summaries,
@@ -1455,31 +1792,18 @@ def generate_html_dashboard(analysis: dict[str, Any], initiative_summaries: dict
     )
 
     # Escape special characters in CSV data to prevent breaking JavaScript template literal
-    # Must escape backslashes first, then other special chars
     csv_data = csv_data.replace('\\', '\\\\')  # Escape backslashes
     csv_data = csv_data.replace('`', '\\`')    # Escape backticks
     csv_data = csv_data.replace('${', '\\${')  # Escape template expressions
 
-    # Extract Jira base URL from first initiative URL
-    jira_base_url = 'https://your-org.atlassian.net/browse/'
-    if initiative_urls:
-        first_url = next(iter(initiative_urls.values()))
-        if first_url and '/browse/' in first_url:
-            jira_base_url = first_url.split('/browse/')[0] + '/browse/'
+    # Extract Jira base URL
+    jira_base_url = get_jira_base_url()
 
     # Generate snapshot description
     snapshot_desc = f"Workload analysis from {json_file.name} · Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
-    # Prepare team name mapping for JavaScript (default to empty dict if not provided)
-    if reverse_team_mappings is None:
-        reverse_team_mappings = {}
-
-    # Prepare team work type stats (default to empty dict if not provided)
-    if team_work_type_stats is None:
-        team_work_type_stats = {}
-
-    # Convert to JSON strings for template
-    import json as json_lib
+    # Convert data to JSON strings for template
+    metrics_json = json_lib.dumps(metrics)
     team_names_json = json_lib.dumps(reverse_team_mappings)
     team_work_type_stats_json = json_lib.dumps(team_work_type_stats)
 
@@ -1491,7 +1815,8 @@ def generate_html_dashboard(analysis: dict[str, Any], initiative_summaries: dict
         jira_base_url=jira_base_url,
         snapshot_description=snapshot_desc,
         team_names_json=team_names_json,
-        team_work_type_stats_json=team_work_type_stats_json
+        team_work_type_stats_json=team_work_type_stats_json,
+        metrics_json=metrics_json
     )
 
     # Write to file
@@ -1558,30 +1883,30 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
         '--markdown',
         type=str,
         nargs='?',
-        const='auto',
+        const='',
         metavar='FILENAME',
         help='Export report as markdown file. '
-             'Optionally specify filename, otherwise auto-generates with timestamp.'
+             'Optionally specify filename, otherwise saves to output/workload_analysis/ with progressive numbering.'
     )
 
     parser.add_argument(
         '--html',
         type=str,
         nargs='?',
-        const='auto',
+        const='',
         metavar='FILENAME',
         help='Generate interactive HTML dashboard. '
-             'Optionally specify filename, otherwise auto-generates with timestamp.'
+             'Optionally specify filename, otherwise saves to output/workload_analysis/ with progressive numbering.'
     )
 
     parser.add_argument(
         '--csv',
         type=str,
         nargs='?',
-        const='auto',
+        const='',
         metavar='FILENAME',
         help='Export initiative analysis as CSV file. '
-             'Optionally specify filename, otherwise auto-generates with timestamp.'
+             'Optionally specify filename, otherwise saves to output/workload_analysis/ with progressive numbering.'
     )
 
     parser.add_argument(
@@ -1639,18 +1964,13 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
 
     # Generate Slack messages if requested
     if args.slack:
-        output_dir = Path('data')
-        output_dir.mkdir(exist_ok=True)
-        generate_workload_slack_messages(analysis, team_managers, reverse_team_mappings, output_dir)
+        generate_workload_slack_messages(analysis, team_managers, reverse_team_mappings)
 
     # Generate markdown export if requested
-    if args.markdown:
-        if args.markdown == 'auto':
-            # Auto-generate filename with timestamp
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            markdown_file = Path(f"workload_analysis_report_{timestamp}.md")
-        else:
-            markdown_file = Path(args.markdown)
+    if args.markdown is not None:
+        # Use generate_output_path for default (empty string), or custom filename if provided
+        markdown_filename = args.markdown if args.markdown else None
+        markdown_file = generate_output_path('workload_analysis', 'md', markdown_filename)
 
         # Capture markdown output to string
         import io
@@ -1672,13 +1992,10 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
         print(f"\n✅ Markdown report exported to: {markdown_file}")
 
     # Generate HTML dashboard if requested
-    if args.html:
-        if args.html == 'auto':
-            # Auto-generate filename with timestamp
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            html_file = Path(f"workload_dashboard_{timestamp}.html")
-        else:
-            html_file = Path(args.html)
+    if args.html is not None:
+        # Use generate_output_path for default (empty string), or custom filename if provided
+        html_filename = args.html if args.html else None
+        html_file = generate_output_path('workload_analysis', 'html', html_filename)
 
         generate_html_dashboard(
             analysis,
@@ -1694,13 +2011,10 @@ Teams listed in teams_excluded_from_analysis (team_mappings.yaml) are filtered o
         )
 
     # Export CSV if requested
-    if args.csv:
-        if args.csv == 'auto':
-            # Auto-generate filename with timestamp
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            csv_file = Path(f"workload_analysis_{timestamp}.csv")
-        else:
-            csv_file = Path(args.csv)
+    if args.csv is not None:
+        # Use generate_output_path for default (empty string), or custom filename if provided
+        csv_filename = args.csv if args.csv else None
+        csv_file = generate_output_path('workload_analysis', 'csv', csv_filename)
 
         # Generate CSV data
         csv_data = generate_dashboard_csv(

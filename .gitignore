@@ -35,6 +35,7 @@ wheels/
 
 # Output data
 data/
+output/
 
 # IDE
 .vscode/
@@ -51,6 +52,9 @@ Thumbs.db
 extraction.log
 *.log
 Claude.md
+
+# Migration script (one-time use)
+migrate_reports.py
 
 # Generated reports (may contain company data)
 /*.md

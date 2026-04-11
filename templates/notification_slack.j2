@@ -10,29 +10,29 @@ You have {{ message.total_actions }} action item{% if message.total_actions != 1
 {% if message.teams|length > 1 %}
 **{{ team.team_name }}:**
 {% endif %}
-{% for initiative in team.initiatives -%}
-{{ initiative.key }}: <{{ initiative.url }}>
-{% for action in initiative.actions -%}
-{% if action.action_type == 'missing_owner' -%}
-:raising_hand: Missing owner - {{ action.description }}
-{% elif action.action_type == 'missing_dependencies' or action.action_type == 'missing_epics' -%}
-:warning: Missing dependencies - {{ action.description }}
-{% elif action.action_type == 'missing_rag' -%}
-:warning: Missing RAG status - {{ action.description }}{% if action.epic_key %} on <{{ jira_base_url }}/browse/{{ action.epic_key }}>{% endif %}
-{% elif action.action_type == 'missing_assignee' -%}
-:raising_hand: Missing assignee - {{ action.description }}
-{% elif action.action_type == 'missing_strategic_objective' -%}
-:dart: Missing strategic objective - {{ action.description }}
-{% elif action.action_type == 'invalid_strategic_objective' -%}
-:warning: Invalid strategic objective - {{ action.description }}{% if action.current_value %} (current: "{{ action.current_value }}"){% endif %}
-{% elif action.action_type == 'clarify_decision' -%}
-:thinking_face: {{ action.description }}
-{% elif action.action_type == 'ready_to_planned' -%}
-:rocket: {{ action.description }}
+{% for initiative in team.initiatives %}
+{% if initiative.key %}{{ initiative.key }}: <{{ initiative.url }}>
 {% endif %}
+{%- for action in initiative.actions %}
+{% if action.action_type == 'missing_epic' %}:memo: Create epic - {{ action.description }}
+{% elif action.action_type == 'missing_rag' %}:warning: Missing RAG status - {{ action.description }}{% if action.epic_key %} on <{{ jira_base_url }}/browse/{{ action.epic_key }}>{% endif %}
+
+{% elif action.action_type == 'red_rag' %}:red_circle: Blocked/At Risk - {{ action.description }}{% if action.epic_key %} on <{{ jira_base_url }}/browse/{{ action.epic_key }}>{% endif %}
+
+{% elif action.action_type == 'missing_owner' %}:raising_hand: Missing owner - {{ action.description }}
+{% elif action.action_type == 'missing_dependencies' or action.action_type == 'missing_epics' %}:warning: Missing dependencies - {{ action.description }}
+{% elif action.action_type == 'missing_assignee' %}:raising_hand: Missing assignee - {{ action.description }}
+{% elif action.action_type == 'missing_strategic_objective' %}:dart: Missing strategic objective - {{ action.description }}
+{% elif action.action_type == 'invalid_strategic_objective' %}:warning: Invalid strategic objective - {{ action.description }}{% if action.current_value %} (current: "{{ action.current_value }}"){% endif %}
+
+{% elif action.action_type == 'clarify_decision' %}:thinking_face: {{ action.description }}
+{% elif action.action_type == 'ready_to_planned' %}:rocket: {{ action.description }}
+{% elif action.action_type == 'priority_conflict' %}:warning: Priority conflict - {{ action.description }}
+{% elif action.action_type == 'missing_commitment' %}:raising_hand: Missing commitment - {{ action.description }}
+{% endif %}
+{%- endfor %}
 {% endfor %}
 
-{% endfor -%}
 {% endfor -%}
 ---
 

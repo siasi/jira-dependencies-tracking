@@ -1,0 +1,255 @@
+{# Console report template for prioritisation validation #}
+{# Input: result (PrioritisationResult), data_file (Path), jira_base_url (str), verbose (bool), team_mappings (Dict), team_managers (Dict) #}
+{% set has_conflicts = result.priority_conflicts|length > 0 %}
+{% set has_missing = result.missing_commitments|length > 0 %}
+{% set has_quality_issues = result.data_quality_issues|length > 0 %}
+{% set has_unlisted = result.unlisted_initiatives|length > 0 %}
+
+================================================================================
+Initiative Priority Validation Report
+================================================================================
+Data Source: {{ data_file }}
+Total Initiatives: {{ result.metadata.total_initiatives }}
+Active (non-Done/Cancelled): {{ result.metadata.active_initiatives }}
+Configured in Priorities: {{ result.metadata.priorities_count }}
+Validated (non-Discovery, in config): {{ result.metadata.validated_initiatives }}
+Teams Analyzed: {{ result.metadata.teams_analyzed }}
+
+{% if result.metadata.missing_from_data %}
+⚠️  Warning: {{ result.metadata.missing_from_data|length }} initiatives in priority config not found in quarter data:
+{% for key in result.metadata.missing_from_data %}
+   - {{ key }}
+{% endfor %}
+{% endif %}
+
+{% if has_unlisted %}
+⚠️  Warning: {{ result.unlisted_initiatives|length }} prioritised initiatives not in priority config:
+{% for init in result.unlisted_initiatives %}
+   - {{ init.key|hyperlink(jira_base_url ~ '/browse/' ~ init.key) }}: {{ init.summary }}
+{% endfor %}
+{% endif %}
+
+{% if has_quality_issues %}
+
+⚠️  Data Quality Issues
+================================================================================
+{{ result.data_quality_issues|length }} initiatives missing teams_involved field:
+
+{% for init in result.data_quality_issues %}
+{{ init.key|hyperlink(jira_base_url ~ '/browse/' ~ init.key) }}: {{ init.summary }}
+   Status: {{ init.status }}
+   ⚠️  Missing teams_involved - cannot validate team commitments
+
+{% endfor %}
+{% endif %}
+
+{# Section 1: Priority Conflicts #}
+{% if has_conflicts %}
+
+⚠️  Section 1: Priority Conflicts
+================================================================================
+{{ result.priority_conflicts|length }} teams committed to lower-priority initiatives while skipping higher-priority ones:
+
+{% for conflict in result.priority_conflicts %}
+{{ conflict.team_display }} ({{ conflict.team_key }})
+   Committed to:
+{% for init in conflict.committed_to %}
+      - Priority #{{ init.priority }}: {{ init.key|hyperlink(jira_base_url ~ '/browse/' ~ init.key) }} - {{ init.title }}
+{% endfor %}
+
+   Missing higher priorities:
+{% for init in conflict.missing_higher_priorities %}
+      - Priority #{{ init.priority }}: {{ init.key|hyperlink(jira_base_url ~ '/browse/' ~ init.key) }} - {{ init.title }}
+{% endfor %}
+
+{% endfor %}
+{% else %}
+
+✅ Section 1: Priority Conflicts
+================================================================================
+No priority conflicts detected. All teams committing to prioritised initiatives are respecting priority order.
+{% endif %}
+
+{# Section 2: Missing Commitments #}
+{% if has_missing %}
+
+⚠️  Section 2: Missing Commitments
+================================================================================
+{{ result.missing_commitments|length }} teams expected to contribute but not committed:
+
+{% for missing in result.missing_commitments %}
+{{ missing.team_display }} ({{ missing.team_key }})
+{% for issue in missing.issues %}
+   {% if issue.reason == 'no_epic' %}
+   ❌ {{ issue.key|hyperlink(jira_base_url ~ '/browse/' ~ issue.key) }}: {{ issue.title }}
+      → No epic created
+   {% elif issue.reason == 'missing_rag' %}
+   ⚠️  {{ issue.key|hyperlink(jira_base_url ~ '/browse/' ~ issue.key) }}: {{ issue.title }}
+      → Epic {{ issue.epic_key|hyperlink(jira_base_url ~ '/browse/' ~ issue.epic_key) }} exists but has no RAG status
+   {% elif issue.reason == 'red_rag' %}
+   🔴 {{ issue.key|hyperlink(jira_base_url ~ '/browse/' ~ issue.key) }}: {{ issue.title }}
+      → Epic {{ issue.epic_key|hyperlink(jira_base_url ~ '/browse/' ~ issue.epic_key) }} has RED RAG (blocked/at risk)
+   {% endif %}
+{% endfor %}
+
+{% endfor %}
+{% else %}
+
+✅ Section 2: Missing Commitments
+================================================================================
+All expected teams have at least one green/yellow epic commitment.
+{% endif %}
+
+{# Section 3: Initiative Health Dashboard #}
+
+📊 Section 3: Initiative Health Dashboard
+================================================================================
+Initiative-centric view of team commitments (in priority order):
+
+{% for init in result.initiative_health %}
+Priority #{{ init.priority }}: {{ init.key|hyperlink(jira_base_url ~ '/browse/' ~ init.key) }}
+   {{ init.title }}
+   Expected teams ({{ init.expected_teams|length }}): {{ init.expected_teams|join(', ') }}
+{% if init.completed_teams %}
+   ✅ Completed ({{ init.completed_teams|length }}):
+{% for team_data in init.completed_teams %}
+      - {{ team_data.team }} (Done)
+{% endfor %}
+{% endif %}
+{% if init.active_teams %}
+   🚧 Active ({{ init.active_teams|length }}):
+{% for team_data in init.active_teams %}
+      - {{ team_data.team }} ({{ team_data.rag_statuses|join(', ') }})
+{% endfor %}
+{% endif %}
+{% if not init.completed_teams and not init.active_teams %}
+   ❌ No committed teams
+{% endif %}
+{% if init.missing_teams %}
+   ⚠️  Missing ({{ init.missing_teams|length }}):
+{% for missing in init.missing_teams %}
+   {% if missing.reason == 'no_epic' %}
+      - {{ missing.team }} → No epic created
+   {% elif missing.reason == 'missing_rag' %}
+      - {{ missing.team }} → Epic {{ missing.epic_key|hyperlink(jira_base_url ~ '/browse/' ~ missing.epic_key) }} needs RAG status
+   {% elif missing.reason == 'red_rag' %}
+      - {{ missing.team }} → Epic {{ missing.epic_key|hyperlink(jira_base_url ~ '/browse/' ~ missing.epic_key) }} has RED RAG
+   {% endif %}
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+
+{# Section 4: Action Items for Managers #}
+{# Check if there are any actions needed #}
+{% set ns = namespace(has_initiative_gaps=false) %}
+{% for init in result.initiative_health %}
+   {% if init.missing_teams %}
+      {% set ns.has_initiative_gaps = true %}
+   {% endif %}
+{% endfor %}
+
+{% if has_conflicts or has_missing or ns.has_initiative_gaps %}
+
+📋 Section 4: Action Items for Managers
+================================================================================
+Action items grouped by responsible team:
+
+{# Extract and group actions by team #}
+{% set teams_with_actions = [] %}
+{% for conflict in result.priority_conflicts %}
+   {% if conflict.team_display not in teams_with_actions %}
+      {% set _ = teams_with_actions.append(conflict.team_display) %}
+   {% endif %}
+{% endfor %}
+{% for missing in result.missing_commitments %}
+   {% if missing.team_display not in teams_with_actions %}
+      {% set _ = teams_with_actions.append(missing.team_display) %}
+   {% endif %}
+{% endfor %}
+{# Also include teams with missing initiatives #}
+{% for init in result.initiative_health %}
+   {% for missing_team in init.missing_teams %}
+      {% if missing_team.team not in teams_with_actions %}
+         {% set _ = teams_with_actions.append(missing_team.team) %}
+      {% endif %}
+   {% endfor %}
+{% endfor %}
+
+{% for team_display in teams_with_actions|sort %}
+{# Find actions for this team #}
+{% set team_conflicts = [] %}
+{% set team_missing = [] %}
+{% set team_initiative_gaps = [] %}
+{% for conflict in result.priority_conflicts %}
+   {% if conflict.team_display == team_display %}
+      {% set _ = team_conflicts.append(conflict) %}
+   {% endif %}
+{% endfor %}
+{% for missing in result.missing_commitments %}
+   {% if missing.team_display == team_display %}
+      {% set _ = team_missing.append(missing) %}
+   {% endif %}
+{% endfor %}
+{# Find missing initiatives for this team #}
+{% for init in result.initiative_health %}
+   {% for missing_team in init.missing_teams %}
+      {% if missing_team.team == team_display %}
+         {% set _ = team_initiative_gaps.append({'init_key': init.key, 'init_title': init.title, 'reason': missing_team.reason, 'epic_key': missing_team.epic_key}) %}
+      {% endif %}
+   {% endfor %}
+{% endfor %}
+{# Get manager info for this team #}
+{% set team_key = team_mappings.get(team_display, team_display) %}
+{% set manager_info = team_managers.get(team_key, {}) %}
+{% set manager_tag = manager_info.get('notion_handle', '') %}
+{% set manager_suffix = ' ' + manager_tag if manager_tag else '' %}
+
+{{ team_display }}{{ manager_suffix }}:
+{% for conflict in team_conflicts %}
+{% for init in conflict.missing_higher_priorities %}
+   [ ] Review commitment to priority #{{ init.priority }} ({{ init.key|hyperlink(jira_base_url ~ '/browse/' ~ init.key) }}) vs lower priorities
+{% endfor %}
+{% endfor %}
+{% for missing in team_missing %}
+{% for issue in missing.issues %}
+   {% if issue.reason == 'no_epic' %}
+   [ ] Create epic for {{ issue.key|hyperlink(jira_base_url ~ '/browse/' ~ issue.key) }} ({{ issue.title }})
+   {% elif issue.reason == 'missing_rag' %}
+   [ ] Set RAG status for {{ issue.epic_key|hyperlink(jira_base_url ~ '/browse/' ~ issue.epic_key) }} in {{ issue.key|hyperlink(jira_base_url ~ '/browse/' ~ issue.key) }}
+   {% elif issue.reason == 'red_rag' %}
+   [ ] Resolve blocker for {{ issue.epic_key|hyperlink(jira_base_url ~ '/browse/' ~ issue.epic_key) }} in {{ issue.key|hyperlink(jira_base_url ~ '/browse/' ~ issue.key) }} or deprioritize
+   {% endif %}
+{% endfor %}
+{% endfor %}
+{# Add initiative-specific gaps #}
+{% for gap in team_initiative_gaps %}
+   {% if gap.reason == 'no_epic' %}
+   [ ] Create epic for {{ gap.init_key|hyperlink(jira_base_url ~ '/browse/' ~ gap.init_key) }} ({{ gap.init_title }})
+   {% elif gap.reason == 'missing_rag' %}
+   [ ] Set RAG status for {{ gap.epic_key|hyperlink(jira_base_url ~ '/browse/' ~ gap.epic_key) }} in {{ gap.init_key|hyperlink(jira_base_url ~ '/browse/' ~ gap.init_key) }}
+   {% elif gap.reason == 'red_rag' %}
+   [ ] Resolve blocker for {{ gap.epic_key|hyperlink(jira_base_url ~ '/browse/' ~ gap.epic_key) }} in {{ gap.init_key|hyperlink(jira_base_url ~ '/browse/' ~ gap.init_key) }} or deprioritize
+   {% endif %}
+{% endfor %}
+
+{% endfor %}
+{% else %}
+
+✅ Section 4: Action Items for Managers
+================================================================================
+No action items - all teams respecting priorities and commitments.
+{% endif %}
+
+================================================================================
+Summary
+================================================================================
+{% if has_conflicts or has_missing %}
+⚠️  Validation found {{ result.priority_conflicts|length }} priority conflicts and {{ result.missing_commitments|length }} missing commitments.
+
+Review action items above and work with team managers to address gaps.
+{% else %}
+✅ All teams respecting prioritised initiative priorities and commitments.
+{% endif %}
+
+Exit code: {% if has_conflicts or has_missing %}1 (issues found){% else %}0 (success){% endif %}

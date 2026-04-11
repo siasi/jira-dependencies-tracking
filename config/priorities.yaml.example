@@ -1,0 +1,23 @@
+# Initiative Priorities
+# Listed in priority order (first = highest priority)
+#
+# This file defines the relative priorities of strategically important
+# initiatives for validation purposes. Teams committing to lower-priority
+# initiatives while skipping higher-priority ones will be flagged.
+#
+# Instructions:
+# 1. Copy this file to priorities.yaml (gitignored)
+# 2. List initiative keys in priority order (highest first)
+# 3. Run: python validate_prioritisation.py
+
+priorities:
+  - INIT-XXX  # Highest priority initiative
+  - INIT-YYY  # High priority initiative
+  - INIT-ZZZ  # Medium priority initiative
+  # Add more initiatives as needed
+
+# Notes:
+# - Only initiatives in this list will be validated
+# - Discovery initiatives (prefix [Discovery]) are automatically excluded
+# - Done/Cancelled initiatives are automatically filtered out
+# - Epics with status=Done OR non-red RAG count as committed

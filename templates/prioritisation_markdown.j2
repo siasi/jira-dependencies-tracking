@@ -1,0 +1,50 @@
+# Initiative Health Dashboard
+
+*Generated: {{ timestamp }}*
+*Data Source: {{ data_file.name }}*
+
+Initiative-centric view of team commitments (in priority order):
+
+---
+
+{% for init in result.initiative_health %}
+## Priority #{{ init.priority }}: [{{ init.key }}]({{ jira_base_url }}/browse/{{ init.key }})
+
+**{{ init.title }}**
+
+**Expected teams ({{ init.expected_teams|length }}):** {{ init.expected_teams|join(', ') }}
+
+{% if init.completed_teams %}
+### ✅ Completed ({{ init.completed_teams|length }})
+{% for team_data in init.completed_teams %}
+- **{{ team_data.team }}** (Done)
+{% endfor %}
+
+{% endif %}
+{% if init.active_teams %}
+### 🚧 In Progress ({{ init.active_teams|length }})
+{% for team_data in init.active_teams %}
+- **{{ team_data.team }}** ({{ team_data.rag_statuses|join(', ') }})
+{% endfor %}
+
+{% endif %}
+{% if not init.completed_teams and not init.active_teams %}
+### ❌ No committed teams
+
+{% endif %}
+{% if init.missing_teams %}
+### ⚠️ Missing ({{ init.missing_teams|length }})
+{% for missing in init.missing_teams %}
+{% if missing.reason == 'no_epic' %}
+- **{{ missing.team }}** → No epic created
+{% elif missing.reason == 'missing_rag' %}
+- **{{ missing.team }}** → Epic [{{ missing.epic_key }}]({{ jira_base_url }}/browse/{{ missing.epic_key }}) needs RAG status
+{% elif missing.reason == 'red_rag' %}
+- **{{ missing.team }}** → Epic [{{ missing.epic_key }}]({{ jira_base_url }}/browse/{{ missing.epic_key }}) has RED RAG
+{% endif %}
+{% endfor %}
+
+{% endif %}
+---
+
+{% endfor %}
