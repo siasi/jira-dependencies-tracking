@@ -611,7 +611,7 @@ def test_build_initiative_health_sorted_by_priority():
 # ============================================================================
 
 def test_check_data_quality_missing_teams_involved():
-    """Test detecting missing teams_involved."""
+    """Test detecting missing teams_involved (now part of comprehensive validation)."""
     initiatives = [
         {"key": "INIT-1", "teams_involved": None},
         {"key": "INIT-2", "teams_involved": []},
@@ -621,9 +621,20 @@ def test_check_data_quality_missing_teams_involved():
     priorities = ["INIT-1", "INIT-2", "INIT-3"]
     issues = _check_data_quality(initiatives, priorities)
 
-    assert len(issues["missing_teams_involved"]) == 2
-    assert issues["missing_teams_involved"][0]["key"] == "INIT-1"
-    assert issues["missing_teams_involved"][1]["key"] == "INIT-2"
+    # New structure: data_quality_issues contains comprehensive validation results
+    # All 3 initiatives have data quality issues (missing owner_team, strategic_objective)
+    assert len(issues["data_quality_issues"]) == 3
+
+    # Find initiatives with missing_teams_involved
+    initiatives_with_missing_teams = [
+        item for item in issues["data_quality_issues"]
+        if any(iss.type == "missing_teams_involved" for iss in item["issues"])
+    ]
+
+    # Only INIT-1 and INIT-2 have missing teams_involved
+    assert len(initiatives_with_missing_teams) == 2
+    assert initiatives_with_missing_teams[0]["key"] == "INIT-1"
+    assert initiatives_with_missing_teams[1]["key"] == "INIT-2"
 
 
 def test_check_data_quality_unlisted_initiatives():

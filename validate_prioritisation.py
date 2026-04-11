@@ -19,6 +19,7 @@ from lib.file_utils import find_most_recent_data_file
 from lib.config_utils import get_jira_base_url
 from lib.output_utils import generate_output_path
 from lib.template_renderer import get_template_environment
+from lib.validation import load_validation_config, InitiativeValidator
 
 # Setup logging
 logging.basicConfig(
@@ -55,7 +56,11 @@ class PrioritisationResult:
     @property
     def has_issues(self) -> bool:
         """Check if validation found any issues."""
-        return bool(self.priority_conflicts or self.missing_commitments)
+        return bool(
+            self.priority_conflicts or
+            self.missing_commitments or
+            self.data_quality_issues
+        )
 
 
 def _load_prioritisation_priorities(
@@ -764,34 +769,55 @@ def _check_data_quality(
     initiatives: List[Dict],
     priorities: List[str]
 ) -> Dict[str, List[Dict[str, Any]]]:
-    """Check for data quality issues in Tech Leadership initiatives.
+    """Check for data quality issues using shared validation library.
+
+    Enhanced to check baseline data quality:
+    - owner_team (missing)
+    - assignee (missing)
+    - strategic_objective (missing + invalid)
+    - teams_involved (missing)
+    - missing_epics (from contributing teams)
+    - rag_status (missing on Proposed/Planned epics)
 
     Args:
         initiatives: List of all initiative dicts
         priorities: Ordered list of initiative keys
 
     Returns:
-        Dict with missing_teams_involved and unlisted_initiatives
+        Dict with data_quality_issues and unlisted_initiatives
     """
+    # Initialize validator with full validation (all checks enabled)
+    config = load_validation_config(
+        status_filter=None,
+        include_rag_validation=True
+    )
+    validator = InitiativeValidator(config)
+
     priority_set = set(priorities)
-    missing_teams = []
+    data_quality_issues = []
     unlisted = []
 
     for initiative in initiatives:
         init_key = initiative['key']
-        teams_involved = initiative.get('teams_involved')
 
-        # In priority list, check for missing teams_involved
-        if init_key in priority_set:
-            if not teams_involved or (isinstance(teams_involved, list) and len(teams_involved) == 0):
-                missing_teams.append(initiative)
-
-        # Not in priority list
-        elif init_key not in priority_set:
+        # Track unlisted initiatives
+        if init_key not in priority_set:
             unlisted.append(initiative)
+            continue
+
+        # Run comprehensive validation for prioritized initiatives
+        issues = validator.validate(initiative)
+        if issues:
+            data_quality_issues.append({
+                'key': init_key,
+                'summary': initiative.get('summary', ''),
+                'status': initiative.get('status', ''),
+                'owner_team': initiative.get('owner_team'),
+                'issues': issues  # Store ValidationIssue objects
+            })
 
     return {
-        'missing_teams_involved': missing_teams,
+        'data_quality_issues': data_quality_issues,
         'unlisted_initiatives': unlisted
     }
 
@@ -897,7 +923,7 @@ def validate_prioritisation(
         priority_conflicts=priority_conflicts,
         missing_commitments=missing_commitments,
         initiative_health=initiative_health,
-        data_quality_issues=quality_issues['missing_teams_involved'],
+        data_quality_issues=quality_issues['data_quality_issues'],
         unlisted_initiatives=quality_issues['unlisted_initiatives'],
         metadata={
             'total_initiatives': len(initiatives),

@@ -17,6 +17,7 @@ import yaml
 from lib.common_formatting import make_clickable_link
 from lib.config_utils import get_jira_base_url
 from lib.output_utils import generate_output_path
+from lib.validation import load_validation_config, InitiativeValidator, create_action_item
 
 # Constants
 DISCOVERY_PREFIX = '[Discovery]'
@@ -320,6 +321,9 @@ def analyze_workload(json_file: Path, team_mappings: dict[str, str], excluded_te
     initiative_owner_teams = {}  # Map initiative key to owner team
     initiative_contributing_teams = {}  # Map initiative key to list of contributing teams
 
+    # Create reverse mapping for team lookups
+    reverse_team_mappings = {v: k for k, v in team_mappings.items()}
+
     # Engineering vs Product work tracking
     engineering_led_count = 0
     product_led_count = 0
@@ -328,6 +332,16 @@ def analyze_workload(json_file: Path, team_mappings: dict[str, str], excluded_te
 
     # Load valid strategic objectives for validation
     valid_strategic_objectives = load_valid_strategic_objectives()
+
+    # Initialize validator for data quality checks
+    # Workload analysis does NOT check assignee or RAG status
+    validation_config = load_validation_config(
+        status_filter=None,
+        include_rag_validation=False
+    )
+    validation_config.check_assignee = False  # Workload doesn't check assignee
+    validation_config.check_rag_status = False  # Explicitly disable RAG
+    validator = InitiativeValidator(validation_config)
 
     # Analyze each initiative
     for initiative in initiatives:
@@ -364,36 +378,62 @@ def analyze_workload(json_file: Path, team_mappings: dict[str, str], excluded_te
         normalized_owner = normalize_team_name(owner_team, team_mappings)
         initiative_owner_teams[initiative_key] = normalized_owner or ''
 
-        # Validate strategic objective (skip if owner is excluded team)
+        # Run validation using shared library (skip if owner is excluded team)
         if not normalized_owner or normalized_owner not in excluded_teams:
-            if not strategic_objective or (isinstance(strategic_objective, str) and not strategic_objective.strip()):
-                # Missing strategic objective
-                initiatives_missing_strategic_objective.append({
-                    'key': initiative_key,
-                    'summary': initiative_summary,
-                    'owner_team': normalized_owner or 'None'
-                })
-            elif valid_strategic_objectives and strategic_objective:
-                # Check each objective individually (handles comma-separated multiple objectives)
-                objectives = [obj.strip() for obj in strategic_objective.split(',')]
-                invalid_objectives = [obj for obj in objectives if obj not in valid_strategic_objectives]
+            validation_issues = validator.validate(initiative)
 
-                if invalid_objectives:
-                    # At least one objective is invalid
+            # Convert ValidationIssue objects to existing data structures
+            for issue in validation_issues:
+                if issue.type == 'missing_owner_team':
+                    initiatives_without_owner.append({
+                        'key': initiative_key,
+                        'summary': initiative_summary
+                    })
+                elif issue.type == 'missing_strategic_objective':
+                    initiatives_missing_strategic_objective.append({
+                        'key': initiative_key,
+                        'summary': initiative_summary,
+                        'owner_team': normalized_owner or 'None'
+                    })
+                elif issue.type == 'invalid_strategic_objective':
+                    # Extract invalid values from description
+                    # ValidationIssue stores full value in current_value
+                    objectives = [obj.strip() for obj in issue.current_value.split(',')]
+                    invalid_objectives = [obj for obj in objectives if obj not in valid_strategic_objectives]
+
                     initiatives_invalid_strategic_objective.append({
                         'key': initiative_key,
                         'summary': initiative_summary,
                         'owner_team': normalized_owner or 'None',
-                        'current_value': strategic_objective,
+                        'current_value': issue.current_value,
                         'invalid_values': invalid_objectives
                     })
+                elif issue.type == 'missing_epic':
+                    # Find or create the initiative entry in initiatives_without_epics
+                    existing_entry = next(
+                        (item for item in initiatives_without_epics if item['key'] == initiative_key),
+                        None
+                    )
+                    if existing_entry:
+                        # Add team to existing entry
+                        # Map team_affected back to display name
+                        team_display = reverse_team_mappings.get(issue.team_affected, issue.team_affected)
+                        if team_display not in existing_entry['missing_teams']:
+                            existing_entry['missing_teams'].append(team_display)
+                    else:
+                        # Create new entry with first missing team
+                        team_display = reverse_team_mappings.get(issue.team_affected, issue.team_affected)
+                        initiatives_without_epics.append({
+                            'key': initiative_key,
+                            'summary': initiative_summary,
+                            'owner_team': normalized_owner or 'None',
+                            'missing_teams': [team_display]
+                        })
 
-        # Track initiatives without owner
+        # Track owner team workload
         if not normalized_owner:
-            initiatives_without_owner.append({
-                'key': initiative_key,
-                'summary': initiative_summary
-            })
+            # Already captured in validation above
+            pass
         else:
             # Count as "leading" if not excluded
             if normalized_owner not in excluded_teams:
@@ -405,49 +445,14 @@ def analyze_workload(json_file: Path, team_mappings: dict[str, str], excluded_te
                 else:
                     team_product_work[normalized_owner]['leading'].add(initiative_key)
 
-        # Check for missing epics based on teams_involved field
-        # Only report as "without epics" if there are contributing teams expected but missing epics
-        # (excluding the owner team, who doesn't need to create an epic)
-        # Discovery initiatives are exempt from epic checks
-        is_discovery = is_discovery_initiative(initiative)
-        teams_involved = normalize_teams_involved(initiative.get('teams_involved'))
+        # Track contributing teams (teams with epics that are not the owner)
+        # Only include teams with at least one epic that is NOT Done or Won't Do
+        contributing_teams_list = []
         teams_with_epics = {
             tc['team_project_key']
             for tc in contributing_teams_data
             if tc.get('epics')
         }
-
-        # Check for epic count mismatch (only if owner is not in excluded teams and not a discovery initiative)
-        if not is_discovery and teams_involved and (not normalized_owner or normalized_owner not in excluded_teams):
-            # Skip if teams_involved only contains the owner team
-            non_owner_teams = [t for t in teams_involved if t != owner_team]
-            if not non_owner_teams:
-                # Teams involved only has the owner, no contributing teams expected
-                pass
-            else:
-                # Find which teams are missing epics
-                teams_with_epics_set = set(teams_with_epics)
-                missing_teams = []
-                for display_name in teams_involved:
-                    # Skip owner team - they don't need to create an epic
-                    if display_name == owner_team:
-                        continue
-                    project_key = team_mappings.get(display_name, display_name)
-                    if project_key.upper() not in {k.upper() for k in teams_with_epics_set}:
-                        missing_teams.append(display_name)
-
-                # Only report if there are actually missing contributing teams
-                if missing_teams:
-                    initiatives_without_epics.append({
-                        'key': initiative_key,
-                        'summary': initiative_summary,
-                        'owner_team': normalized_owner or 'None',
-                        'missing_teams': missing_teams
-                    })
-
-        # Track contributing teams (teams with epics that are not the owner)
-        # Only include teams with at least one epic that is NOT Done or Won't Do
-        contributing_teams_list = []
         if teams_with_epics:
             # Identify teams contributing (have epics but are not owner)
             for team_data in contributing_teams_data:

@@ -29,6 +29,7 @@ from lib.common_formatting import make_clickable_link
 from lib.config_utils import get_jira_base_url
 from lib.output_utils import generate_output_path
 from lib.template_renderer import get_template_environment
+from lib.validation import load_validation_config, InitiativeValidator
 
 
 class ValidationResult:
@@ -73,46 +74,52 @@ def _is_discovery_initiative(initiative: dict) -> bool:
 
 
 def _check_data_quality(initiative: dict) -> Optional[list[dict[str, Any]]]:
-    """Check for data quality blockers.
+    """Check for data quality blockers using shared validation library.
 
     Args:
         initiative: Initiative dictionary from JSON
 
     Returns:
-        List of data quality issues, or None if no issues
+        List of data quality issues (legacy format), or None if no issues
     """
     issues = []
     is_discovery = _is_discovery_initiative(initiative)
+    status = initiative.get('status', '')
 
-    # Check for missing assignee
-    assignee = initiative.get('assignee')
-    if not assignee:
-        issues.append({'type': 'missing_assignee'})
+    # Configure validator with status-aware RAG validation
+    # RAG validation only for Proposed/Planned status
+    config = load_validation_config(
+        status_filter=status,
+        include_rag_validation=(status in ['Proposed', 'Planned'])
+    )
 
-    # Check strategic objective (missing or invalid)
-    strategic_objective = initiative.get('strategic_objective')
-    if not strategic_objective or (isinstance(strategic_objective, str) and not strategic_objective.strip()):
-        issues.append({'type': 'missing_strategic_objective'})
-    else:
-        # Check if strategic objective is valid
-        # Split by comma to handle multiple objectives (e.g., "objective1, objective2")
-        valid_objectives = _load_valid_strategic_objectives()
-        if valid_objectives:
-            objectives = [obj.strip() for obj in strategic_objective.split(',')]
+    validator = InitiativeValidator(config)
+    validation_issues = validator.validate(initiative)
+
+    # Convert ValidationIssue objects to legacy format for compatibility
+    for issue in validation_issues:
+        if issue.type == 'missing_assignee':
+            issues.append({'type': 'missing_assignee'})
+        elif issue.type == 'missing_strategic_objective':
+            issues.append({'type': 'missing_strategic_objective'})
+        elif issue.type == 'invalid_strategic_objective':
+            # Load valid objectives to extract invalid ones
+            valid_objectives = _load_valid_strategic_objectives()
+            objectives = [obj.strip() for obj in issue.current_value.split(',')]
             invalid_objectives = [obj for obj in objectives if obj not in valid_objectives]
 
-            if invalid_objectives:
-                issues.append({
-                    'type': 'invalid_strategic_objective',
-                    'current_value': strategic_objective,
-                    'invalid_values': invalid_objectives
-                })
+            issues.append({
+                'type': 'invalid_strategic_objective',
+                'current_value': issue.current_value,
+                'invalid_values': invalid_objectives
+            })
 
     # Skip dependency and RAG checks for discovery initiatives
     if is_discovery:
         return issues if issues else None
 
-    # Check epic count vs teams count (including case where there are no epics)
+    # Add epic count mismatch check (both missing teams AND extra teams)
+    # The validator only checks for missing teams, but we also need to check for extra teams
     teams_involved = _normalize_teams_involved(initiative.get('teams_involved'))
     teams_with_epics = {
         tc['team_project_key']
@@ -120,9 +127,9 @@ def _check_data_quality(initiative: dict) -> Optional[list[dict[str, Any]]]:
         if tc.get('epics')
     }
 
+    # Check if count mismatches (either missing or extra teams)
     if len(teams_involved) != len(teams_with_epics):
         # Check if the only missing team is the owner team
-        # (Owner team doesn't need an epic since they're leading the initiative)
         owner_team = initiative.get('owner_team')
         team_mappings = _load_team_mappings()
 
@@ -135,7 +142,7 @@ def _check_data_quality(initiative: dict) -> Optional[list[dict[str, Any]]]:
                 missing_teams.append(display_name)
 
         # Only report mismatch if there are missing teams other than the owner
-        # or if the only missing team is NOT the owner
+        # or if there are extra teams with epics (not in teams_involved)
         is_only_owner_missing = (
             owner_team and
             len(missing_teams) == 1 and
@@ -149,49 +156,54 @@ def _check_data_quality(initiative: dict) -> Optional[list[dict[str, Any]]]:
                 'teams_with_epics': list(teams_with_epics)
             })
 
-    # Check for missing RAG status (skip owner team and exempt teams)
-    owner_team = initiative.get('owner_team')
-    team_mappings = _load_team_mappings()
-    exempt_teams = _load_teams_exempt_from_rag()
+    # Add RAG status check using validator results
+    for issue in validation_issues:
+        if issue.type == 'missing_rag_status':
+            # Reconstruct the detailed RAG status structure from initiative data
+            # The validator only reports the issue, we need to get epic details
+            owner_team = initiative.get('owner_team')
+            team_mappings = _load_team_mappings()
+            exempt_teams = _load_teams_exempt_from_rag()
 
-    missing_rag_by_team = []
-    for tc in initiative.get('contributing_teams', []):
-        team_key = tc.get('team_project_key', '')
-        team_name = tc.get('team_project_name', team_key)
+            missing_rag_by_team = []
+            for tc in initiative.get('contributing_teams', []):
+                team_key = tc.get('team_project_key', '')
+                team_name = tc.get('team_project_name', team_key)
 
-        # Skip epics from owner team (they don't need to set RAG status)
-        is_owner_team = False
-        if owner_team:
-            # Check if this team matches the owner team
-            owner_project_key = team_mappings.get(owner_team, owner_team)
-            if team_key.upper() == owner_project_key.upper():
-                is_owner_team = True
+                # Skip owner team and exempt teams (matches validator logic)
+                is_owner_team = False
+                if owner_team:
+                    owner_project_key = team_mappings.get(owner_team, owner_team)
+                    if team_key.upper() == owner_project_key.upper():
+                        is_owner_team = True
 
-        # Skip epics from teams exempt from RAG checking
-        is_exempt_team = team_key in exempt_teams
+                is_exempt_team = team_key in exempt_teams
 
-        if not is_owner_team and not is_exempt_team:
-            team_missing_epics = []
-            for epic in tc.get('epics', []):
-                if epic.get('rag_status') is None:
-                    team_missing_epics.append({
-                        'key': epic['key'],
-                        'summary': epic['summary'],
-                        'url': epic.get('url', '')
-                    })
+                if not is_owner_team and not is_exempt_team:
+                    team_missing_epics = []
+                    for epic in tc.get('epics', []):
+                        rag_status = epic.get('rag_status')
+                        if not rag_status or (isinstance(rag_status, str) and not rag_status.strip()):
+                            team_missing_epics.append({
+                                'key': epic['key'],
+                                'summary': epic['summary'],
+                                'url': epic.get('url', '')
+                            })
 
-            if team_missing_epics:
-                missing_rag_by_team.append({
-                    'team_name': team_name,
-                    'team_key': team_key,
-                    'epics': team_missing_epics
+                    if team_missing_epics:
+                        missing_rag_by_team.append({
+                            'team_name': team_name,
+                            'team_key': team_key,
+                            'epics': team_missing_epics
+                        })
+
+            if missing_rag_by_team:
+                issues.append({
+                    'type': 'missing_rag_status',
+                    'teams': missing_rag_by_team
                 })
-
-    if missing_rag_by_team:
-        issues.append({
-            'type': 'missing_rag_status',
-            'teams': missing_rag_by_team
-        })
+            # Only process once
+            break
 
     return issues if issues else None
 
