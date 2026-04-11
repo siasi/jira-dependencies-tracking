@@ -308,11 +308,12 @@ def test_group_by_manager():
 
     grouped = group_by_manager(issues_by_initiative, team_managers, team_mappings)
 
-    # Should have 2 managers (TEAM1 for owner issue, TEAM3 for dependency issue)
+    # Should have 2 managers (TEAM1 for INIT-1, TEAM2 for INIT-2)
+    # All issues for an initiative go to the owner team's manager
     assert len(grouped) == 2
-    assert 'U111' in grouped  # TEAM1 manager gets owner issue
-    assert 'U333' in grouped  # TEAM3 manager gets dependency issue
-    assert 'U222' not in grouped  # TEAM2 manager gets nothing (they own INIT-2 but issue goes to TEAM3)
+    assert 'U111' in grouped  # TEAM1 manager gets issues for INIT-1 (they own it)
+    assert 'U222' in grouped  # TEAM2 manager gets issues for INIT-2 (they own it)
+    assert 'U333' not in grouped  # TEAM3 manager gets nothing (dependency issue appears under owner)
 
     # Check structure
     for manager_id, data in grouped.items():

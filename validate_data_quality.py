@@ -317,24 +317,18 @@ def group_by_manager(
 
     for init_key, issues in issues_by_initiative.items():
         for issue in issues:
-            # Determine which team should act on this issue
-            # Dependency issues: team_affected acts
-            # Owner issues: owner_team acts
-            if issue.type in ['missing_epic', 'missing_rag_status']:
-                acting_team = issue.team_affected
-            else:
-                acting_team = issue.owner_team
-
-            if not acting_team:
-                # Can't group without a team to act
+            # Always group by owner team (not by who needs to act)
+            owner_team = issue.owner_team
+            if not owner_team:
+                # Can't group without owner team
                 continue
 
             # Map display name to project key if needed
-            project_key = team_mappings.get(acting_team, acting_team)
+            project_key = team_mappings.get(owner_team, owner_team)
 
             manager_info = team_managers.get(project_key, {})
             manager_name = manager_info.get('notion_handle', 'Unknown')
-            slack_id = manager_info.get('slack_id', f'unknown_{acting_team}')
+            slack_id = manager_info.get('slack_id', f'unknown_{owner_team}')
 
             # Remove @ prefix from manager name if present
             if manager_name.startswith('@'):
@@ -344,7 +338,7 @@ def group_by_manager(
             if grouped[slack_id]['slack_id'] is None:
                 grouped[slack_id]['manager_name'] = manager_name
                 grouped[slack_id]['slack_id'] = slack_id
-                grouped[slack_id]['team'] = acting_team
+                grouped[slack_id]['team'] = owner_team
 
             # Add initiative if not already present
             if init_key not in grouped[slack_id]['initiatives']:
@@ -494,8 +488,19 @@ def format_console_output(grouped_data: Dict, metadata: Dict) -> str:
                     # Use full description if no " - " separator
                     action_description = description
 
-                # Action owner is always the manager viewing this (already routed correctly by grouping)
-                action_owner = manager_name
+                # Determine who needs to take action
+                if issue.type in ['missing_epic', 'missing_rag_status']:
+                    # Dependency action - team_affected manager needs to act
+                    acting_team = issue.team_affected
+                    acting_project_key = team_mappings.get(acting_team, acting_team)
+                    acting_manager_info = team_managers.get(acting_project_key, {})
+                    acting_manager_name = acting_manager_info.get('notion_handle', 'Unknown')
+                    if not acting_manager_name.startswith('@'):
+                        acting_manager_name = f'@{acting_manager_name}'
+                    action_owner = acting_manager_name
+                else:
+                    # Owner action - current manager needs to act
+                    action_owner = manager_name
 
                 lines.append(f"    {priority_label} ⚠️  {action_description} - {action_owner}")
 

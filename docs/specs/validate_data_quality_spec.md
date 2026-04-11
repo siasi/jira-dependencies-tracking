@@ -219,16 +219,16 @@ Action Items by Manager (5 managers, 38 action items):
   Status: Planned
     P1 ⚠️  Assign initiative owner - @Jane Smith
     P3 ⚠️  Fix typo - @Jane Smith
+    P1 ⚠️  Create epic (Mobile) - @John Doe
 
   INIT-789: Customer Portal Redesign
   Status: In Progress
     P1 ⚠️  Set strategic objective - @Jane Smith
+    P1 ⚠️  Set RAG (Frontend) - @Sarah Johnson
 
-  INIT-901: Search Optimization (owned by Mobile Team)
+  INIT-901: Another Initiative
   Status: Planned
-    P1 ⚠️  Create epic (Platform) - @Jane Smith
-    P1 ⚠️  Set RAG (Platform) - @Jane Smith
-    P2 ⚠️  Set RAG (Platform) - @Jane Smith
+    P2 ⚠️  Set RAG (API) - @Mike Chen
 
 --------------------------------------------------------------------------------
 
