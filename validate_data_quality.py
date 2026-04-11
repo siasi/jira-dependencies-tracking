@@ -23,6 +23,7 @@ Usage:
 
 import argparse
 import json
+import re
 import sys
 import yaml
 from collections import defaultdict
@@ -488,6 +489,22 @@ def format_console_output(grouped_data: Dict, metadata: Dict) -> str:
                 else:
                     # Use full description if no " - " separator
                     action_description = description
+
+                # If issue has an epic key, add clickable link to the description
+                if issue.epic_key:
+                    epic_url = f"{jira_base_url}/browse/{issue.epic_key}"
+                    epic_link = make_clickable_link(issue.epic_key, epic_url)
+
+                    # Replace "Set RAG (TEAM)" with "Set RAG for EPIC-123 (TEAM)"
+                    # or "Create epic (TEAM)" stays as is (no epic yet)
+                    if 'Set RAG' in action_description:
+                        # Extract team name from parentheses at the end
+                        match = re.search(r'\(([^)]+)\)$', action_description)
+                        if match:
+                            team_name = match.group(1)
+                            action_description = f"Set RAG for {epic_link} ({team_name})"
+                        else:
+                            action_description = f"Set RAG for {epic_link}"
 
                 # Determine who needs to take action
                 if issue.type in ['missing_epic', 'missing_rag_status']:
