@@ -485,23 +485,31 @@ def format_console_output(grouped_data: Dict, metadata: Dict) -> str:
             for issue in sorted_issues:
                 priority_label = f'P{int(issue.priority)}'
 
+                # Extract action-only description (part after " - " if present)
+                description = issue.description
+                if ' - ' in description:
+                    # Take the action part (after " - ")
+                    action_description = description.split(' - ', 1)[1]
+                else:
+                    # Use full description if no " - " separator
+                    action_description = description
+
                 # Determine action owner for this issue
                 is_owner = is_owned_initiative(issue, team, team_mappings)
                 if is_owner:
-                    # Owner action - just show manager name (without @)
-                    action_owner = manager_name.lstrip('@')
+                    # Owner action - show manager name with @
+                    action_owner = manager_name
                 else:
-                    # Dependency action - show dependent team's manager with @
-                    # For dependency issues, we need to find the manager of the owner team
+                    # Dependency action - show owner team's manager with @
                     owner_team = issue.owner_team
                     owner_project_key = team_mappings.get(owner_team, owner_team)
                     owner_manager_info = team_managers.get(owner_project_key, {})
                     owner_manager_name = owner_manager_info.get('notion_handle', 'Unknown')
-                    if owner_manager_name.startswith('@'):
-                        owner_manager_name = owner_manager_name[1:].strip()
-                    action_owner = f'@{owner_manager_name}'
+                    if not owner_manager_name.startswith('@'):
+                        owner_manager_name = f'@{owner_manager_name}'
+                    action_owner = owner_manager_name
 
-                lines.append(f"    {priority_label} ⚠️  {issue.description} - {action_owner}")
+                lines.append(f"    {priority_label} ⚠️  {action_description} - {action_owner}")
 
             lines.append('')
 

@@ -217,18 +217,18 @@ Action Items by Manager (5 managers, 38 action items):
 
   INIT-456: Payment Gateway Integration
   Status: Planned
-    P1 ⚠️  Missing assignee - Assign initiative owner - Jane Smith
-    P3 ⚠️  Invalid strategic objective: "customer_experiance" - Fix typo - Jane Smith
+    P1 ⚠️  Assign initiative owner - @Jane Smith
+    P3 ⚠️  Fix typo - @Jane Smith
 
   INIT-789: Customer Portal Redesign
   Status: In Progress
-    P1 ⚠️  Missing strategic objective - Set strategic objective - Jane Smith
+    P1 ⚠️  Set strategic objective - @Jane Smith
 
   INIT-901: Search Optimization
   Status: Planned
-    P1 ⚠️  Missing epic from Platform team - Create epic - @John Doe
-    P1 ⚠️  Missing RAG status on EPIC-123 (Platform team) - Set RAG - @John Doe
-    P2 ⚠️  Missing RAG status on EPIC-124 (Platform team) - Set RAG - @John Doe
+    P1 ⚠️  Create epic - @John Doe
+    P1 ⚠️  Set RAG - @John Doe
+    P2 ⚠️  Set RAG - @John Doe
 
 --------------------------------------------------------------------------------
 
