@@ -150,6 +150,27 @@ def test_generate_html_dashboard_escapes_special_chars():
                 'leading': ['INIT-1'],
                 'contributing': []
             }
+        },
+        'team_stats': {
+            'TeamA': {
+                'leading': 1,
+                'contributing': 0,
+                'total': 1
+            }
+        },
+        'team_work_type_stats': {
+            'TeamA': {
+                'engineering': {
+                    'leading': 0,
+                    'contributing': 0,
+                    'total': 0
+                },
+                'product': {
+                    'leading': 1,
+                    'contributing': 0,
+                    'total': 1
+                }
+            }
         }
     }
 

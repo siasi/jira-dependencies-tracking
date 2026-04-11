@@ -2082,7 +2082,7 @@ def test_generate_slack_messages_multi_team_manager(tmp_path):
             'key': 'INIT-2',
             'summary': 'Payins Initiative',
             'status': 'Proposed',
-            'owner_team': 'Payments Payins',
+            'owner_team': 'PAYIN',
             'url': 'https://test.com/INIT-2',
             'issues': [{'type': 'missing_assignee'}]
         }
@@ -2110,7 +2110,7 @@ def test_generate_slack_messages_multi_team_manager(tmp_path):
 
     # Should have team subsections
     assert '**Console:**' in content, "Should show Console team subsection"
-    assert '**Payments Payins:**' in content, "Should show Payins team subsection"
+    assert '**PAYIN:**' in content, "Should show PAYIN team subsection"
 
     # Both initiatives should be present
     assert 'INIT-1' in content
@@ -2119,7 +2119,7 @@ def test_generate_slack_messages_multi_team_manager(tmp_path):
     # Verify Console initiative appears after Console team header
     console_idx = content.find('**Console:**')
     init1_idx = content.find('INIT-1')
-    payins_idx = content.find('**Payments Payins:**')
+    payins_idx = content.find('**PAYIN:**')
     init2_idx = content.find('INIT-2')
 
     assert console_idx < init1_idx < payins_idx < init2_idx, \
