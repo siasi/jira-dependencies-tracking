@@ -36,10 +36,6 @@ def test_validation_result_has_issues():
     result2.low_confidence_completion.append({'key': 'INIT-2'})
     assert result2.has_issues
 
-    result3 = ValidationResult()
-    result3.planned_regressions.append({'key': 'INIT-3'})
-    assert result3.has_issues
-
 
 def test_check_data_quality_epic_count_mismatch():
     """Test data quality check with epic count != teams count."""
@@ -758,11 +754,11 @@ def test_validate_initiative_status_ready_to_plan(tmp_path):
 
 
 def test_validate_initiative_status_planned_regression(tmp_path):
-    """Test full validation with Planned initiative regression."""
+    """Test full validation with Planned initiative with red epic."""
     data = {
         "initiatives": [{
             "key": "INIT-999",
-            "summary": "Regressed Initiative",
+            "summary": "Initiative with Red Epic",
             "status": "Planned",
             "quarter": "26 Q2",
             "assignee": "user@example.com",
@@ -790,8 +786,10 @@ def test_validate_initiative_status_planned_regression(tmp_path):
     assert len(result.dependency_mapping) == 0
     assert len(result.low_confidence_completion) == 0
     assert len(result.ready_to_plan) == 0
-    assert len(result.planned_regressions) == 1
-    assert result.planned_regressions[0]['key'] == "INIT-999"
+    # Now goes into planned_for_quarter with has_red_epics flag
+    assert len(result.planned_for_quarter) == 1
+    assert result.planned_for_quarter[0]['key'] == "INIT-999"
+    assert result.planned_for_quarter[0]['has_red_epics'] is True
 
 
 def test_validate_initiative_status_planned_for_quarter(tmp_path):
@@ -829,7 +827,6 @@ def test_validate_initiative_status_planned_for_quarter(tmp_path):
     assert len(result.ready_to_plan) == 0
     assert len(result.planned_for_quarter) == 1
     assert result.planned_for_quarter[0]['key'] == "INIT-1000"
-    assert len(result.planned_regressions) == 0
 
 
 def test_load_teams_exempt_from_rag(tmp_path):
@@ -966,7 +963,10 @@ def test_validate_initiative_status_mixed_statuses(tmp_path):
     # INIT-002 (RED) and INIT-003 (YELLOW) both go to low_confidence_completion
     assert len(result.low_confidence_completion) == 2
     assert len(result.ready_to_plan) == 1
-    assert len(result.planned_regressions) == 1
+    # INIT-006 (Planned with RED epic) now goes to planned_for_quarter with has_red_epics flag
+    assert len(result.planned_for_quarter) == 1
+    assert result.planned_for_quarter[0]['key'] == "INIT-006"
+    assert result.planned_for_quarter[0]['has_red_epics'] is True
 
 
 def test_find_latest_extract_with_json_files(tmp_path, monkeypatch):
@@ -1679,7 +1679,7 @@ def test_in_progress_initiative_treated_as_planned(tmp_path):
 
 
 def test_in_progress_initiative_with_issues(tmp_path):
-    """Test that In Progress initiatives with issues go to planned_regressions."""
+    """Test that In Progress initiatives go to planned_for_quarter (data quality checked via validate_data_quality.py)."""
     test_data = {
         "initiatives": [
             {
@@ -1696,7 +1696,7 @@ def test_in_progress_initiative_with_issues(tmp_path):
                         "team_project_key": "CONSOLE",
                         "epics": [{"key": "CONSOLE-1", "summary": "Epic 1", "rag_status": "🟢"}]
                     }
-                    # Missing RSK epic - should cause regression
+                    # Missing RSK epic - data quality issue not flagged in planning report
                 ]
             }
         ]
@@ -1707,10 +1707,11 @@ def test_in_progress_initiative_with_issues(tmp_path):
 
     result = validate_initiative_status(json_file, quarter="26 Q2")
 
-    # Should be in planned_regressions due to missing epic
-    assert len(result.planned_regressions) == 1
-    assert result.planned_regressions[0]['key'] == 'INIT-301'
-    assert result.planned_regressions[0]['status'] == 'In Progress'
+    # All In Progress initiatives go to planned_for_quarter regardless of data quality
+    # Use validate_data_quality.py to find data quality issues
+    assert len(result.planned_for_quarter) == 1
+    assert result.planned_for_quarter[0]['key'] == 'INIT-301'
+    assert result.planned_for_quarter[0]['status'] == 'In Progress'
 
 
 def test_load_teams_excluded_from_analysis():
@@ -1753,7 +1754,6 @@ def test_excluded_team_initiative_filtered_out(tmp_path):
     assert len(result.low_confidence_completion) == 0
     assert len(result.ready_to_plan) == 0
     assert len(result.planned_for_quarter) == 0
-    assert len(result.planned_regressions) == 0
 
     # Should be in ignored_statuses with team excluded status
     assert len(result.ignored_statuses) == 1
@@ -2220,7 +2220,6 @@ def test_signed_off_initiative_filtered_out(tmp_path):
         assert len(result.ready_to_plan) == 0
         assert len(result.low_confidence_completion) == 0
         assert len(result.planned_for_quarter) == 0
-        assert len(result.planned_regressions) == 0
         # Verify it was actually filtered (not counted as checked)
         assert result.total_checked == 0
     finally:

@@ -81,6 +81,26 @@
   - README.md: Quick reference table + detailed scope sections for each script
   - All scripts: --help output now includes clear scope information
 
+### validate_planning.py - simplify
+- [x] Removed "PLANNED/IN PROGRESS INITIATIVES REQUIRING ATTENTION" section (completed 2026-04-11)
+- [x] Reorganized "PLANNED/IN PROGRESS FOR THE QUARTER" section by confidence level (completed 2026-04-11)
+- **Rationale**: Section was redundant because:
+  - Data quality violations (assignee, strategic objective, epic count, RAG status) can be obtained via `validate_data_quality.py --status "Planned"` or `--status "In Progress"`
+  - Health signals (red/yellow epics) are already shown in "PLANNED/IN PROGRESS FOR THE QUARTER" section with warnings
+- **Changes**:
+  - Removed "PLANNED/IN PROGRESS REQUIRING ATTENTION" section from both templates
+  - Removed `planned_regressions` field from ValidationResult class
+  - Simplified Planned/In Progress logic to only add to `planned_for_quarter` section
+  - Removed Section 3 from extract_manager_actions function
+  - Reorganized "PLANNED/IN PROGRESS FOR THE QUARTER" into 3 subsections:
+    - 🔴 Won't Complete - initiatives with red epics (only shows red epics with clickable links)
+    - 🟡 Low Confidence - initiatives with yellow epics (only shows yellow epics with clickable links)
+    - ✅ Fully Committed - initiatives with all green epics (no epic details shown)
+  - Added breakdown counts in summary section
+  - Updated naming and descriptions for clarity
+  - Added URL field to epic dictionaries for clickable terminal links
+  - Fixed spacing between initiatives and sections using Jinja2 whitespace control 
+
 ### Consolidate the behaviour of the action items
 [ ] The three scripts containing business logic should not report action items in console by default. Instead, they should only show a warning in case validations have found. The use can use the --verbose option to see the actions in console or the --slack option eventually. How this requirement compare to current implementation?
 - **Status**: Not implemented (2026-04-11)
@@ -88,9 +108,6 @@
 - **Current behavior**: All three scripts always show full action items in console by default
 - **Decision**: Changes were implemented but then rolled back. Task remains open for future consideration.
 - **Side change**: Removed non-functional `--verbose` flag from validate_data_quality.py (was only showing debug messages)
-
-### validate_planning.py - simplify
-Hypthesis: The console output section "PLANNED/IN PROGRESS INITIATIVES REQUIRING ATTENTION" should be completely removed and the correspondibg logic removed from the script. This is because the equivalent can be obtained by validate_data_quality.py filtering on in progress initiatives. 
 
 ### Make the README lighter
 [ ] The current README is too long. Propose me restructuring it's content by braking it into a README with an overview and then specific pages, one per script, with detailed behaviour and use cases. 

@@ -45,7 +45,6 @@ class ValidationResult:
         # Section 4: Planned/In Progress for the Quarter (healthy initiatives)
         self.planned_for_quarter: list[dict[str, Any]] = []
         # Additional sections (verbose only)
-        self.planned_regressions: list[dict[str, Any]] = []
         self.ignored_statuses: list[dict[str, Any]] = []
         # Metadata
         self.quarter: Optional[str] = None
@@ -56,8 +55,7 @@ class ValidationResult:
     def has_issues(self) -> bool:
         """Whether any issues were found."""
         return (len(self.dependency_mapping) > 0 or
-                len(self.low_confidence_completion) > 0 or
-                len(self.planned_regressions) > 0)
+                len(self.low_confidence_completion) > 0)
 
 
 def _is_discovery_initiative(initiative: dict) -> bool:
@@ -243,7 +241,8 @@ def _has_red_epics(initiative: dict) -> Optional[list[dict[str, Any]]]:
                     red_epics.append({
                         'key': epic['key'],
                         'summary': epic['summary'],
-                        'rag_status': rag
+                        'rag_status': rag,
+                        'url': epic.get('url', '')
                     })
 
     return red_epics if red_epics else None
@@ -286,7 +285,8 @@ def _has_yellow_epics(initiative: dict) -> Optional[list[dict[str, Any]]]:
                     yellow_epics.append({
                         'key': epic['key'],
                         'summary': epic['summary'],
-                        'rag_status': rag  # Include actual status for display
+                        'rag_status': rag,  # Include actual status for display
+                        'url': epic.get('url', '')
                     })
 
     return yellow_epics if yellow_epics else None
@@ -829,103 +829,6 @@ def extract_manager_actions(result: ValidationResult) -> list[dict[str, Any]]:
             _add_manager_info(action, owner_key, owner_team)
             actions.append(action)
 
-    # Section 3: planned_regressions (Planned/In Progress with issues)
-    for initiative in result.planned_regressions:
-        base = _base_context(initiative, 'planned_regressions')
-        owner_team = initiative.get('owner_team')
-
-        for issue in initiative.get('issues', []):
-            if issue['type'] == 'missing_assignee':
-                if owner_team:
-                    owner_key = team_mappings.get(owner_team, owner_team)
-                    action = {
-                        **base,
-                        'action_type': 'missing_assignee',
-                        'priority': PRIORITY['missing_assignee'],
-                        'description': 'Set assignee',
-                        'epic_key': None,
-                        'epic_title': None,
-                        'epic_rag': None
-                    }
-                    _add_manager_info(action, owner_key, owner_team)
-                    actions.append(action)
-
-            elif issue['type'] == 'missing_strategic_objective':
-                if owner_team:
-                    owner_key = team_mappings.get(owner_team, owner_team)
-                    action = {
-                        **base,
-                        'action_type': 'missing_strategic_objective',
-                        'priority': PRIORITY['missing_strategic_objective'],
-                        'description': 'Set strategic objective',
-                        'epic_key': None,
-                        'epic_title': None,
-                        'epic_rag': None
-                    }
-                    _add_manager_info(action, owner_key, owner_team)
-                    actions.append(action)
-
-            elif issue['type'] == 'invalid_strategic_objective':
-                if owner_team:
-                    owner_key = team_mappings.get(owner_team, owner_team)
-                    current_value = issue.get('current_value', 'unknown')
-                    action = {
-                        **base,
-                        'action_type': 'invalid_strategic_objective',
-                        'priority': PRIORITY['invalid_strategic_objective'],
-                        'description': f'Fix invalid strategic objective (current: "{current_value}")',
-                        'epic_key': None,
-                        'epic_title': None,
-                        'epic_rag': None
-                    }
-                    _add_manager_info(action, owner_key, owner_team)
-                    actions.append(action)
-
-            elif issue['type'] == 'epic_count_mismatch':
-                teams_involved = issue.get('teams_involved', [])
-                teams_with_epics = set(issue.get('teams_with_epics', []))
-
-                for team_display in teams_involved:
-                    if owner_team and team_display == owner_team:
-                        continue
-
-                    team_key = team_mappings.get(team_display, team_display)
-                    if team_key not in teams_with_epics:
-                        action = {
-                            **base,
-                            'action_type': 'missing_dependencies',
-                            'priority': PRIORITY['missing_dependencies'],
-                            'description': 'Create epic',
-                            'epic_key': None,
-                            'epic_title': None,
-                            'epic_rag': None
-                        }
-                        _add_manager_info(action, team_key, team_display)
-                        actions.append(action)
-
-            elif issue['type'] == 'missing_rag':
-                for epic_info in issue.get('epics', []):
-                    epic_key = epic_info.get('key', '')
-                    team_key = epic_key.split('-')[0] if '-' in epic_key else None
-
-                    if team_key:
-                        team_display = next(
-                            (k for k, v in team_mappings.items() if v == team_key),
-                            team_key
-                        )
-
-                        action = {
-                            **base,
-                            'action_type': 'missing_rag',
-                            'priority': PRIORITY['missing_rag'],
-                            'description': 'Set RAG status',
-                            'epic_key': epic_info.get('key'),
-                            'epic_title': epic_info.get('summary'),
-                            'epic_rag': None
-                        }
-                        _add_manager_info(action, team_key, team_display)
-                        actions.append(action)
-
     return actions
 
 
@@ -1222,63 +1125,26 @@ def validate_initiative_status(json_file: Path, quarter: str) -> ValidationResul
                     })
 
         elif initiative_status in ['Planned', 'In Progress']:
-            # Check for regressions (Planned/In Progress initiatives that no longer meet criteria)
-            if not _is_ready_to_plan(initiative):
-                # Collect all issues for detailed display
-                all_issues = []
+            # Section 4: Planned/In Progress for the Quarter
+            # Check if has red or yellow epics (no/low confidence)
+            red_epics = _has_red_epics(initiative)
+            yellow_epics = _has_yellow_epics(initiative)
+            is_discovery = _is_discovery_initiative(initiative)
 
-                # Check data quality
-                quality_issues = _check_data_quality(initiative)
-                if quality_issues:
-                    all_issues.extend(quality_issues)
-
-                # Check for RED epics
-                red_epics = _has_red_epics(initiative)
-                if red_epics:
-                    all_issues.append({
-                        'type': 'red_epics',
-                        'epics': red_epics
-                    })
-
-                # Check for YELLOW epics
-                yellow_epics = _has_yellow_epics(initiative)
-                if yellow_epics:
-                    all_issues.append({
-                        'type': 'yellow_epics',
-                        'epics': yellow_epics
-                    })
-
-                result.planned_regressions.append({
-                    'key': initiative_key,
-                    'summary': initiative_summary,
-                    'status': initiative_status,
-                    'assignee': initiative_assignee,
-                    'url': initiative_url,
-                    'owner_team': initiative.get('owner_team'),
-                    'contributing_teams': initiative.get('contributing_teams', []),
-                    'issues': all_issues if all_issues else []
-                })
-            else:
-                # Section 5: Planned/In Progress for the Quarter (healthy initiatives)
-                # Check if has red or yellow epics (no/low confidence)
-                red_epics = _has_red_epics(initiative)
-                yellow_epics = _has_yellow_epics(initiative)
-                is_discovery = _is_discovery_initiative(initiative)
-
-                result.planned_for_quarter.append({
-                    'key': initiative_key,
-                    'summary': initiative_summary,
-                    'status': initiative_status,
-                    'assignee': initiative_assignee,
-                    'url': initiative_url,
-                    'contributing_teams': initiative.get('contributing_teams', []),
-                    'has_red_epics': red_epics is not None,
-                    'red_epics': red_epics if red_epics else [],
-                    'has_yellow_epics': yellow_epics is not None,
-                    'yellow_epics': yellow_epics if yellow_epics else [],
-                    'is_discovery': is_discovery,
-                    'teams_involved': _normalize_teams_involved(initiative.get('teams_involved'))
-                })
+            result.planned_for_quarter.append({
+                'key': initiative_key,
+                'summary': initiative_summary,
+                'status': initiative_status,
+                'assignee': initiative_assignee,
+                'url': initiative_url,
+                'contributing_teams': initiative.get('contributing_teams', []),
+                'has_red_epics': red_epics is not None,
+                'red_epics': red_epics if red_epics else [],
+                'has_yellow_epics': yellow_epics is not None,
+                'yellow_epics': yellow_epics if yellow_epics else [],
+                'is_discovery': is_discovery,
+                'teams_involved': _normalize_teams_involved(initiative.get('teams_involved'))
+            })
 
         else:
             # Track initiatives with other statuses (not analyzed)
