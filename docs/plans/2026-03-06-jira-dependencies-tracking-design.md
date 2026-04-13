@@ -149,37 +149,37 @@ JIRA_API_TOKEN=your-api-token-here
 ### Main Command
 
 ```bash
-python jira_extract.py extract
+python jira_scan.py extract
 ```
 
 ### Options
 
 ```bash
 # Specify custom config file
-python jira_extract.py extract --config custom_config.yaml
+python jira_scan.py extract --config custom_config.yaml
 
 # Custom output path
-python jira_extract.py extract --output ./reports/my_export.json
+python jira_scan.py extract --output ./reports/my_export.json
 
 # Dry run (show what would be fetched without writing)
-python jira_extract.py extract --dry-run
+python jira_scan.py extract --dry-run
 
 # Verbose output for debugging
-python jira_extract.py extract --verbose
+python jira_scan.py extract --verbose
 ```
 
 ### Helper Commands
 
 ```bash
 # List available custom fields (helps find RAG field ID)
-python jira_extract.py list-fields
+python jira_scan.py list-fields
 
 # Validate configuration
-python jira_extract.py validate-config
+python jira_scan.py validate-config
 
 # Show version and help
-python jira_extract.py --version
-python jira_extract.py --help
+python jira_scan.py --version
+python jira_scan.py --help
 ```
 
 ### Output Behavior
@@ -261,7 +261,7 @@ jira-dependencies-tracking/
 ├── .env.example
 ├── config.yaml.example
 ├── .gitignore
-├── jira_extract.py           # Main CLI entry point
+├── jira_scan.py           # Main CLI entry point
 ├── src/
 │   ├── __init__.py
 │   ├── config.py             # Config loading
@@ -309,7 +309,7 @@ The README.md must include clear setup instructions:
    - Add your Jira email and API token
    - Install dependencies: `pip install -r requirements.txt`
 3. **Getting API Token:** Link to Atlassian documentation
-4. **Finding Custom Field IDs:** Use `python jira_extract.py list-fields`
+4. **Finding Custom Field IDs:** Use `python jira_scan.py list-fields`
 5. **Usage Examples:** Basic extract command and common options
 6. **Troubleshooting:** Common errors and solutions
 

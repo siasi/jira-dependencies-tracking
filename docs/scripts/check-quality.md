@@ -1,10 +1,10 @@
-# Validate Data Quality Script Documentation
+# Check Quality Script Documentation
 
-Validate initiative data quality using comprehensive baseline checks. Reports missing owner teams, assignees, strategic objectives, epics, and RAG status.
+Check initiative data quality using comprehensive baseline checks. Reports missing owner teams, assignees, strategic objectives, epics, and RAG status.
 
 ## Purpose
 
-This script validates data quality for initiatives using the shared validation library (`lib/validation.py`) for consistent validation across the toolkit. It helps identify:
+This script checks data quality for initiatives using the shared validation library (`lib/validation.py`) for consistent validation across the toolkit. It helps identify:
 - Missing critical fields (owner team, assignee, strategic objective)
 - Incomplete team dependencies (missing epics)
 - Missing RAG status on epics
@@ -14,13 +14,13 @@ This script validates data quality for initiatives using the shared validation l
 
 ```bash
 # Validate current quarter
-python validate_data_quality.py --quarter "26 Q2"
+python check_quality.py --quarter "26 Q2"
 
 # Validate specific status
-python validate_data_quality.py --quarter "26 Q2" --status Proposed
+python check_quality.py --quarter "26 Q2" --status Proposed
 
 # Validate all active initiatives (Proposed, Planned, In Progress)
-python validate_data_quality.py --quarter "26 Q2" --all-active
+python check_quality.py --quarter "26 Q2" --all-active
 ```
 
 ## Scope
@@ -57,30 +57,30 @@ The script supports flexible filtering with combinable flags:
 
 ```bash
 # Validate current quarter
-python validate_data_quality.py --quarter "26 Q2"
+python check_quality.py --quarter "26 Q2"
 
 # Validate specific status
-python validate_data_quality.py --quarter "26 Q2" --status Proposed
+python check_quality.py --quarter "26 Q2" --status Proposed
 
 # Validate all active initiatives
-python validate_data_quality.py --quarter "26 Q2" --all-active
+python check_quality.py --quarter "26 Q2" --all-active
 ```
 
 ### Personal Filtering
 
 ```bash
 # Show only my teams' action items
-python validate_data_quality.py --quarter "26 Q2" --me
+python check_quality.py --quarter "26 Q2" --me
 
 # Generate Slack notifications (always includes all teams)
-python validate_data_quality.py --quarter "26 Q2" --slack
+python check_quality.py --quarter "26 Q2" --slack
 ```
 
 ### Show Exemptions
 
 ```bash
 # Show skipped initiatives (exceptions, excluded teams)
-python validate_data_quality.py --quarter "26 Q2" --show-exempt
+python check_quality.py --quarter "26 Q2" --show-exempt
 ```
 
 ## Options
@@ -195,7 +195,7 @@ Engineering managers can self-check their teams:
 
 ```bash
 # Check my teams only
-python validate_data_quality.py --quarter "26 Q2" --me
+python check_quality.py --quarter "26 Q2" --me
 ```
 
 ### Comprehensive Data Audit
@@ -204,10 +204,10 @@ Validate all active work:
 
 ```bash
 # Validate all active initiatives
-python validate_data_quality.py --quarter "26 Q2" --all-active
+python check_quality.py --quarter "26 Q2" --all-active
 
 # Review exemptions
-python validate_data_quality.py --quarter "26 Q2" --all-active --show-exempt
+python check_quality.py --quarter "26 Q2" --all-active --show-exempt
 ```
 
 ### Status-Specific Validation
@@ -216,10 +216,10 @@ Target specific initiative status:
 
 ```bash
 # Check proposed initiatives
-python validate_data_quality.py --status Proposed
+python check_quality.py --status Proposed
 
 # Check planned initiatives for specific quarter
-python validate_data_quality.py --quarter "26 Q2" --status Planned
+python check_quality.py --quarter "26 Q2" --status Planned
 ```
 
 ## Related Documentation

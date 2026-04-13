@@ -73,7 +73,7 @@ Add `queries` object at top level:
 - Store JQL in variable before executing (handle empty team projects case)
 - Return JQL in FetchResult: `FetchResult(success=True, items=epics, jql=jql)`
 
-### 2. jira_extract.py
+### 2. jira_scan.py
 
 **extract command:**
 - After fetching, extract queries from results:
@@ -104,7 +104,7 @@ Add `queries` object at top level:
    - Executes query
    - Returns: FetchResult(success=True, items=[...], jql="...")
 
-3. jira_extract.py
+3. jira_scan.py
    - Extracts: queries = {"initiatives": result.jql, "epics": result.jql}
    - Passes to: output_generator.generate(data, status, queries=queries)
 

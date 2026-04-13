@@ -6,7 +6,7 @@ Get clarity about initiative planning readiness by analyzing Jira data and class
 
 ## Scope and Filtering
 
-### Data Extraction Level (jira_extract.py)
+### Data Extraction Level (jira_scan.py)
 - **Quarter filter**: Set in `config.yaml` (e.g., `quarter: "26 Q2"`)
 - **Status filter**: `status = 'Proposed'`
 - Extraction creates filtered JSON snapshots for validation

@@ -1,10 +1,10 @@
-# Analyze Workload Script Documentation
+# Assess Workload Script Documentation
 
-Analyze the distribution of epic work across teams to identify imbalances and ensure fair resource allocation.
+Assess the distribution of epic work across teams to identify imbalances and ensure fair resource allocation.
 
 ## Purpose
 
-This script helps engineering leadership understand team workload distribution and identify:
+This script helps engineering leadership assess team workload distribution and identify:
 - Teams with disproportionate workload (potential bottlenecks)
 - Teams with capacity for additional work
 - Cross-team coordination requirements
@@ -14,13 +14,13 @@ This script helps engineering leadership understand team workload distribution a
 
 ```bash
 # Analyze latest extraction for Q2 2026
-python analyze_workload.py --quarter "26 Q2"
+python assess_workload.py --quarter "26 Q2"
 
 # Generate interactive HTML dashboard
-python analyze_workload.py --quarter "26 Q2" --html
+python assess_workload.py --quarter "26 Q2" --html
 
 # Generate Slack messages for managers
-python analyze_workload.py --quarter "26 Q2" --slack
+python assess_workload.py --quarter "26 Q2" --slack
 ```
 
 ## Scope
@@ -38,43 +38,43 @@ python analyze_workload.py --quarter "26 Q2" --slack
 
 ```bash
 # Analyze latest extraction for Q2 2026
-python analyze_workload.py --quarter "26 Q2"
+python assess_workload.py --quarter "26 Q2"
 
 # Analyze specific file
-python analyze_workload.py --quarter "26 Q2" data/jira_extract_20260321.json
+python assess_workload.py --quarter "26 Q2" data/jira_extract_20260321.json
 
 # Analyze snapshot
-python analyze_workload.py --quarter "26 Q2" data/snapshots/snapshot_baseline_*.json
+python assess_workload.py --quarter "26 Q2" data/snapshots/snapshot_baseline_*.json
 ```
 
 ### Detailed Output
 
 ```bash
 # Show detailed data quality issues
-python analyze_workload.py --quarter "26 Q2" --show-quality
+python assess_workload.py --quarter "26 Q2" --show-quality
 
 # Verbose output with detailed initiative lists
-python analyze_workload.py --quarter "26 Q2" --verbose
+python assess_workload.py --quarter "26 Q2" --verbose
 ```
 
 ### Generate Reports
 
 ```bash
 # Export to CSV (auto-generates filename)
-python analyze_workload.py --quarter "26 Q2" --csv
+python assess_workload.py --quarter "26 Q2" --csv
 
 # Export to markdown with custom filename
-python analyze_workload.py --quarter "26 Q2" --markdown reports/workload_analysis.md
+python assess_workload.py --quarter "26 Q2" --markdown reports/workload_analysis.md
 
 # Generate interactive HTML dashboard (auto-generates filename)
-python analyze_workload.py --quarter "26 Q2" --html
+python assess_workload.py --quarter "26 Q2" --html
 ```
 
 ### Generate Slack Notifications
 
 ```bash
 # Generate Slack messages for managers
-python analyze_workload.py --quarter "26 Q2" --slack
+python assess_workload.py --quarter "26 Q2" --slack
 ```
 
 ## Options
@@ -173,10 +173,10 @@ Generate a standalone HTML file with interactive visualizations:
 
 ```bash
 # Generate dashboard with auto-generated filename
-python analyze_workload.py --quarter "26 Q2" --html
+python assess_workload.py --quarter "26 Q2" --html
 
 # Specify custom filename
-python analyze_workload.py --quarter "26 Q2" --html reports/workload_dashboard.html
+python assess_workload.py --quarter "26 Q2" --html reports/workload_dashboard.html
 ```
 
 ### Dashboard Features
@@ -213,7 +213,7 @@ python analyze_workload.py --quarter "26 Q2" --html reports/workload_dashboard.h
 Generate workload summary messages for engineering managers:
 
 ```bash
-python analyze_workload.py --quarter "26 Q2" --slack
+python assess_workload.py --quarter "26 Q2" --slack
 ```
 
 **Message Content:**
@@ -248,10 +248,10 @@ Validate work distribution before committing to plans:
 
 ```bash
 # Extract Q2 initiatives
-python extract.py extract --quarter "26 Q2"
+python scan.py extract --quarter "26 Q2"
 
 # Analyze workload distribution
-python analyze_workload.py --quarter "26 Q2" --html
+python assess_workload.py --quarter "26 Q2" --html
 
 # Review dashboard and adjust plans
 ```
@@ -262,13 +262,13 @@ Identify teams at risk of overcommitment:
 
 ```bash
 # Extract current state
-python extract.py extract
+python scan.py extract
 
 # Analyze workload
-python analyze_workload.py --quarter "26 Q2" --verbose
+python assess_workload.py --quarter "26 Q2" --verbose
 
 # Generate manager notifications
-python analyze_workload.py --quarter "26 Q2" --slack
+python assess_workload.py --quarter "26 Q2" --slack
 ```
 
 ### Resource Planning
@@ -277,7 +277,7 @@ Inform hiring and allocation decisions:
 
 ```bash
 # Generate detailed analysis
-python analyze_workload.py --quarter "26 Q2" --csv --markdown
+python assess_workload.py --quarter "26 Q2" --csv --markdown
 
 # Review team capacity trends
 # Use data to justify resource requests
@@ -289,7 +289,7 @@ Provide data for executive summaries:
 
 ```bash
 # Generate HTML dashboard
-python analyze_workload.py --quarter "26 Q2" --html
+python assess_workload.py --quarter "26 Q2" --html
 
 # Share dashboard with leadership team
 ```

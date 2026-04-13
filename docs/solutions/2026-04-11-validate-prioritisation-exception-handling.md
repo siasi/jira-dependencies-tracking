@@ -1,4 +1,4 @@
-# validate_prioritisation.py Exception Handling Implementation
+# check_priorities.py Exception Handling Implementation
 
 **Date**: 2026-04-11
 **Status**: Completed
@@ -6,22 +6,22 @@
 
 ## Summary
 
-Implemented support for `initiative_exceptions.yaml` in `validate_prioritisation.py` to ensure manager-approved exceptions are respected consistently across all validation scripts.
+Implemented support for `initiative_exceptions.yaml` in `check_priorities.py` to ensure manager-approved exceptions are respected consistently across all validation scripts.
 
 ## Problem
 
-The `validate_prioritisation.py` script was not respecting signed-off initiatives from `config/initiative_exceptions.yaml`. This meant that initiatives with explicit manager approval despite inconsistencies would still appear in validation reports, creating redundant action items.
+The `check_priorities.py` script was not respecting signed-off initiatives from `config/initiative_exceptions.yaml`. This meant that initiatives with explicit manager approval despite inconsistencies would still appear in validation reports, creating redundant action items.
 
 The exception handling was already implemented in:
-- ✅ `validate_planning.py` (completed 2026-04-01)
-- ✅ `analyze_workload.py` (completed 2026-04-10)
-- ❌ `validate_prioritisation.py` (missing)
+- ✅ `check_planning.py` (completed 2026-04-01)
+- ✅ `assess_workload.py` (completed 2026-04-10)
+- ❌ `check_priorities.py` (missing)
 
 ## Solution
 
 ### Implementation
 
-Added exception handling following the same pattern as `validate_planning.py` and `analyze_workload.py`:
+Added exception handling following the same pattern as `check_planning.py` and `assess_workload.py`:
 
 1. **New function**: `_load_signed_off_initiatives()` (lines 251-289)
    - Loads signed-off initiatives from `config/initiative_exceptions.yaml`
@@ -36,7 +36,7 @@ Added exception handling following the same pattern as `validate_planning.py` an
 
 ### Code Changes
 
-**File**: `validate_prioritisation.py`
+**File**: `check_priorities.py`
 
 ```python
 def _load_signed_off_initiatives() -> set:
@@ -90,7 +90,7 @@ if signed_off_keys:
 
 ### Tests
 
-Added comprehensive test coverage in `tests/test_validate_prioritisation.py`:
+Added comprehensive test coverage in `tests/test_check_priorities.py`:
 
 1. **test_load_signed_off_initiatives_returns_set**
    - Verifies function always returns a set
@@ -140,9 +140,9 @@ All three validation scripts now handle exceptions consistently:
 
 | Script | Exception Handling | Status |
 |--------|-------------------|--------|
-| `analyze_workload.py` | ✅ | Completed 2026-04-10 |
-| `validate_planning.py` | ✅ | Completed 2026-04-01 |
-| `validate_prioritisation.py` | ✅ | Completed 2026-04-11 |
+| `assess_workload.py` | ✅ | Completed 2026-04-10 |
+| `check_planning.py` | ✅ | Completed 2026-04-01 |
+| `check_priorities.py` | ✅ | Completed 2026-04-11 |
 
 ## Design Decisions
 
@@ -156,22 +156,22 @@ All three validation scripts now handle exceptions consistently:
 
 All tests pass:
 ```bash
-python3 -m pytest tests/test_validate_prioritisation.py -v
+python3 -m pytest tests/test_check_priorities.py -v
 # 43 passed in 0.09s
 ```
 
 Specific exception handling tests:
 ```bash
-python3 -m pytest tests/test_validate_prioritisation.py::test_load_signed_off_initiatives_returns_set -v
-python3 -m pytest tests/test_validate_prioritisation.py::test_signed_off_initiative_filtered_out -v
-python3 -m pytest tests/test_validate_prioritisation.py::test_mixed_signed_off_and_normal_initiatives -v
+python3 -m pytest tests/test_check_priorities.py::test_load_signed_off_initiatives_returns_set -v
+python3 -m pytest tests/test_check_priorities.py::test_signed_off_initiative_filtered_out -v
+python3 -m pytest tests/test_check_priorities.py::test_mixed_signed_off_and_normal_initiatives -v
 # 3 passed
 ```
 
 ## Files Modified
 
-- `validate_prioritisation.py`: Added `_load_signed_off_initiatives()` and filtering logic
-- `tests/test_validate_prioritisation.py`: Added 3 new tests, updated imports
+- `check_priorities.py`: Added `_load_signed_off_initiatives()` and filtering logic
+- `tests/test_check_priorities.py`: Added 3 new tests, updated imports
 - `TODO.md`: Marked task as completed
 
 ## Related Documentation

@@ -16,9 +16,9 @@ Refactor the Jira analysis toolkit from organic flat structure into an intention
 
 ## Problem Statement / Motivation
 
-The toolkit has evolved from a single script (jira_extract.py) into multiple analysis scripts serving different use cases (planning validation, workload analysis, dependency checking). This organic growth has created inconsistencies:
+The toolkit has evolved from a single script (jira_scan.py) into multiple analysis scripts serving different use cases (planning validation, workload analysis, dependency checking). This organic growth has created inconsistencies:
 
-1. **Naming chaos**: No consistent pattern (jira_extract.py vs validate_initiative_status.py)
+1. **Naming chaos**: No consistent pattern (jira_scan.py vs validate_initiative_status.py)
 2. **Configuration sprawl**: Config files scattered in root directory
 3. **Code duplication**: `make_clickable_link()` function duplicated in 4 files
 4. **Output inconsistency**: Some scripts use --markdown to write files, others to change stdout
@@ -31,7 +31,7 @@ These issues will compound as new scripts are added. Cleaning up now prevents te
 - Planning validation (validate_initiative_status.py) - includes dependency checking
 - Workload analysis (analyze_team_workload.py)
 - Strategic objective validation (validate_strategic_objective.py)
-- Data extraction (jira_extract.py)
+- Data extraction (jira_scan.py)
 
 **Note:** validate_dependencies.py is being removed - its functionality is a subset of validate_initiative_status.py (dependency checking is already part of planning validation)
 
@@ -68,9 +68,9 @@ jira-em-toolkit/  (renamed from jira-dependencies-tracking)
 ├── tests/                      # Test suite (update imports)
 ├── docs/                       # Documentation (existing)
 ├── data/                       # Output directory (existing, gitignored)
-├── extract.py                  # Was jira_extract.py (renamed in place)
-├── validate_planning.py        # Was validate_initiative_status.py (renamed in place)
-├── analyze_workload.py         # Was analyze_team_workload.py (renamed in place)
+├── scan.py                  # Was jira_scan.py (renamed in place)
+├── check_planning.py        # Was validate_initiative_status.py (renamed in place)
+├── assess_workload.py         # Was analyze_team_workload.py (renamed in place)
 ├── validate_objective.py       # Was validate_strategic_objective.py (renamed in place)
 ├── setup.py                    # Updated for new structure
 ├── requirements.txt            # Dependencies (unchanged)
@@ -81,7 +81,7 @@ jira-em-toolkit/  (renamed from jira-dependencies-tracking)
 1. **Verb-noun script naming**: Scripts renamed in place (stay in root for usability)
 2. **Config centralization**: All *.yaml files move to config/
 3. **Common code extraction**: Duplicated code moves to lib/
-4. **Remove redundant script**: validate_dependencies.py removed (functionality in validate_planning.py)
+4. **Remove redundant script**: validate_dependencies.py removed (functionality in check_planning.py)
 5. **Consistent outputs**: All scripts support --markdown FILE, all use hyperlinks
 6. **Template standardization**: All scripts use Jinja2, descriptive template names
 
@@ -301,7 +301,7 @@ pytest tests/ -v
 if not data_file:
     json_files = sorted(Path('data').glob('jira_data_*.json'), reverse=True)
     if not json_files:
-        print("No data files found. Run jira_extract.py first.")
+        print("No data files found. Run jira_scan.py first.")
         sys.exit(1)
     data_file = json_files[0]
 ```
@@ -360,7 +360,7 @@ def get_data_file_or_exit(data_file_arg: Optional[Path] = None,
     # Auto-discover
     data_file = find_most_recent_data_file(data_dir, pattern)
     if not data_file:
-        print(f"No data files found in {data_dir}/. Run extract.py first.")
+        print(f"No data files found in {data_dir}/. Run scan.py first.")
         sys.exit(1)
 
     return data_file
@@ -575,14 +575,14 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 ```
 
 **Repeat for each script:**
-- analyze_team_workload.py → analyze_workload.py
-- validate_initiative_status.py → validate_planning.py
-- jira_extract.py → extract.py
+- analyze_team_workload.py → assess_workload.py
+- validate_initiative_status.py → check_planning.py
+- jira_scan.py → scan.py
 
 **Files renamed:**
-- extract.py (was jira_extract.py)
-- validate_planning.py (was validate_initiative_status.py)
-- analyze_workload.py (was analyze_team_workload.py)
+- scan.py (was jira_scan.py)
+- check_planning.py (was validate_initiative_status.py)
+- assess_workload.py (was analyze_team_workload.py)
 - validate_objective.py (was validate_strategic_objective.py)
 
 **Files removed:**
@@ -621,11 +621,11 @@ git mv templates/console.j2 templates/planning_console.j2
 git mv templates/markdown.j2 templates/planning_markdown.j2
 git mv templates/dust.j2 templates/notification_dust.j2
 
-# Check if analyze_workload.py needs templates extracted
+# Check if assess_workload.py needs templates extracted
 # Currently uses inline formatting - extract to templates
 ```
 
-**Extract analyze_workload.py formatting to templates:**
+**Extract assess_workload.py formatting to templates:**
 
 Create templates/workload_console.j2:
 ```jinja2
@@ -659,10 +659,10 @@ Create templates/workload_markdown.j2:
 
 **Update scripts to use new template names:**
 ```python
-# validate_planning.py
+# check_planning.py
 output = render_console_template('planning_console.j2', ...)
 
-# analyze_workload.py
+# assess_workload.py
 output = render_console_template('workload_console.j2', ...)
 ```
 
@@ -670,23 +670,23 @@ output = render_console_template('workload_console.j2', ...)
 - templates/planning_console.j2 (renamed from console.j2)
 - templates/planning_markdown.j2 (renamed from markdown.j2)
 - templates/notification_dust.j2 (renamed from dust.j2)
-- templates/workload_console.j2 (new, extracted from analyze_workload.py)
-- templates/workload_markdown.j2 (new, extracted from analyze_workload.py)
-- validate_planning.py (template name updated)
-- analyze_workload.py (converted to use templates)
+- templates/workload_console.j2 (new, extracted from assess_workload.py)
+- templates/workload_markdown.j2 (new, extracted from assess_workload.py)
+- check_planning.py (template name updated)
+- assess_workload.py (converted to use templates)
 
 **Tests:**
 ```bash
 pytest tests/ -v
 
 # Manual test each script
-python validate_planning.py
-python analyze_workload.py --markdown /tmp/test.md
+python check_planning.py
+python assess_workload.py --markdown /tmp/test.md
 ```
 
 **Success criteria:**
 - [ ] All templates renamed descriptively
-- [ ] analyze_workload.py uses templates (no inline formatting)
+- [ ] assess_workload.py uses templates (no inline formatting)
 - [ ] All scripts reference correct template names
 - [ ] All tests pass
 - [ ] Manual smoke tests pass
@@ -705,8 +705,8 @@ python analyze_workload.py --markdown /tmp/test.md
 - Remove: Any --markdown flags that just change stdout format
 
 **Scripts to update:**
-- validate_planning.py
-- analyze_workload.py
+- check_planning.py
+- assess_workload.py
 - validate_objective.py
 
 **Note:** validate_dependencies.py was removed in Phase 4
@@ -746,17 +746,17 @@ else:
 - Add deprecation warnings if removing user-facing options
 
 **Files modified:**
-- validate_planning.py (--markdown standardized)
-- analyze_workload.py (--markdown standardized)
+- check_planning.py (--markdown standardized)
+- assess_workload.py (--markdown standardized)
 - validate_objective.py (--markdown standardized)
 
 **Tests:**
 ```bash
 # Test default console output
-python validate_planning.py
+python check_planning.py
 
 # Test markdown output to file
-python validate_planning.py --markdown /tmp/test.md
+python check_planning.py --markdown /tmp/test.md
 cat /tmp/test.md  # Verify markdown written
 
 # Verify all tests pass
@@ -855,20 +855,20 @@ jem-validate-objective    # Strategic objective validation
 
 Or use the renamed scripts directly:
 ```bash
-python extract.py
-python validate_planning.py
-python analyze_workload.py
+python scan.py
+python check_planning.py
+python assess_workload.py
 python validate_objective.py
 ```
 
 ## Migration from v1.x
 
 **Script names have changed:**
-- `jira_extract.py` → `extract.py` (or use `jem-extract` command)
-- `validate_initiative_status.py` → `validate_planning.py` (or use `jem-validate-planning`)
-- `analyze_team_workload.py` → `analyze_workload.py` (or use `jem-analyze-workload`)
+- `jira_scan.py` → `scan.py` (or use `jem-extract` command)
+- `validate_initiative_status.py` → `check_planning.py` (or use `jem-validate-planning`)
+- `analyze_team_workload.py` → `assess_workload.py` (or use `jem-analyze-workload`)
 - `validate_strategic_objective.py` → `validate_objective.py` (or use `jem-validate-objective`)
-- `validate_dependencies.py` → **Removed** (functionality included in `validate_planning.py`)
+- `validate_dependencies.py` → **Removed** (functionality included in `check_planning.py`)
 
 **Configuration files moved:**
 ```bash
@@ -911,9 +911,9 @@ Core domain logic (unchanged from v1.x):
 
 ### Root-level Scripts
 Executable analysis scripts with verb-noun naming (in root for easy access):
-- `extract.py` - Extract data from Jira API
-- `validate_planning.py` - Validate planning readiness
-- `analyze_workload.py` - Analyze team workload distribution
+- `scan.py` - Extract data from Jira API
+- `check_planning.py` - Validate planning readiness
+- `assess_workload.py` - Analyze team workload distribution
 - `validate_objective.py` - Validate strategic objectives
 
 ### templates/
@@ -992,14 +992,14 @@ Follow guidelines in CLAUDE.md:
 pytest tests/ -v --tb=short
 
 # Test each script manually with real data
-python extract.py --help
-python extract.py  # Extract fresh data
+python scan.py --help
+python scan.py  # Extract fresh data
 
-python validate_planning.py
-python validate_planning.py --markdown /tmp/planning.md
+python check_planning.py
+python check_planning.py --markdown /tmp/planning.md
 
-python analyze_workload.py
-python analyze_workload.py --markdown /tmp/workload.md
+python assess_workload.py
+python assess_workload.py --markdown /tmp/workload.md
 
 python validate_objective.py
 
@@ -1020,13 +1020,13 @@ set -e
 echo "=== Smoke Test Suite ==="
 
 echo "1. Testing data extraction..."
-python extract.py --help > /dev/null
+python scan.py --help > /dev/null
 
 echo "2. Testing planning validation..."
-python validate_planning.py --help > /dev/null
+python check_planning.py --help > /dev/null
 
 echo "3. Testing workload analysis..."
-python analyze_workload.py --help > /dev/null
+python assess_workload.py --help > /dev/null
 
 echo "4. Testing objective validation..."
 python validate_objective.py --help > /dev/null
@@ -1135,7 +1135,7 @@ done
 **Steps:**
 ```bash
 # Remove symlinks
-rm jira_extract.py
+rm jira_scan.py
 rm validate_initiative_status.py
 rm analyze_team_workload.py
 rm validate_strategic_objective.py
@@ -1206,7 +1206,7 @@ rm validate_strategic_objective.py
 
 **Direct script execution:**
 - Old: `python validate_initiative_status.py`
-- New: `python scripts/validate_planning.py`
+- New: `python scripts/check_planning.py`
 - Symlinks provide compatibility
 
 **No API parity issues** - all interfaces updated together in Phase 4
@@ -1234,8 +1234,8 @@ jem-analyze-workload --markdown workload_report.md
 
 ```bash
 # Use renamed scripts directly (without pip install)
-python extract.py --quarter 2026-Q2
-python validate_planning.py --markdown test.md
+python scan.py --quarter 2026-Q2
+python check_planning.py --markdown test.md
 
 # Expected: Works without any installation, scripts run from root directory
 ```
@@ -1430,7 +1430,7 @@ After this refactor is complete and stable, consider:
    - Already has strong foundation after this refactor
 
 2. **Data Extraction Strategy (Theme 3 from brainstorm)**
-   - Modify extract.py to always fetch all statuses
+   - Modify scan.py to always fetch all statuses
    - Move filtering logic into processing scripts
    - Single source of truth JSON file
 
@@ -1493,7 +1493,7 @@ After this refactor is complete and stable, consider:
 - Testing: pytest with 11 test files, comprehensive coverage
 - Templates: Already using Jinja2 for console, markdown, Dust formats
 - Configuration: Already externalized in YAML files
-- CLI: Using Click framework in jira_extract.py
+- CLI: Using Click framework in jira_scan.py
 
 **Key patterns identified:**
 - Hyperlink function duplicated in 4 files → Extract to lib/common_formatting.py
@@ -1578,11 +1578,11 @@ Use this as you work through the refactor:
 - [ ] Update setup.py with new entry_points
 - [ ] Rename validate_strategic_objective.py → validate_objective.py
 - [ ] Test, commit
-- [ ] Rename analyze_team_workload.py → analyze_workload.py
+- [ ] Rename analyze_team_workload.py → assess_workload.py
 - [ ] Test, commit
-- [ ] Rename validate_initiative_status.py → validate_planning.py
+- [ ] Rename validate_initiative_status.py → check_planning.py
 - [ ] Test, commit
-- [ ] Rename jira_extract.py → extract.py
+- [ ] Rename jira_scan.py → scan.py
 - [ ] Test, commit
 - [ ] Run pytest tests/ -v (all pass)
 
@@ -1593,13 +1593,13 @@ Use this as you work through the refactor:
 - [ ] Create workload_console.j2
 - [ ] Create workload_markdown.j2
 - [ ] Update scripts to use new template names
-- [ ] Update analyze_workload.py to use templates
+- [ ] Update assess_workload.py to use templates
 - [ ] Run pytest tests/ -v (all pass)
 - [ ] Manual smoke test each script
 
 ### Phase 6: Standardize Output
-- [ ] Update validate_planning.py --markdown behavior
-- [ ] Update analyze_workload.py --markdown behavior
+- [ ] Update check_planning.py --markdown behavior
+- [ ] Update assess_workload.py --markdown behavior
 - [ ] Update validate_objective.py --markdown behavior
 - [ ] Remove deprecated output options
 - [ ] Run pytest tests/ -v (all pass)

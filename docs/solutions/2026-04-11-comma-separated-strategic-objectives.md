@@ -6,11 +6,11 @@
 
 ## Summary
 
-Implemented support for comma-separated strategic objectives in `validate_planning.py` to allow initiatives to have multiple strategic objectives validated individually, matching the behavior already present in `analyze_workload.py`.
+Implemented support for comma-separated strategic objectives in `check_planning.py` to allow initiatives to have multiple strategic objectives validated individually, matching the behavior already present in `assess_workload.py`.
 
 ## Problem
 
-The `validate_planning.py` script was treating strategic objectives as a single string, which meant initiatives with multiple comma-separated objectives (e.g., "2026_fuel_regulated, 2026_network") would be flagged as invalid, even if all individual objectives were valid.
+The `check_planning.py` script was treating strategic objectives as a single string, which meant initiatives with multiple comma-separated objectives (e.g., "2026_fuel_regulated, 2026_network") would be flagged as invalid, even if all individual objectives were valid.
 
 ### Before
 ```python
@@ -27,11 +27,11 @@ if valid_objectives and strategic_objective not in valid_objectives:
 
 ## Solution
 
-Updated `validate_planning.py` to split comma-separated strategic objectives and validate each one individually, following the same pattern as `analyze_workload.py`.
+Updated `check_planning.py` to split comma-separated strategic objectives and validate each one individually, following the same pattern as `assess_workload.py`.
 
 ### Implementation
 
-**File**: `validate_planning.py` (lines 92-107)
+**File**: `check_planning.py` (lines 92-107)
 
 ```python
 # Check strategic objective (missing or invalid)
@@ -100,16 +100,16 @@ Added comprehensive test coverage (5 new tests):
 
 ### Test Results
 ```bash
-python3 -m pytest tests/test_validate_planning.py::test_check_data_quality_*strategic* -v
+python3 -m pytest tests/test_check_planning.py::test_check_data_quality_*strategic* -v
 # 6 passed (including pre-existing test for missing strategic objective)
 ```
 
-## Consistency with analyze_workload.py
+## Consistency with assess_workload.py
 
-The implementation now matches `analyze_workload.py` (lines 376-389), which already had this functionality:
+The implementation now matches `assess_workload.py` (lines 376-389), which already had this functionality:
 
 ```python
-# analyze_workload.py
+# assess_workload.py
 elif valid_strategic_objectives and strategic_objective:
     # Check each objective individually (handles comma-separated multiple objectives)
     objectives = [obj.strip() for obj in strategic_objective.split(',')]
@@ -127,14 +127,14 @@ elif valid_strategic_objectives and strategic_objective:
 
 Both scripts now use the exact same pattern.
 
-## validate_prioritisation.py
+## check_priorities.py
 
-No changes needed for `validate_prioritisation.py` - this script doesn't validate strategic objectives at all (it focuses on priority conflicts and team commitments).
+No changes needed for `check_priorities.py` - this script doesn't validate strategic objectives at all (it focuses on priority conflicts and team commitments).
 
 ## Files Modified
 
-- `validate_planning.py`: Updated `_check_data_quality()` to split and validate comma-separated objectives
-- `tests/test_validate_planning.py`: Added 5 new tests for comma-separated objectives
+- `check_planning.py`: Updated `_check_data_quality()` to split and validate comma-separated objectives
+- `tests/test_check_planning.py`: Added 5 new tests for comma-separated objectives
 - `TODO.md`: Marked task as completed
 
 ## Example Use Cases
@@ -178,10 +178,10 @@ strategic_objective: "2025_scalability_and_reliability, 2026_scale_ecom"
 2. **Whitespace Tolerance**: Extra spaces around commas are stripped automatically
 3. **Partial Validation**: Reports only the invalid objectives, not all of them
 4. **Same Error Structure**: Maintains `invalid_strategic_objective` error type, adds `invalid_values` array
-5. **Consistent with analyze_workload.py**: Uses identical validation logic
+5. **Consistent with assess_workload.py**: Uses identical validation logic
 
 ## Related Documentation
 
 - `config/jira_config.yaml`: Contains valid strategic objective values
-- `analyze_workload.py` (lines 376-389): Original implementation pattern
-- `validate_planning.py` (lines 92-107): Updated implementation
+- `assess_workload.py` (lines 376-389): Original implementation pattern
+- `check_planning.py` (lines 92-107): Updated implementation

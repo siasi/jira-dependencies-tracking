@@ -1,23 +1,23 @@
 ---
-title: Add action items and Slack notifications to analyze_workload.py
+title: Add action items and Slack notifications to assess_workload.py
 type: feat
 status: active
 date: 2026-04-03
 ---
 
-# Add action items and Slack notifications to analyze_workload.py
+# Add action items and Slack notifications to assess_workload.py
 
 ## Overview
 
-Extend `analyze_workload.py` to track data quality issues as actionable items with manager assignments and Slack notification support, matching the pattern established in `validate_planning.py`. Then refactor shared code between both scripts into centralized utilities to eliminate duplication.
+Extend `assess_workload.py` to track data quality issues as actionable items with manager assignments and Slack notification support, matching the pattern established in `check_planning.py`. Then refactor shared code between both scripts into centralized utilities to eliminate duplication.
 
 ## Problem Statement / Motivation
 
 **Current State:**
-- `analyze_workload.py` shows data quality issues with `--show-quality` flag but doesn't track them as actionable items
+- `assess_workload.py` shows data quality issues with `--show-quality` flag but doesn't track them as actionable items
 - No manager attribution for quality issues
 - No Slack notification capability
-- Significant code duplication between `validate_planning.py` and `analyze_workload.py` for:
+- Significant code duplication between `check_planning.py` and `assess_workload.py` for:
   - Action item extraction logic
   - Manager information loading
   - Slack message generation
@@ -31,9 +31,9 @@ Extend `analyze_workload.py` to track data quality issues as actionable items wi
 
 ## Proposed Solution
 
-### Phase 1: Implement Action Items in analyze_workload.py
+### Phase 1: Implement Action Items in assess_workload.py
 
-Add action item extraction and formatting to `analyze_workload.py` following the exact pattern from `validate_planning.py`:
+Add action item extraction and formatting to `assess_workload.py` following the exact pattern from `check_planning.py`:
 
 1. **Extract action items from data quality issues**
    - Create `extract_workload_actions()` function
@@ -73,7 +73,7 @@ Extract duplicated code into `lib/` modules:
 
 ## Technical Considerations
 
-### Action Types for analyze_workload.py
+### Action Types for assess_workload.py
 
 Define action types matching data quality issues:
 
@@ -104,7 +104,7 @@ ACTION_TYPES = {
 
 ### Action Item Data Structure
 
-Follow validate_planning.py pattern:
+Follow check_planning.py pattern:
 
 ```python
 {
@@ -129,7 +129,7 @@ Follow validate_planning.py pattern:
 
 ### Console Output Format
 
-Match validate_planning.py checkbox format:
+Match check_planning.py checkbox format:
 
 ```
 INIT-1482: [AMZ] Direct Debit Safeguarding Risk Mitigation
@@ -170,8 +170,8 @@ INIT-1491: <https://truelayer.atlassian.net/browse/INIT-1491>
 1. Start with `lib/manager_info.py` - lowest-level, no dependencies
 2. Then `lib/action_items.py` - depends only on manager_info
 3. Then `lib/slack_messages.py` - depends on both above
-4. Update `validate_planning.py` first (smaller changes)
-5. Update `analyze_workload.py` last (benefits from tested refactoring)
+4. Update `check_planning.py` first (smaller changes)
+5. Update `assess_workload.py` last (benefits from tested refactoring)
 
 **Backward Compatibility:**
 - Keep existing function signatures in both scripts
@@ -185,10 +185,10 @@ INIT-1491: <https://truelayer.atlassian.net/browse/INIT-1491>
 
 ## Implementation Phases
 
-### Phase 1: Add Action Items to analyze_workload.py
+### Phase 1: Add Action Items to assess_workload.py
 
 **Files to modify:**
-- `analyze_workload.py`
+- `assess_workload.py`
 
 **Tasks:**
 
@@ -261,9 +261,9 @@ INIT-1491: <https://truelayer.atlassian.net/browse/INIT-1491>
    ```
 
 **Success Criteria:**
-- [ ] `python3 analyze_workload.py --quarter "26 Q2" --show-quality` displays action items with checkboxes
+- [ ] `python3 assess_workload.py --quarter "26 Q2" --show-quality` displays action items with checkboxes
 - [ ] Manager Notion handles appear in action items
-- [ ] `python3 analyze_workload.py --quarter "26 Q2" --slack` generates Slack message file
+- [ ] `python3 assess_workload.py --quarter "26 Q2" --slack` generates Slack message file
 - [ ] Slack messages grouped by manager with correct formatting
 - [ ] All existing tests pass
 - [ ] New tests added for action extraction
@@ -275,15 +275,15 @@ INIT-1491: <https://truelayer.atlassian.net/browse/INIT-1491>
 - `lib/jira_url.py` (NEW - sanitization)
 
 **Files to modify:**
-- `validate_planning.py`
-- `analyze_workload.py`
+- `check_planning.py`
+- `assess_workload.py`
 - `templates/notification_slack.j2`
 
 **Tasks:**
 
 1. **Sanitize hardcoded company-specific data (SECURITY)**
-   - Extract `get_jira_base_url()` from analyze_workload.py to `lib/jira_url.py`
-   - Update validate_planning.py to use shared function (lines 653)
+   - Extract `get_jira_base_url()` from assess_workload.py to `lib/jira_url.py`
+   - Update check_planning.py to use shared function (lines 653)
    - Fix template to use passed epic_url instead of constructing URL (line 21)
    - Update all scripts to pass epic URLs in action data
    - Verify no hardcoded company URLs remain in any Python files or templates
@@ -324,13 +324,13 @@ INIT-1491: <https://truelayer.atlassian.net/browse/INIT-1491>
        """Get manager info for team, returning empty dict if not found."""
    ```
 
-2. **Update validate_planning.py to use lib/manager_info**
+2. **Update check_planning.py to use lib/manager_info**
    - Replace `_load_team_managers()` with `from lib.manager_info import load_team_managers`
    - Replace `_validate_slack_config()` with import
    - Update all call sites
    - Keep old functions as deprecated wrappers (optional, for safety)
 
-3. **Update analyze_workload.py to use lib/manager_info**
+3. **Update assess_workload.py to use lib/manager_info**
    - Import `load_team_managers` from lib.manager_info
    - Remove local manager loading logic from `load_team_mappings()`
    - Update return tuple to use shared function
@@ -348,8 +348,8 @@ INIT-1491: <https://truelayer.atlassian.net/browse/INIT-1491>
 - `lib/action_items.py`
 
 **Files to modify:**
-- `validate_planning.py`
-- `analyze_workload.py`
+- `check_planning.py`
+- `assess_workload.py`
 
 **Tasks:**
 
@@ -398,12 +398,12 @@ INIT-1491: <https://truelayer.atlassian.net/browse/INIT-1491>
        """Sort actions by priority (1=highest)."""
    ```
 
-2. **Update validate_planning.py extract_manager_actions()**
+2. **Update check_planning.py extract_manager_actions()**
    - Import action_items helpers
    - Use shared `build_base_context()` and `enrich_with_manager_info()`
    - Reduce duplication in action building
 
-3. **Update analyze_workload.py extract_workload_actions()**
+3. **Update assess_workload.py extract_workload_actions()**
    - Use shared helpers from action_items module
    - Consistent structure across both scripts
 
@@ -420,8 +420,8 @@ INIT-1491: <https://truelayer.atlassian.net/browse/INIT-1491>
 - `lib/slack_messages.py`
 
 **Files to modify:**
-- `validate_planning.py`
-- `analyze_workload.py`
+- `check_planning.py`
+- `assess_workload.py`
 
 **Tasks:**
 
@@ -485,12 +485,12 @@ INIT-1491: <https://truelayer.atlassian.net/browse/INIT-1491>
        # 5. Print summary to console
    ```
 
-2. **Update validate_planning.py generate_slack_messages()**
+2. **Update check_planning.py generate_slack_messages()**
    - Replace grouping logic with `group_actions_by_manager()`
    - Replace file generation with `generate_slack_file()`
    - Keep function signature for backward compatibility
 
-3. **Update analyze_workload.py generate_workload_slack_messages()**
+3. **Update assess_workload.py generate_workload_slack_messages()**
    - Use shared `generate_slack_file()` function
    - Pass workload-specific filename prefix
 
@@ -521,8 +521,8 @@ INIT-1491: <https://truelayer.atlassian.net/browse/INIT-1491>
    - Test edge cases (empty results, missing managers)
 
 2. **Integration tests**
-   - Test validate_planning.py still works after refactoring
-   - Test analyze_workload.py with new action items
+   - Test check_planning.py still works after refactoring
+   - Test assess_workload.py with new action items
    - Compare output before/after refactoring
 
 3. **Update documentation**
@@ -533,13 +533,13 @@ INIT-1491: <https://truelayer.atlassian.net/browse/INIT-1491>
 4. **Manual testing**
    ```bash
    # Test analyze_workload with action items
-   python3 analyze_workload.py --quarter "26 Q2" --show-quality
+   python3 assess_workload.py --quarter "26 Q2" --show-quality
 
    # Test Slack generation
-   python3 analyze_workload.py --quarter "26 Q2" --slack
+   python3 assess_workload.py --quarter "26 Q2" --slack
 
    # Test validate_planning still works
-   python3 validate_planning.py --quarter "26 Q2" --slack
+   python3 check_planning.py --quarter "26 Q2" --slack
    ```
 
 **Success Criteria:**
@@ -550,7 +550,7 @@ INIT-1491: <https://truelayer.atlassian.net/browse/INIT-1491>
 
 ## Acceptance Criteria
 
-### Phase 1: Action Items in analyze_workload.py
+### Phase 1: Action Items in assess_workload.py
 - [x] `--show-quality` displays action items in checkbox format
 - [x] Manager Notion handles appear in action items (e.g., "@Manager Name")
 - [x] Action items grouped by initiative with priority sorting
@@ -623,8 +623,8 @@ INIT-1491: <https://truelayer.atlassian.net/browse/INIT-1491>
 ### Internal References
 
 **Existing Patterns:**
-- `/Users/stefano.iasi/git/jira-dependencies-tracking/validate_planning.py:583-908` - extract_manager_actions() pattern
-- `/Users/stefano.iasi/git/jira-dependencies-tracking/validate_planning.py:911-1061` - generate_slack_messages() pattern
+- `/Users/stefano.iasi/git/jira-dependencies-tracking/check_planning.py:583-908` - extract_manager_actions() pattern
+- `/Users/stefano.iasi/git/jira-dependencies-tracking/check_planning.py:911-1061` - generate_slack_messages() pattern
 - `/Users/stefano.iasi/git/jira-dependencies-tracking/lib/template_renderer.py` - Jinja2 setup
 - `/Users/stefano.iasi/git/jira-dependencies-tracking/lib/common_formatting.py` - Link formatting helpers
 

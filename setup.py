@@ -13,10 +13,12 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            # New script names (scripts in root directory)
-            "jem-extract=extract:cli",
-            "jem-validate-planning=validate_planning:main",
-            "jem-analyze-workload=analyze_workload:main",
+            # Mission Control script names (scripts in root directory)
+            "jem-scan=scan:cli",
+            "jem-check-planning=check_planning:main",
+            "jem-check-quality=check_quality:main",
+            "jem-check-priorities=check_priorities:main",
+            "jem-assess-workload=assess_workload:main",
         ],
     },
     python_requires=">=3.9",

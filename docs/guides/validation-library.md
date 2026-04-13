@@ -6,7 +6,7 @@ Technical documentation for using the shared validation library (`lib/validation
 
 ## Overview
 
-The validation library provides reusable, status-aware validation logic for checking initiative data quality. All validation scripts (`validate_planning.py`, `validate_data_quality.py`, `validate_prioritisation.py`, `analyze_workload.py`) use this library to ensure consistent validation rules.
+The validation library provides reusable, status-aware validation logic for checking initiative data quality. All validation scripts (`check_planning.py`, `check_quality.py`, `check_priorities.py`, `assess_workload.py`) use this library to ensure consistent validation rules.
 
 **Key Features:**
 - **Status-aware validation** - Rules escalate based on initiative status

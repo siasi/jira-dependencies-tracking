@@ -113,7 +113,7 @@ Extract Jira initiatives and epics to analyze team contributions.
 4. **Edit config.yaml:**
    - Update `jira.instance` with your Jira URL
    - Update `projects.teams` with your team project keys
-   - Find RAG custom field ID: `python jira_extract.py list-fields`
+   - Find RAG custom field ID: `python jira_scan.py list-fields`
 
 5. **Edit .env:**
    - Add your Jira email
@@ -123,22 +123,22 @@ Extract Jira initiatives and epics to analyze team contributions.
 
 Extract data:
 ```bash
-python jira_extract.py extract
+python jira_scan.py extract
 ```
 
 List custom fields:
 ```bash
-python jira_extract.py list-fields
+python jira_scan.py list-fields
 ```
 
 Validate config:
 ```bash
-python jira_extract.py validate-config
+python jira_scan.py validate-config
 ```
 
 Options:
 ```bash
-python jira_extract.py extract --config custom.yaml --output ./report.json --verbose
+python jira_scan.py extract --config custom.yaml --output ./report.json --verbose
 ```
 
 ## Output
@@ -1357,7 +1357,7 @@ git commit -m "feat: add JSON output generator with completeness tracking"
 ## Task 7: CLI Application
 
 **Files:**
-- Create: `jira_extract.py`
+- Create: `jira_scan.py`
 
 **Step 1: Write the implementation**
 
@@ -1618,22 +1618,22 @@ if __name__ == "__main__":
 
 **Step 2: Make executable**
 
-Run: `chmod +x jira_extract.py`
+Run: `chmod +x jira_scan.py`
 
 **Step 3: Test help command**
 
-Run: `python jira_extract.py --help`
+Run: `python jira_scan.py --help`
 Expected: Shows help text with all commands
 
 **Step 4: Test version command**
 
-Run: `python jira_extract.py --version`
+Run: `python jira_scan.py --version`
 Expected: Shows version "0.1.0"
 
 **Step 5: Commit**
 
 ```bash
-git add jira_extract.py
+git add jira_scan.py
 git commit -m "feat: add CLI application with extract, list-fields, and validate commands"
 ```
 
@@ -1700,7 +1700,7 @@ Expected: All tests pass
 
 **Step 4: Test end-to-end with dry-run**
 
-Run: `python jira_extract.py extract --dry-run`
+Run: `python jira_scan.py extract --dry-run`
 Expected: Shows what would be fetched (requires .env and config.yaml)
 
 **Step 5: Commit**
@@ -1761,9 +1761,9 @@ Manually review README.md to ensure all setup steps are clear and complete.
    - Copy config.yaml.example to config.yaml
    - Copy .env.example to .env
    - Add real credentials
-   - Run `python jira_extract.py validate-config`
-   - Run `python jira_extract.py list-fields` to find RAG field
-   - Run `python jira_extract.py extract`
+   - Run `python jira_scan.py validate-config`
+   - Run `python jira_scan.py list-fields` to find RAG field
+   - Run `python jira_scan.py extract`
 
 2. Verify output JSON structure matches requirements
 

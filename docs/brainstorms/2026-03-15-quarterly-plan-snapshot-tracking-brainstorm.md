@@ -119,19 +119,19 @@ custom_fields:
 
 ```bash
 # Capture baseline when plan stabilizes
-python jira_extract.py snapshot --label "2026-Q2-baseline"
+python jira_scan.py snapshot --label "2026-Q2-baseline"
 
 # Monthly checkpoints
-python jira_extract.py snapshot --label "2026-Q2-month1"
-python jira_extract.py snapshot --label "2026-Q2-month2"
-python jira_extract.py snapshot --label "2026-Q2-end"
+python jira_scan.py snapshot --label "2026-Q2-month1"
+python jira_scan.py snapshot --label "2026-Q2-month2"
+python jira_scan.py snapshot --label "2026-Q2-end"
 
 # Generate comparison reports
-python jira_extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
-python jira_extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-end"
+python jira_scan.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
+python jira_scan.py compare --from "2026-Q2-baseline" --to "2026-Q2-end"
 
 # List available snapshots
-python jira_extract.py snapshots list
+python jira_scan.py snapshots list
 ```
 
 ## Open Questions

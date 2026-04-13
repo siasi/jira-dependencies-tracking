@@ -30,7 +30,7 @@ custom_fields:
 
 1. **Find the Jira field ID:**
    ```bash
-   python extract.py list-fields
+   python scan.py list-fields
    ```
    This lists all available custom fields with their IDs and types.
 
@@ -43,7 +43,7 @@ custom_fields:
 
 3. **Run extraction:**
    ```bash
-   python extract.py extract
+   python scan.py extract
    ```
    The field will appear in the output JSON with the name you specified.
 
@@ -89,7 +89,7 @@ my_teams:
 **Usage:**
 ```bash
 # Show only action items for your configured teams
-python validate_data_quality.py --quarter "26 Q2" --me
+python check_quality.py --quarter "26 Q2" --me
 ```
 
 See [Validate Data Quality documentation](../scripts/validate-data-quality.md#personal-filtering) for details.
@@ -127,9 +127,9 @@ team_managers:
 Use the `--quarter` flag with scripts to filter at runtime:
 
 ```bash
-python extract.py extract --quarter "26 Q2"
-python validate_planning.py --quarter "26 Q2"
-python analyze_workload.py --quarter "26 Q2"
+python scan.py extract --quarter "26 Q2"
+python check_planning.py --quarter "26 Q2"
+python assess_workload.py --quarter "26 Q2"
 ```
 
 This approach is flexible and doesn't modify configuration files.
@@ -193,7 +193,7 @@ teams_excluded_from_workload_analysis:
   - "Integration Ops"
 ```
 
-**Used by:** `analyze_workload.py`
+**Used by:** `assess_workload.py`
 
 **Why:** These teams have different work patterns than product delivery teams and would skew workload metrics.
 
@@ -208,7 +208,7 @@ teams_excluded_from_validation:
   - "SecOps"
 ```
 
-**Used by:** `validate_planning.py`, `validate_data_quality.py`
+**Used by:** `check_planning.py`, `check_quality.py`
 
 **Why:** These teams don't need to create epics when listed in Teams Involved.
 
@@ -223,7 +223,7 @@ teams_excluded_from_prioritisation:
   - "XD"
 ```
 
-**Used by:** `validate_prioritisation.py`
+**Used by:** `check_priorities.py`
 
 **Why:** These teams work on operational/continuous work not tied to strategic initiatives.
 
@@ -272,7 +272,7 @@ signed_off_initiatives:
 Run validation - signed-off initiatives will be completely hidden from reports:
 
 ```bash
-python validate_planning.py --quarter "26 Q2"
+python check_planning.py --quarter "26 Q2"
 # INIT-1234 will not appear in validation output
 ```
 
@@ -311,13 +311,13 @@ Format: `{progressive_number:03d}_{report_type}_{timestamp}.{extension}`
 
 ```bash
 # Auto-generates: output/workload_analysis/001_workload_analysis_YYYYMMDD_HHMMSS.html
-python analyze_workload.py --quarter "26 Q2" --html
+python assess_workload.py --quarter "26 Q2" --html
 
 # Custom location (overrides default)
-python analyze_workload.py --quarter "26 Q2" --html my_custom_report.html
+python assess_workload.py --quarter "26 Q2" --html my_custom_report.html
 
 # Generate multiple formats (each gets progressive numbering)
-python analyze_workload.py --quarter "26 Q2" --html --markdown --csv
+python assess_workload.py --quarter "26 Q2" --html --markdown --csv
 ```
 
 ## Strategic Objectives

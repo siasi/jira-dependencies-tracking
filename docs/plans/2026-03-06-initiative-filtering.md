@@ -670,15 +670,15 @@ git commit -m "feat: implement JQL filtering for initiatives"
 ## Task 6: Update CLI to Pass Filter Parameters
 
 **Files:**
-- Modify: `jira_extract.py`
+- Modify: `jira_scan.py`
 
 **Step 1: Read current CLI code**
 
-Read `jira_extract.py` to understand current DataFetcher initialization.
+Read `jira_scan.py` to understand current DataFetcher initialization.
 
 **Step 2: Modify DataFetcher initialization**
 
-In `jira_extract.py`, update the DataFetcher initialization in the `extract` command:
+In `jira_scan.py`, update the DataFetcher initialization in the `extract` command:
 
 ```python
 # Create fetcher
@@ -694,7 +694,7 @@ fetcher = DataFetcher(
 
 **Step 3: Add console output for filtering**
 
-In `jira_extract.py`, add after "Fetching data from Jira...":
+In `jira_scan.py`, add after "Fetching data from Jira...":
 
 ```python
 # Show filtering status
@@ -704,7 +704,7 @@ if config.filters and config.filters.quarter:
 
 **Step 4: Update summary output**
 
-In `jira_extract.py`, modify the summary section:
+In `jira_scan.py`, modify the summary section:
 
 ```python
 # Show summary
@@ -719,13 +719,13 @@ click.echo(f"  Teams: {len(summary['teams_involved'])}")
 
 **Step 5: Test manually**
 
-Run: `python jira_extract.py extract --verbose`
+Run: `python jira_scan.py extract --verbose`
 Expected: Should work without filters (backward compatible)
 
 **Step 6: Commit**
 
 ```bash
-git add jira_extract.py
+git add jira_scan.py
 git commit -m "feat: wire up filter parameters in CLI"
 ```
 
@@ -828,7 +828,7 @@ Create `config.yaml` with filters section using your actual values.
 
 **Step 2: Run extraction with filtering**
 
-Run: `python jira_extract.py extract --verbose`
+Run: `python jira_scan.py extract --verbose`
 Expected:
 - Console shows: "Applying filters: quarter='25 Q1', status!='Done'"
 - Extracts only matching initiatives
@@ -838,7 +838,7 @@ Expected:
 
 Remove `filters` section from `config.yaml`.
 
-Run: `python jira_extract.py extract --verbose`
+Run: `python jira_scan.py extract --verbose`
 Expected:
 - No filter message shown
 - Extracts all initiatives
@@ -848,7 +848,7 @@ Expected:
 
 Set `filters.quarter` but remove `custom_fields.quarter` in `config.yaml`.
 
-Run: `python jira_extract.py extract`
+Run: `python jira_scan.py extract`
 Expected: Error: "Quarter filtering requires custom_fields.quarter to be defined"
 
 **Step 5: Restore working config**

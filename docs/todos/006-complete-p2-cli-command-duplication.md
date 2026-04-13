@@ -19,7 +19,7 @@ The snapshot, snapshots list, and compare commands share ~100 lines of duplicate
 **From kieran-python-reviewer agent:**
 
 ```python
-# jira_extract.py - Repeated pattern in 3 commands
+# jira_scan.py - Repeated pattern in 3 commands
 
 @cli.command()
 def snapshot(config, label, verbose):
@@ -186,7 +186,7 @@ def snapshot(label):
 ## Technical Details
 
 **Affected files:**
-- `jira_extract.py` - Refactor snapshot, snapshots list, compare commands
+- `jira_scan.py` - Refactor snapshot, snapshots list, compare commands
 
 **Changes required:**
 1. Create snapshots command group with context setup
@@ -227,10 +227,10 @@ def snapshot(label):
 - All 79 tests pass - no behavior changes
 
 **Changes:**
-- jira_extract.py:19-22 - Added centralized error handler
-- jira_extract.py:462 - Updated snapshot command
-- jira_extract.py:506 - Updated snapshots list command
-- jira_extract.py:586 - Updated compare command
+- jira_scan.py:19-22 - Added centralized error handler
+- jira_scan.py:462 - Updated snapshot command
+- jira_scan.py:506 - Updated snapshots list command
+- jira_scan.py:586 - Updated compare command
 
 **Results:**
 - Error handling centralized (DRY principle achieved)

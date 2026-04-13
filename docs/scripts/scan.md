@@ -1,10 +1,10 @@
-# Extract Script Documentation
+# Scan Script Documentation
 
-Extract initiatives and epics from Jira to JSON/CSV format for analysis with other toolkit scripts.
+Scan Jira for initiatives and epics, extracting data to JSON/CSV format for analysis with other toolkit scripts.
 
 ## Purpose
 
-The extract script pulls data from Jira and stores it locally for offline analysis. It supports:
+The scan script pulls data from Jira and stores it locally for offline analysis. It supports:
 - JSON and CSV output formats
 - Custom field extraction
 - Flexible filtering by quarter, status, or custom JQL
@@ -17,13 +17,13 @@ The extract script pulls data from Jira and stores it locally for offline analys
 
 ```bash
 # Extract all data to JSON
-python extract.py extract
+python scan.py extract
 
 # Extract to CSV format
-python extract.py extract --format csv
+python scan.py extract --format csv
 
 # Extract both formats
-python extract.py extract --format both
+python scan.py extract --format both
 ```
 
 ## Commands
@@ -33,7 +33,7 @@ python extract.py extract --format both
 Extract initiatives and epics from Jira.
 
 ```bash
-python extract.py extract [OPTIONS]
+python scan.py extract [OPTIONS]
 ```
 
 **Options:**
@@ -50,22 +50,22 @@ python extract.py extract [OPTIONS]
 
 ```bash
 # Extract to custom location
-python extract.py extract --config config/custom.yaml --output ./report.json
+python scan.py extract --config config/custom.yaml --output ./report.json
 
 # Extract only In Progress initiatives
-python extract.py extract --status "In Progress"
+python scan.py extract --status "In Progress"
 
 # Extract Q2 2026 initiatives (excludes Done automatically)
-python extract.py extract --quarter "26 Q2"
+python scan.py extract --quarter "26 Q2"
 
 # Extract Q2 2026 Proposed initiatives only
-python extract.py extract --quarter "26 Q2" --status "Proposed"
+python scan.py extract --quarter "26 Q2" --status "Proposed"
 
 # Use custom JQL (overrides other filters)
-python extract.py extract --jql "project = INIT AND status = Planned"
+python scan.py extract --jql "project = INIT AND status = Planned"
 
 # Test extraction without writing files
-python extract.py extract --dry-run --verbose
+python scan.py extract --dry-run --verbose
 ```
 
 **Output Files:**
@@ -79,7 +79,7 @@ Default output locations:
 List all custom fields available in your Jira instance.
 
 ```bash
-python extract.py list-fields
+python scan.py list-fields
 ```
 
 **Output:**
@@ -94,7 +94,7 @@ python extract.py list-fields
 Validate your configuration without extracting data.
 
 ```bash
-python extract.py validate-config
+python scan.py validate-config
 ```
 
 **Checks:**
@@ -182,7 +182,7 @@ Two CSV files are generated:
 Extract only initiatives for a specific quarter:
 
 ```bash
-python extract.py extract --quarter "26 Q2"
+python scan.py extract --quarter "26 Q2"
 ```
 
 **Behavior:**
@@ -196,10 +196,10 @@ Extract initiatives with specific status:
 
 ```bash
 # Single status
-python extract.py extract --status "In Progress"
+python scan.py extract --status "In Progress"
 
 # Exclude status (using negation)
-python extract.py extract --status "!Done"
+python scan.py extract --status "!Done"
 ```
 
 ### Combined Filters
@@ -208,10 +208,10 @@ Combine quarter and status filters:
 
 ```bash
 # Q2 2026 Proposed initiatives
-python extract.py extract --quarter "26 Q2" --status "Proposed"
+python scan.py extract --quarter "26 Q2" --status "Proposed"
 
 # Q2 2026 including Done
-python extract.py extract --quarter "26 Q2" --status "Planned,In Progress,Done"
+python scan.py extract --quarter "26 Q2" --status "Planned,In Progress,Done"
 ```
 
 ### Custom JQL
@@ -219,7 +219,7 @@ python extract.py extract --quarter "26 Q2" --status "Planned,In Progress,Done"
 For advanced filtering, use custom JQL:
 
 ```bash
-python extract.py extract --jql "project = INIT AND labels = high-priority"
+python scan.py extract --jql "project = INIT AND labels = high-priority"
 ```
 
 **Note:** When `--jql` is specified, `--quarter` and `--status` are ignored.
@@ -263,10 +263,10 @@ Extract baseline for planning validation:
 
 ```bash
 # Extract Q2 initiatives
-python extract.py extract --quarter "26 Q2"
+python scan.py extract --quarter "26 Q2"
 
 # Validate planning readiness
-python validate_planning.py --quarter "26 Q2"
+python check_planning.py --quarter "26 Q2"
 ```
 
 ### Workload Analysis
@@ -275,10 +275,10 @@ Extract current state for workload distribution:
 
 ```bash
 # Extract all In Progress and Planned work
-python extract.py extract
+python scan.py extract
 
 # Analyze workload for Q2
-python analyze_workload.py --quarter "26 Q2"
+python assess_workload.py --quarter "26 Q2"
 ```
 
 ### Historical Analysis
@@ -287,7 +287,7 @@ Extract all initiatives including completed work:
 
 ```bash
 # Include all statuses
-python extract.py extract --status "Proposed,Planned,In Progress,Done"
+python scan.py extract --status "Proposed,Planned,In Progress,Done"
 ```
 
 ### Data Quality Audits
@@ -296,10 +296,10 @@ Extract specific status for validation:
 
 ```bash
 # Extract Proposed initiatives for quality check
-python extract.py extract --status "Proposed"
+python scan.py extract --status "Proposed"
 
 # Validate data quality
-python validate_data_quality.py --status "Proposed"
+python check_quality.py --status "Proposed"
 ```
 
 ## Troubleshooting
@@ -313,7 +313,7 @@ python validate_data_quality.py --status "Proposed"
 - Use project keys like `INIT`, not names like "Initiatives"
 
 ### Issue: "Custom field not found"
-- **Solution:** Run `python extract.py list-fields` to find correct field IDs
+- **Solution:** Run `python scan.py list-fields` to find correct field IDs
 - Update `custom_fields.initiatives` in `jira_config.yaml`
 
 ### Issue: "Rate limited"
@@ -342,5 +342,5 @@ python validate_data_quality.py --status "Proposed"
 - [Snapshots](snapshots.md) - 🧪 Snapshot capture and comparison (experimental)
 - [Setup Guide](../guides/setup.md) - Initial configuration
 - [Configuration Reference](../guides/configuration.md) - Advanced config options
-- [Validate Planning](validate-planning.md) - Use extracted data for planning validation
-- [Analyze Workload](analyze-workload.md) - Use extracted data for workload analysis
+- [Check Planning](check-planning.md) - Use extracted data for planning validation
+- [Assess Workload](assess-workload.md) - Use extracted data for workload analysis

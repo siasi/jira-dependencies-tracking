@@ -40,7 +40,7 @@ Create a new standalone validation script (`validate_tech_leadership.py`) that p
 
 ## Proposed Solution
 
-Create `validate_tech_leadership.py` as a standalone script (following `validate_planning.py` patterns) that:
+Create `validate_tech_leadership.py` as a standalone script (following `check_planning.py` patterns) that:
 
 1. **Loads priority configuration** from `config/tech_leadership_priorities.yaml` (simple ordered list of initiative keys)
 2. **Filters Tech Leadership initiatives** (`owner_team == "Tech Leadership"`)
@@ -55,7 +55,7 @@ Create `validate_tech_leadership.py` as a standalone script (following `validate
 7. **Supports Slack notifications** via `--slack` flag (groups by manager, multi-team managers get consolidated messages)
 
 **Key Architectural Decisions (see brainstorm):**
-- **Standalone script** not extension of validate_planning.py (separation of concerns)
+- **Standalone script** not extension of check_planning.py (separation of concerns)
 - **Config-based priorities** not Jira field (flexibility, speed, gitops)
 - **Warnings + action items** not hard blocking (flexibility, accountability)
 - **All epics must be non-red** for commitment (conservative quality approach)
@@ -87,7 +87,7 @@ tests/test_validate_tech_leadership.py # Comprehensive test suite
 
 ### Code Organization
 
-**Main Components (following validate_planning.py pattern):**
+**Main Components (following check_planning.py pattern):**
 
 ```python
 # validate_tech_leadership.py
@@ -182,28 +182,28 @@ def _load_tech_leadership_priorities(
 def _load_team_mappings() -> tuple:
     """Load team mappings from config.
 
-    Reuses existing pattern from validate_planning.py.
+    Reuses existing pattern from check_planning.py.
     Returns tuple of (team_mappings, reverse_mappings, excluded_teams)
     """
-    # Same implementation as validate_planning.py
-    # ... (omitted for brevity, copy from validate_planning.py)
+    # Same implementation as check_planning.py
+    # ... (omitted for brevity, copy from check_planning.py)
 
 def _load_team_managers() -> Dict[str, Dict[str, Optional[str]]]:
     """Load team manager information.
 
-    Reuses existing pattern from validate_planning.py.
+    Reuses existing pattern from check_planning.py.
     Returns dict mapping team_key to {'notion_handle': str, 'slack_id': str}
     """
-    # Same implementation as validate_planning.py
-    # ... (omitted for brevity, copy from validate_planning.py)
+    # Same implementation as check_planning.py
+    # ... (omitted for brevity, copy from check_planning.py)
 
 def _validate_slack_config(team_managers: Dict[str, Dict]) -> None:
     """Validate all teams have slack_id configured.
 
     Raises ValueError if any team missing slack_id.
     """
-    # Same implementation as validate_planning.py
-    # ... (omitted for brevity, copy from validate_planning.py)
+    # Same implementation as check_planning.py
+    # ... (omitted for brevity, copy from check_planning.py)
 
 # 4. Helper Functions (lines 182-280)
 def _is_discovery_initiative(initiative: Dict) -> bool:
@@ -230,8 +230,8 @@ def _normalize_teams_involved(teams_involved: Any) -> List[str]:
 
     Handles None, list, or comma-separated string.
     """
-    # Same implementation as validate_planning.py
-    # ... (omitted for brevity, copy from validate_planning.py)
+    # Same implementation as check_planning.py
+    # ... (omitted for brevity, copy from check_planning.py)
 
 def _get_team_epics_rag_statuses(
     initiative: Dict,
@@ -699,7 +699,7 @@ def generate_tech_leadership_slack_messages(
         click.echo(click.style("No action items to send via Slack.", fg='green'))
         return
 
-    # Group by manager (same pattern as validate_planning.py)
+    # Group by manager (same pattern as check_planning.py)
     manager_groups = defaultdict(lambda: {
         'manager_name': None,
         'slack_id': None,
@@ -990,7 +990,7 @@ def main(quarter: str, config: Optional[str], slack: bool, verbose: bool, data_f
             data_path = find_latest_extract()  # From lib/file_utils.py
             if not data_path:
                 raise click.ClickException(
-                    "No data file found. Run extract.py or provide path to data file."
+                    "No data file found. Run scan.py or provide path to data file."
                 )
 
         # Parse config path
@@ -1303,7 +1303,7 @@ priorities:
 
 **Tasks:**
 1. **Implement helper functions** (~100 lines)
-   - `_normalize_teams_involved()` (copy from validate_planning.py)
+   - `_normalize_teams_involved()` (copy from check_planning.py)
    - `_get_team_epics_rag_statuses()`
    - `_is_team_committed()` (all epics must be non-red)
 
@@ -1378,9 +1378,9 @@ priorities:
    - Sort by priority
 
 2. ✅ **Reuse config loading functions** (~150 lines)
-   - Copy `_load_team_managers()` from validate_planning.py
-   - Copy `_load_team_mappings()` from validate_planning.py (already done in Phase 2)
-   - Copy `_validate_slack_config()` from validate_planning.py
+   - Copy `_load_team_managers()` from check_planning.py
+   - Copy `_load_team_mappings()` from check_planning.py (already done in Phase 2)
+   - Copy `_validate_slack_config()` from check_planning.py
 
 3. ✅ **Implement Slack message generation** (~180 lines)
    - `generate_tech_leadership_slack_messages()`
@@ -1552,8 +1552,8 @@ priorities:
 
 **Integration:**
 - [ ] Reuses existing lib/ modules (template_renderer, file_utils, config_utils)
-- [ ] Follows validate_planning.py patterns
-- [ ] Consistent with analyze_workload.py structure
+- [ ] Follows check_planning.py patterns
+- [ ] Consistent with assess_workload.py structure
 
 ## Success Metrics
 
@@ -1584,7 +1584,7 @@ priorities:
 ### Dependencies
 
 **Required:**
-- Existing data extraction (`extract.py` or snapshot)
+- Existing data extraction (`scan.py` or snapshot)
 - `config/jira_config.yaml` with Jira instance
 - `config/team_mappings.yaml` with team managers and Slack IDs
 - `lib/template_renderer.py` for Jinja2 setup
@@ -1602,7 +1602,7 @@ priorities:
 | Priority config becomes stale | Medium | High | Warn when initiatives in config not found in data, show unlisted initiatives in report |
 | Team managers missing Slack IDs | High | Low | Validate Slack config before generation, clear error message with missing teams |
 | Multiple epics with mixed RAG statuses | Medium | Medium | Conservative approach: ALL epics must be non-red (tested thoroughly) |
-| Manager oversees many teams | Low | Medium | Follow validate_planning.py pattern: one message per manager with team subsections |
+| Manager oversees many teams | Low | Medium | Follow check_planning.py pattern: one message per manager with team subsections |
 | Performance with large datasets | Low | Low | Efficient filtering and matrix building, tested with 100+ initiatives |
 
 ## System-Wide Impact
@@ -1661,13 +1661,13 @@ priorities:
 
 **Related Interfaces:**
 
-1. **validate_planning.py** - Similar structure but different validation rules
+1. **check_planning.py** - Similar structure but different validation rules
    - Both use ValidationResult-like dataclass
    - Both extract action items with manager metadata
    - Both generate Slack messages grouped by manager
    - **Not shared:** Priority-based logic is unique to Tech Leadership
 
-2. **analyze_workload.py** - Similar team commitment analysis
+2. **assess_workload.py** - Similar team commitment analysis
    - Both build team commitment matrices
    - Both check epic RAG statuses
    - Both filter to specific quarter
@@ -1724,12 +1724,12 @@ priorities:
 ### Internal References
 
 **Similar implementations:**
-- `validate_planning.py` - Validation structure, action items, Slack generation
+- `check_planning.py` - Validation structure, action items, Slack generation
   - Lines 33-59: ValidationResult dataclass pattern
   - Lines 584-910: Action item extraction pattern
   - Lines 913-1063: Slack message generation pattern
   - Lines 1065-1267: Main validation function structure
-- `analyze_workload.py` - Team commitment analysis, RAG aggregation
+- `assess_workload.py` - Team commitment analysis, RAG aggregation
   - Lines 223-488: analyze_workload() structure
   - Lines 520-691: extract_workload_actions() pattern
   - Lines 1387-1606: Dashboard metrics computation
@@ -1782,8 +1782,8 @@ priorities:
 ### Related Work
 
 **Previous implementations:**
-- validate_planning.py - Initiative status validation
-- analyze_workload.py - Team workload analysis
+- check_planning.py - Initiative status validation
+- assess_workload.py - Team workload analysis
 
 **Planning documents:**
 - docs/brainstorms/2026-04-08-tech-leadership-priority-validation-brainstorm.md - Feature design

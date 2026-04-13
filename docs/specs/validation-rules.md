@@ -205,10 +205,10 @@ Result:
 
 | Script | Validation Rules Applied |
 |--------|-------------------------|
-| **validate_planning.py** | All rules for Proposed and Planned initiatives in specified quarter |
-| **validate_data_quality.py** | All rules, status-aware, with flexible filtering options |
-| **validate_prioritisation.py** | Baseline validation (owner, assignee, strategic objective, teams_involved) + commitment checks |
-| **analyze_workload.py** | Baseline validation (owner, strategic objective, teams_involved) for quality warnings |
+| **check_planning.py** | All rules for Proposed and Planned initiatives in specified quarter |
+| **check_quality.py** | All rules, status-aware, with flexible filtering options |
+| **check_priorities.py** | Baseline validation (owner, assignee, strategic objective, teams_involved) + commitment checks |
+| **assess_workload.py** | Baseline validation (owner, strategic objective, teams_involved) for quality warnings |
 
 All scripts use the shared validation library (`lib/validation.py`) to ensure consistent rule application.
 

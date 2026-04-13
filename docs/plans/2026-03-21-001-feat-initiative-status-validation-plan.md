@@ -49,7 +49,7 @@ docs/
 
 ### Data Structure
 
-**Input:** JSON file from `jira_extract.py` or snapshots:
+**Input:** JSON file from `jira_scan.py` or snapshots:
 
 ```json
 {
@@ -399,7 +399,7 @@ def find_latest_extract() -> Path:
 
     if not data_dir.exists():
         raise FileNotFoundError(
-            "No data directory found. Run 'python jira_extract.py extract' first."
+            "No data directory found. Run 'python jira_scan.py extract' first."
         )
 
     # Support both extraction files and snapshots
@@ -409,7 +409,7 @@ def find_latest_extract() -> Path:
 
     if not all_files:
         raise FileNotFoundError(
-            "No extraction files found in data/. Run 'python jira_extract.py extract' first."
+            "No extraction files found in data/. Run 'python jira_scan.py extract' first."
         )
 
     return max(all_files, key=lambda p: p.stat().st_mtime)
@@ -711,7 +711,7 @@ See [brainstorm document](docs/brainstorms/2026-03-21-initiative-status-validati
 
 **Dependencies:**
 - Existing `validate_dependencies.py` as template
-- JSON structure from `jira_extract.py` output
+- JSON structure from `jira_scan.py` output
 - Python 3.9+ with standard library (json, sys, pathlib, typing)
 
 **Risks:**

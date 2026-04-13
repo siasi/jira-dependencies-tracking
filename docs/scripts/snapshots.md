@@ -17,16 +17,16 @@ The snapshot feature captures point-in-time copies of Jira data for comparison t
 
 ```bash
 # Capture baseline snapshot
-python extract.py snapshot --label "2026-Q2-baseline"
+python scan.py snapshot --label "2026-Q2-baseline"
 
 # Capture monthly checkpoint
-python extract.py snapshot --label "2026-Q2-month1"
+python scan.py snapshot --label "2026-Q2-month1"
 
 # List all snapshots
-python extract.py snapshots list
+python scan.py snapshots list
 
 # Compare two snapshots
-python extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
+python scan.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
 ```
 
 ## Commands
@@ -36,7 +36,7 @@ python extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
 Capture a timestamped snapshot with a semantic label.
 
 ```bash
-python extract.py snapshot --label LABEL [OPTIONS]
+python scan.py snapshot --label LABEL [OPTIONS]
 ```
 
 **Required:**
@@ -52,17 +52,17 @@ python extract.py snapshot --label LABEL [OPTIONS]
 
 ```bash
 # Capture baseline when plan stabilizes
-python extract.py snapshot --label "2026-Q2-baseline"
+python scan.py snapshot --label "2026-Q2-baseline"
 
 # Capture monthly checkpoints
-python extract.py snapshot --label "2026-Q2-month1"
-python extract.py snapshot --label "2026-Q2-month2"
+python scan.py snapshot --label "2026-Q2-month1"
+python scan.py snapshot --label "2026-Q2-month2"
 
 # Capture end-of-quarter snapshot
-python extract.py snapshot --label "2026-Q2-end"
+python scan.py snapshot --label "2026-Q2-end"
 
 # Capture with quarter filter
-python extract.py snapshot --label "2026-Q2-baseline" --quarter "26 Q2"
+python scan.py snapshot --label "2026-Q2-baseline" --quarter "26 Q2"
 ```
 
 **Output:**
@@ -82,7 +82,7 @@ snapshot_{label}_{timestamp}.json
 View all captured snapshots.
 
 ```bash
-python extract.py snapshots list
+python scan.py snapshots list
 ```
 
 **Output:**
@@ -103,7 +103,7 @@ Available snapshots:
 Generate comparison reports between two snapshots.
 
 ```bash
-python extract.py compare --from LABEL --to LABEL [OPTIONS]
+python scan.py compare --from LABEL --to LABEL [OPTIONS]
 ```
 
 **Required:**
@@ -118,17 +118,17 @@ python extract.py compare --from LABEL --to LABEL [OPTIONS]
 
 ```bash
 # Compare baseline vs current month (text output to terminal)
-python extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
+python scan.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
 
 # Generate markdown report
-python extract.py compare \
+python scan.py compare \
   --from "2026-Q2-baseline" \
   --to "2026-Q2-end" \
   --format markdown \
   --output ./reports/q2-final.md
 
 # Generate CSV export
-python extract.py compare \
+python scan.py compare \
   --from "2026-Q2-baseline" \
   --to "2026-Q2-end" \
   --format csv \
@@ -257,7 +257,7 @@ SECURITY
 ### Text (Terminal Output)
 
 ```bash
-python extract.py compare --from "baseline" --to "current"
+python scan.py compare --from "baseline" --to "current"
 ```
 
 - Terminal-friendly plain text
@@ -267,7 +267,7 @@ python extract.py compare --from "baseline" --to "current"
 ### Markdown (Documentation)
 
 ```bash
-python extract.py compare --from "baseline" --to "current" --format markdown
+python scan.py compare --from "baseline" --to "current" --format markdown
 ```
 
 - GitHub/docs formatted with tables
@@ -277,7 +277,7 @@ python extract.py compare --from "baseline" --to "current" --format markdown
 ### CSV (Spreadsheet Export)
 
 ```bash
-python extract.py compare --from "baseline" --to "current" --format csv
+python scan.py compare --from "baseline" --to "current" --format csv
 ```
 
 - Spreadsheet-compatible export
@@ -290,27 +290,27 @@ python extract.py compare --from "baseline" --to "current" --format csv
 
 1. **Capture baseline when plan stabilizes:**
    ```bash
-   python extract.py snapshot --label "2026-Q2-baseline"
+   python scan.py snapshot --label "2026-Q2-baseline"
    ```
 
 2. **Capture monthly checkpoints:**
    ```bash
-   python extract.py snapshot --label "2026-Q2-month1"
-   python extract.py snapshot --label "2026-Q2-month2"
+   python scan.py snapshot --label "2026-Q2-month1"
+   python scan.py snapshot --label "2026-Q2-month2"
    ```
 
 3. **Capture end-of-quarter snapshot:**
    ```bash
-   python extract.py snapshot --label "2026-Q2-end"
+   python scan.py snapshot --label "2026-Q2-end"
    ```
 
 4. **Generate comparison reports:**
    ```bash
    # Month 1 drift
-   python extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
+   python scan.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
 
    # Final quarter report
-   python extract.py compare \
+   python scan.py compare \
      --from "2026-Q2-baseline" \
      --to "2026-Q2-end" \
      --format markdown \
@@ -321,11 +321,11 @@ python extract.py compare --from "baseline" --to "current" --format csv
 
 ```bash
 # Capture weekly snapshots
-python extract.py snapshot --label "2026-Q2-week14"
-python extract.py snapshot --label "2026-Q2-week15"
+python scan.py snapshot --label "2026-Q2-week14"
+python scan.py snapshot --label "2026-Q2-week15"
 
 # Generate weekly drift report
-python extract.py compare \
+python scan.py compare \
   --from "2026-Q2-week14" \
   --to "2026-Q2-week15"
 ```
@@ -382,7 +382,7 @@ custom_fields:
 ## Troubleshooting
 
 ### Issue: "Snapshot not found"
-- **Solution:** Run `python extract.py snapshots list` to see available snapshots
+- **Solution:** Run `python scan.py snapshots list` to see available snapshots
 - Check label spelling (case-sensitive)
 
 ### Issue: "Comparison failed"

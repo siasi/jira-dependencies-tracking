@@ -29,7 +29,7 @@ Created a new utility module that provides:
 
 ### 2. Updated Scripts
 
-#### `analyze_workload.py`
+#### `assess_workload.py`
 - Added import: `from lib.output_utils import generate_output_path`
 - Updated `--html` option:
   - Changed `const='auto'` → `const=None`
@@ -38,14 +38,14 @@ Created a new utility module that provides:
 - Updated `--markdown` option (same pattern)
 - Updated `--csv` option (same pattern)
 
-#### `validate_planning.py`
+#### `check_planning.py`
 - Added import: `from lib.output_utils import generate_output_path`
 - Updated `--markdown` option:
   - Changed `const='auto'` → `const=None`
   - Updated help text to reference new output structure
   - Changed logic: `if args.markdown is not None` and use `generate_output_path('planning_validation', 'md', args.markdown)`
 
-#### `validate_prioritisation.py`
+#### `check_priorities.py`
 - Added import: `from lib.output_utils import generate_output_path`
 - Updated `--markdown` Click option:
   - Added `is_flag=False` and `flag_value=''`
@@ -94,26 +94,26 @@ output/
 ### Default Behavior (New)
 ```bash
 # Saves to output/workload_analysis/001_workload_analysis_20260410_152030.html
-python analyze_workload.py --quarter "26 Q2" --html
+python assess_workload.py --quarter "26 Q2" --html
 
 # Saves to output/planning_validation/001_planning_validation_20260410_152030.md
-python validate_planning.py --quarter "26 Q2" --markdown
+python check_planning.py --quarter "26 Q2" --markdown
 
 # Saves to output/prioritisation_validation/001_prioritisation_validation_20260410_152030.md
-python validate_prioritisation.py --markdown
+python check_priorities.py --markdown
 ```
 
 ### Custom Filenames (Still Supported)
 ```bash
 # Saves to specified location
-python analyze_workload.py --quarter "26 Q2" --html custom_report.html
-python validate_planning.py --quarter "26 Q2" --markdown my_report.md
+python assess_workload.py --quarter "26 Q2" --html custom_report.html
+python check_planning.py --quarter "26 Q2" --markdown my_report.md
 ```
 
 ### Multiple Formats
 ```bash
 # Each format gets its own progressive number
-python analyze_workload.py --quarter "26 Q2" --html --markdown --csv
+python assess_workload.py --quarter "26 Q2" --html --markdown --csv
 # Creates:
 # - output/workload_analysis/001_workload_analysis_20260410_152030.html
 # - output/workload_analysis/002_workload_analysis_20260410_152030.md

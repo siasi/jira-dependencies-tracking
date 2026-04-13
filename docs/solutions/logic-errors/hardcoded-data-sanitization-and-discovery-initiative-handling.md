@@ -16,7 +16,7 @@ status: "resolved"
 
 ## Problem
 
-The `analyze_workload.py` script had three distinct issues that were discovered during implementation of the action items feature:
+The `assess_workload.py` script had three distinct issues that were discovered during implementation of the action items feature:
 
 1. **Incorrect initiative owner display**: Action items showed the wrong team as the initiative owner (displayed "User Network" when actual owner was "Tech Leadership")
 2. **Discovery initiatives incorrectly flagged**: Discovery initiatives were being flagged for missing epics when they should be exempt from this validation
@@ -36,7 +36,7 @@ The `analyze_workload.py` script had three distinct issues that were discovered 
 
 **Root Cause**: Missing business rule implementation. Discovery initiatives (prefixed with `[Discovery]`) are exploratory by nature and don't require contributing team epics. However, the epic validation logic treated all initiatives uniformly, resulting in 3 false-positive action items for Discovery initiatives (INIT-1499, INIT-1488, INIT-1165).
 
-**Technical Detail**: The `analyze_workload()` function lacked a check for Discovery initiatives before validating epic completeness (around line 332). The validation rule at line 332 needed an additional condition to skip Discovery initiatives, similar to how `validate_planning.py` already handled them.
+**Technical Detail**: The `analyze_workload()` function lacked a check for Discovery initiatives before validating epic completeness (around line 332). The validation rule at line 332 needed an additional condition to skip Discovery initiatives, similar to how `check_planning.py` already handled them.
 
 ### Issue 3: Hardcoded Company-Specific Data Security Issue (commit e53eac6)
 
@@ -234,8 +234,8 @@ def _base_context(initiative: Dict, section: str) -> Dict:
 
 ### Investigation for Fix 2 (Discovery Initiatives)
 1. **Observed symptom**: 34 action items generated, including 3 for Discovery initiatives
-2. **Checked business rules**: Reviewed `validate_planning.py` and found existing `is_discovery_initiative()` helper that exempts Discovery initiatives from certain checks
-3. **Identified gap**: `analyze_workload.py` lacked the same Discovery exemption in epic validation logic
+2. **Checked business rules**: Reviewed `check_planning.py` and found existing `is_discovery_initiative()` helper that exempts Discovery initiatives from certain checks
+3. **Identified gap**: `assess_workload.py` lacked the same Discovery exemption in epic validation logic
 4. **Applied pattern**: Implemented identical `is_discovery_initiative()` check before epic validation
 5. **Verified impact**: Action items reduced from 34 to 31 (console) and 25 to 22 (Slack)
 6. **Confirmed examples**: INIT-1499, INIT-1488, INIT-1165 (all prefixed with `[Discovery]`) no longer flagged
@@ -252,12 +252,12 @@ def _base_context(initiative: Dict, section: str) -> Dict:
    - `config/jira_config.yaml` (gitignored, safe)
    - Generic placeholder (fallback)
 4. **Sanitized documentation**: Replaced all real data in docstrings with generic placeholders (XXXX patterns)
-5. **Noted limitation**: One hardcoded URL remains in `templates/notification_slack.j2` (line 21, pre-existing), deferred to Phase 2 to avoid breaking `validate_planning.py`
-6. **Verified security**: No company-specific data remains in analyze_workload.py
+5. **Noted limitation**: One hardcoded URL remains in `templates/notification_slack.j2` (line 21, pre-existing), deferred to Phase 2 to avoid breaking `check_planning.py`
+6. **Verified security**: No company-specific data remains in assess_workload.py
 
 ### Common Testing Approach
 All three fixes were validated by:
-1. Running analyze_workload.py with `--show-quality` flag
+1. Running assess_workload.py with `--show-quality` flag
 2. Comparing action item counts before/after
 3. Verifying console output displays correctly
 4. Checking that no regressions occurred in existing functionality
@@ -524,7 +524,7 @@ def test_workload_analysis_regression():
 - **CLAUDE.md** - Project coding standards and workflow rules
 
 ### Implementation Plans
-- **docs/plans/2026-04-03-001-feat-action-items-workload-analysis-plan.md** - Detailed implementation plan for adding action items and Slack notifications to analyze_workload.py
+- **docs/plans/2026-04-03-001-feat-action-items-workload-analysis-plan.md** - Detailed implementation plan for adding action items and Slack notifications to assess_workload.py
 - **docs/plans/2026-04-03-002-compound-action-items-solution-plan.md** - Documentation plan capturing the debugging journey
 
 ### Related Features
@@ -545,7 +545,7 @@ def test_workload_analysis_regression():
 From the action items implementation journey (2026-04-03):
 - `a9f5b0f` - docs: add compound documentation plan for action items solution
 - `91177eb` - docs: update plan with sanitization tasks for Phase 2
-- `e53eac6` - fix: remove hardcoded company-specific data from analyze_workload.py
+- `e53eac6` - fix: remove hardcoded company-specific data from assess_workload.py
 - `4b6adb1` - feat(analyze_workload): exclude Discovery initiatives from epic checks
 - `10647f5` - fix(analyze_workload): display correct initiative owner in action items
 - `c73bf5b` - fix(analyze_workload): resolve team key mismatch in Slack generation
@@ -553,12 +553,12 @@ From the action items implementation journey (2026-04-03):
 
 ## Files Modified
 
-- **analyze_workload.py:76-89** - Added `is_discovery_initiative()` helper function
-- **analyze_workload.py:20-47** - Added `get_jira_base_url()` for dynamic configuration
-- **analyze_workload.py:341-350** - Applied Discovery check before epic validation
-- **analyze_workload.py:603-610** - Updated URL construction to use configuration
-- **analyze_workload.py:562-575** - Sanitized docstring examples
-- **analyze_workload.py:1014-1017** - Fixed owner display logic
+- **assess_workload.py:76-89** - Added `is_discovery_initiative()` helper function
+- **assess_workload.py:20-47** - Added `get_jira_base_url()` for dynamic configuration
+- **assess_workload.py:341-350** - Applied Discovery check before epic validation
+- **assess_workload.py:603-610** - Updated URL construction to use configuration
+- **assess_workload.py:562-575** - Sanitized docstring examples
+- **assess_workload.py:1014-1017** - Fixed owner display logic
 
 ## Impact
 

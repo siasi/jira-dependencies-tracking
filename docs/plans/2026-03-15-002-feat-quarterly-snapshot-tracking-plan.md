@@ -45,7 +45,7 @@ Extend existing tool to:
 
 ### Architecture
 
-**New CLI Commands** (add to `jira_extract.py`):
+**New CLI Commands** (add to `jira_scan.py`):
 
 ```python
 @cli.command()
@@ -208,7 +208,7 @@ class ComparisonResult:
 - [x] Reuses existing extract flow (no new Jira API calls)
 
 **Files to modify/create**:
-- Modify: `jira_extract.py` (add `snapshot` command)
+- Modify: `jira_scan.py` (add `snapshot` command)
 - Create: `src/snapshot.py` (SnapshotManager class)
 
 **Implementation details**:
@@ -276,7 +276,7 @@ class SnapshotManager:
 - [x] Sorted by timestamp (newest first)
 
 **Files to modify/create**:
-- Modify: `jira_extract.py` (add `snapshots` group with `list` command)
+- Modify: `jira_scan.py` (add `snapshots` group with `list` command)
 - Modify: `src/snapshot.py` (add `list_snapshots()` method)
 
 **Implementation details**:
@@ -1005,8 +1005,8 @@ def _compare_orphaned_epics(self) -> List[Dict[str, Any]]:
 
 | Phase | Description | Files | Effort |
 |-------|-------------|-------|--------|
-| 1 | Snapshot capture | `jira_extract.py`, `src/snapshot.py` | 1-2 days |
-| 2 | Snapshot listing | `jira_extract.py`, `src/snapshot.py` | 0.5 day |
+| 1 | Snapshot capture | `jira_scan.py`, `src/snapshot.py` | 1-2 days |
+| 2 | Snapshot listing | `jira_scan.py`, `src/snapshot.py` | 0.5 day |
 | 3 | Comparison engine | `src/comparator.py` | 2-3 days |
 | 4 | Report generation | `src/reports.py` | 1-2 days |
 | 5 | Integration & testing | `tests/*`, `README.md` | 1-2 days |
@@ -1121,31 +1121,31 @@ Track plan stability and delivery over time by capturing quarterly snapshots and
 
 ```bash
 # Capture baseline when plan stabilizes
-python jira_extract.py snapshot --label "2026-Q2-baseline"
+python jira_scan.py snapshot --label "2026-Q2-baseline"
 
 # Monthly checkpoints
-python jira_extract.py snapshot --label "2026-Q2-month1"
-python jira_extract.py snapshot --label "2026-Q2-month2"
-python jira_extract.py snapshot --label "2026-Q2-end"
+python jira_scan.py snapshot --label "2026-Q2-month1"
+python jira_scan.py snapshot --label "2026-Q2-month2"
+python jira_scan.py snapshot --label "2026-Q2-end"
 ```
 
 #### List Available Snapshots
 
 ```bash
-python jira_extract.py snapshots list
+python jira_scan.py snapshots list
 ```
 
 #### Compare Snapshots
 
 ```bash
 # Compare baseline vs current month
-python jira_extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
+python jira_scan.py compare --from "2026-Q2-baseline" --to "2026-Q2-month1"
 
 # Generate markdown report
-python jira_extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-end" --format markdown --output ./reports/q2-final.md
+python jira_scan.py compare --from "2026-Q2-baseline" --to "2026-Q2-end" --format markdown --output ./reports/q2-final.md
 
 # Generate CSV export
-python jira_extract.py compare --from "2026-Q2-baseline" --to "2026-Q2-end" --format csv --output ./reports/q2-comparison.csv
+python jira_scan.py compare --from "2026-Q2-baseline" --to "2026-Q2-end" --format csv --output ./reports/q2-comparison.csv
 ```
 
 #### Configuration
@@ -1185,7 +1185,7 @@ Generates 5 reports: including initiative overruns and delivery metrics
 ### Internal References
 
 - Similar patterns: `src/output.py` (JSON file I/O with timestamps)
-- CLI structure: `jira_extract.py` (Click command patterns)
+- CLI structure: `jira_scan.py` (Click command patterns)
 - Data structures: `src/builder.py` (hierarchy format)
 - Testing patterns: `tests/test_output.py` (file operations with tmp_path)
 

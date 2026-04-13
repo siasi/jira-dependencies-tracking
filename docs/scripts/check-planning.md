@@ -1,6 +1,6 @@
-# Validate Planning Script Documentation
+# Check Planning Script Documentation
 
-Validate initiative readiness for Proposed → Planned status transitions based on epic RAG status, team dependencies, and assignee presence.
+Check initiative readiness for Proposed → Planned status transitions based on epic RAG status, team dependencies, and assignee presence.
 
 ## Purpose
 
@@ -13,13 +13,13 @@ This script helps engineering leadership ensure initiatives are ready to move fr
 
 ```bash
 # Validate latest extraction for Q2 2026
-python validate_planning.py --quarter "26 Q2"
+python check_planning.py --quarter "26 Q2"
 
 # Generate Slack notifications for Q2 2026
-python validate_planning.py --quarter "26 Q2" --slack
+python check_planning.py --quarter "26 Q2" --slack
 
 # Export markdown report
-python validate_planning.py --quarter "26 Q2" --markdown
+python check_planning.py --quarter "26 Q2" --markdown
 ```
 
 ## Scope
@@ -37,30 +37,30 @@ python validate_planning.py --quarter "26 Q2" --markdown
 
 ```bash
 # Validate latest extraction for Q2 2026
-python validate_planning.py --quarter "26 Q2"
+python check_planning.py --quarter "26 Q2"
 
 # Validate specific file for Q2 2026
-python validate_planning.py --quarter "26 Q2" data/jira_extract_20260321.json
+python check_planning.py --quarter "26 Q2" data/jira_extract_20260321.json
 
 # Validate snapshot
-python validate_planning.py --quarter "26 Q2" data/snapshots/snapshot_baseline_*.json
+python check_planning.py --quarter "26 Q2" data/snapshots/snapshot_baseline_*.json
 ```
 
 ### Generate Reports
 
 ```bash
 # Export markdown report
-python validate_planning.py --quarter "26 Q2" --markdown
+python check_planning.py --quarter "26 Q2" --markdown
 
 # Verbose output with additional details
-python validate_planning.py --quarter "26 Q2" --verbose
+python check_planning.py --quarter "26 Q2" --verbose
 ```
 
 ### Generate Slack Notifications
 
 ```bash
 # Generate Slack messages for Q2 2026
-python validate_planning.py --quarter "26 Q2" --slack
+python check_planning.py --quarter "26 Q2" --slack
 ```
 
 ## Options
@@ -105,7 +105,7 @@ Generate copy-paste ready messages for sending bulk Slack DMs:
 
 ```bash
 # Generate Slack messages for Q2 2026
-python validate_planning.py --quarter "26 Q2" --slack
+python check_planning.py --quarter "26 Q2" --slack
 
 # Output: Console preview + file in extracts/slack_messages_YYYY-MM-DD_HHMMSS.txt
 ```
@@ -145,10 +145,10 @@ Validate readiness for new initiatives in the quarter:
 
 ```bash
 # Extract latest data
-python extract.py extract --quarter "26 Q2"
+python scan.py extract --quarter "26 Q2"
 
 # Validate planning readiness
-python validate_planning.py --quarter "26 Q2" --slack
+python check_planning.py --quarter "26 Q2" --slack
 ```
 
 ### Pre-Planning Meeting Check
@@ -157,10 +157,10 @@ Quick check before planning meetings:
 
 ```bash
 # Check current state
-python validate_planning.py --quarter "26 Q2"
+python check_planning.py --quarter "26 Q2"
 
 # Review markdown report
-python validate_planning.py --quarter "26 Q2" --markdown
+python check_planning.py --quarter "26 Q2" --markdown
 ```
 
 ### Team Manager Follow-Up
@@ -169,7 +169,7 @@ Track action items for team managers:
 
 ```bash
 # Generate Slack messages
-python validate_planning.py --quarter "26 Q2" --slack
+python check_planning.py --quarter "26 Q2" --slack
 
 # Send messages to managers
 # Review action items in output/planning_validation/

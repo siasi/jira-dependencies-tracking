@@ -90,7 +90,7 @@ project = INIT AND issuetype = Initiative AND status != "Done" AND customfield_1
   - Include quarter value in normalized initiative data
 - No changes to `fetch_epics()` - epics remain unfiltered
 
-### 3. jira_extract.py
+### 3. jira_scan.py
 - Pass `quarter_field_id` and `filter_quarter` from config to `DataFetcher` initialization
 - Add console output when filtering is active: "Applying filters: quarter='25 Q1', status!='Done'"
 - Update summary to indicate filtering: "Initiatives: 150 (filtered by quarter: 25 Q1)"

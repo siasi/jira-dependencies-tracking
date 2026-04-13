@@ -28,9 +28,9 @@ Core domain logic:
 
 ### Root-level Scripts
 Executable analysis scripts with verb-noun naming (in root for easy access):
-- `extract.py` - Extract data from Jira API
-- `validate_planning.py` - Validate planning readiness
-- `analyze_workload.py` - Analyze team workload distribution
+- `scan.py` - Extract data from Jira API
+- `check_planning.py` - Validate planning readiness
+- `assess_workload.py` - Analyze team workload distribution
 
 ### templates/
 Jinja2 templates for output formatting:
@@ -50,8 +50,8 @@ Jinja2 templates for output formatting:
 ## Data Flow
 
 ```
-extract.py → data/jira_data_*.json → validate_planning.py → Console/Markdown output
-                                   → analyze_workload.py → Console/Markdown output
+scan.py → data/jira_data_*.json → check_planning.py → Console/Markdown output
+                                   → assess_workload.py → Console/Markdown output
 ```
 
 ## Testing

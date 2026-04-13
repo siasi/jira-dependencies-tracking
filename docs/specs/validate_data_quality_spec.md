@@ -2,7 +2,7 @@
 
 ## Overview
 
-Create a dedicated data quality validation script (`validate_data_quality.py`) that focuses exclusively on finding data quality issues and generating actionable items for managers. This script will use shared validation logic extracted to `lib/validation.py` to ensure consistency across all validation scripts.
+Create a dedicated data quality validation script (`check_quality.py`) that focuses exclusively on finding data quality issues and generating actionable items for managers. This script will use shared validation logic extracted to `lib/validation.py` to ensure consistency across all validation scripts.
 
 ## Goals
 
@@ -14,7 +14,7 @@ Create a dedicated data quality validation script (`validate_data_quality.py`) t
 
 ## Scope Filtering (Same as Existing Scripts)
 
-The script should support the same filtering options as `analyze_workload.py`:
+The script should support the same filtering options as `assess_workload.py`:
 
 ### Required Argument
 - `--quarter <quarter>`: Quarter to validate (e.g., "26 Q2")
@@ -137,7 +137,7 @@ This table shows how priorities change as initiatives progress:
 **Implementation**:
 ```python
 # Filter out owner team from teams_involved before validation
-# This approach is used in validate_prioritisation.py (lines 462-469, 680-686)
+# This approach is used in check_priorities.py (lines 462-469, 680-686)
 teams_involved = _normalize_teams_involved(initiative.get('teams_involved'))
 owner_team = initiative.get('owner_team')
 if owner_team and owner_team in teams_involved:
@@ -192,7 +192,7 @@ if invalid:
     })
 ```
 
-**Current Implementation**: This pattern is used in `validate_planning.py` (lines 92-109) and `analyze_workload.py` (lines 376-389).
+**Current Implementation**: This pattern is used in `check_planning.py` (lines 92-109) and `assess_workload.py` (lines 376-389).
 
 ## Output Formats
 
@@ -362,30 +362,30 @@ Same format as existing scripts - bulk messages grouped by manager.
 
 ```bash
 # Standard: validate current quarter planned + all in progress
-python3 validate_data_quality.py --quarter "26 Q2"
+python3 check_quality.py --quarter "26 Q2"
 
 # Only validate Proposed initiatives for planning readiness
-python3 validate_data_quality.py --quarter "26 Q2" --status Proposed
+python3 check_quality.py --quarter "26 Q2" --status Proposed
 
 # Validate all active initiatives regardless of quarter
-python3 validate_data_quality.py --quarter "26 Q2" --all-active
+python3 check_quality.py --quarter "26 Q2" --all-active
 
 # Generate Slack messages for manager action items
-python3 validate_data_quality.py --quarter "26 Q2" --slack
+python3 check_quality.py --quarter "26 Q2" --slack
 
 # Export comprehensive markdown report
-python3 validate_data_quality.py --quarter "26 Q2" --markdown
+python3 check_quality.py --quarter "26 Q2" --markdown
 
 # Export JSON for automation/integration
-python3 validate_data_quality.py --quarter "26 Q2" --json automation_feed.json
+python3 check_quality.py --quarter "26 Q2" --json automation_feed.json
 
 # Verbose output showing validation rules applied
-python3 validate_data_quality.py --quarter "26 Q2" --verbose
+python3 check_quality.py --quarter "26 Q2" --verbose
 ```
 
 ## Shared Validation Library: `lib/validation.py`
 
-**⚠️ FUTURE WORK**: This section describes a proposed shared validation library that **does not yet exist**. This is a design specification for future refactoring to consolidate validation logic from the three existing scripts (`validate_planning.py`, `validate_prioritisation.py`, `analyze_workload.py`) into a reusable library. Current implementation uses duplicated validation code across these scripts.
+**⚠️ FUTURE WORK**: This section describes a proposed shared validation library that **does not yet exist**. This is a design specification for future refactoring to consolidate validation logic from the three existing scripts (`check_planning.py`, `check_priorities.py`, `assess_workload.py`) into a reusable library. Current implementation uses duplicated validation code across these scripts.
 
 Extract all validation logic to a shared library that can be imported by all scripts.
 
@@ -530,7 +530,7 @@ def create_action_item(issue: ValidationIssue, manager: str, slack_id: str) -> D
 ### Usage by Other Scripts
 
 ```python
-# In analyze_workload.py
+# In assess_workload.py
 from lib.validation import InitiativeValidator, load_validation_config
 
 # Configure validation for In Progress initiatives (no RAG check)
@@ -550,7 +550,7 @@ for initiative in initiatives:
 ```
 
 ```python
-# In validate_planning.py
+# In check_planning.py
 from lib.validation import InitiativeValidator, load_validation_config
 
 # Configure for Proposed initiatives (full validation)
@@ -573,15 +573,15 @@ issues = validator.validate(initiative)
 4. Extract common validation from existing scripts
 
 ### Phase 2: Create Data Quality Script
-1. Create `validate_data_quality.py` with CLI interface
+1. Create `check_quality.py` with CLI interface
 2. Implement filtering logic (quarter, status, all-active)
 3. Implement output formats (console, markdown, JSON, Slack)
 4. Add exception handling (initiative_exceptions.yaml)
 
 ### Phase 3: Integrate with Existing Scripts
-1. Update `analyze_workload.py` to use `lib/validation.py`
-2. Update `validate_planning.py` to use `lib/validation.py`
-3. Update `validate_prioritisation.py` to use `lib/validation.py`
+1. Update `assess_workload.py` to use `lib/validation.py`
+2. Update `check_planning.py` to use `lib/validation.py`
+3. Update `check_priorities.py` to use `lib/validation.py`
 4. Remove duplicated validation code
 
 ### Phase 4: Documentation & Testing
@@ -593,7 +593,7 @@ issues = validator.validate(initiative)
 ## Success Criteria
 
 1. ✅ All validation logic centralized in `lib/validation.py`
-2. ✅ `validate_data_quality.py` provides comprehensive data quality view
+2. ✅ `check_quality.py` provides comprehensive data quality view
 3. ✅ All three existing scripts use shared validation library (no duplication)
 4. ✅ Status-aware validation rules properly applied
 5. ✅ Multi-objective support consistent across all scripts
@@ -626,7 +626,7 @@ issues = validator.validate(initiative)
 - 40 comprehensive tests passing (includes escalation tests)
 
 ### Phase 2: Create Data Quality Script ✓
-- Created `validate_data_quality.py` with CLI interface
+- Created `check_quality.py` with CLI interface
 - Implemented filtering logic (quarter, status, all-active)
 - Implemented console output (manager-grouped action items)
 - Implemented Slack output using existing `notification_slack.j2` template

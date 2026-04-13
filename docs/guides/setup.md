@@ -82,7 +82,7 @@ projects:
 Find your custom field IDs using the list-fields command:
 
 ```bash
-python extract.py list-fields
+python scan.py list-fields
 ```
 
 Add the field IDs to `config/jira_config.yaml`:
@@ -102,7 +102,7 @@ See [Configuration Reference](configuration.md) for advanced custom field config
 Test your configuration:
 
 ```bash
-python extract.py validate-config
+python scan.py validate-config
 ```
 
 This checks:
@@ -116,7 +116,7 @@ This checks:
 Try extracting data:
 
 ```bash
-python extract.py extract --verbose
+python scan.py extract --verbose
 ```
 
 This should create a `data/jira_extract_YYYYMMDD_HHMMSS.json` file with your initiatives and epics.
@@ -132,19 +132,19 @@ pip install -e .
 After installation, scripts are available as commands:
 
 ```bash
-jem-extract               # Data extraction from Jira
-jem-validate-planning     # Planning readiness validation
-jem-validate-data-quality # Data quality validation
-jem-validate-prioritisation # Priority validation
-jem-analyze-workload      # Team workload analysis
+jem-scan               # Data extraction from Jira
+jem-check-planning     # Planning readiness validation
+jem-check-quality # Data quality validation
+jem-check-priorities # Priority validation
+jem-assess-workload      # Team workload analysis
 ```
 
 Or continue using the scripts directly:
 
 ```bash
-python extract.py
-python validate_planning.py
-python analyze_workload.py
+python scan.py
+python check_planning.py
+python assess_workload.py
 ```
 
 ## Output Directory Structure
@@ -175,7 +175,7 @@ data/
 - Verify project keys with `https://your-company.atlassian.net/jira/projects`
 
 ### Issue: "Custom field not found"
-- **Solution:** Run `python extract.py list-fields` to find correct field IDs
+- **Solution:** Run `python scan.py list-fields` to find correct field IDs
 - Update `custom_fields.initiatives` in `jira_config.yaml`
 
 ### Issue: "Permission denied"

@@ -38,9 +38,9 @@ jira-em-toolkit/
 │   ├── template_renderer.py (shared template logic)
 │   └── common_formatting.py (hyperlinks, etc.)
 ├── scripts/
-│   ├── extract.py (was jira_extract.py)
-│   ├── validate_planning.py (was validate_initiative_status.py)
-│   ├── analyze_workload.py (was analyse_workload.py)
+│   ├── scan.py (was jira_scan.py)
+│   ├── check_planning.py (was validate_initiative_status.py)
+│   ├── assess_workload.py (was analyse_workload.py)
 │   └── track_delivery.py (future)
 ├── templates/
 │   ├── planning_console.j2
@@ -53,9 +53,9 @@ jira-em-toolkit/
 ```
 
 **Naming pattern:** Verb-noun structure for all scripts
-- `extract.py` - Extract data from Jira
-- `validate_planning.py` - Validate planning readiness
-- `analyze_workload.py` - Analyze team workload
+- `scan.py` - Extract data from Jira
+- `check_planning.py` - Validate planning readiness
+- `assess_workload.py` - Analyze team workload
 
 **Rationale:** Clear hierarchy separates configuration, reusable code, executable scripts, and templates. Verb-noun naming makes purpose immediately clear.
 
@@ -80,10 +80,10 @@ jira-em-toolkit/
 **Decision:** Extract all data once, filter in processing scripts
 
 **Implementation:**
-- `extract.py` always extracts: Proposed, Planned, In Progress, Blocked initiatives
+- `scan.py` always extracts: Proposed, Planned, In Progress, Blocked initiatives
 - Each processing script filters internally based on its needs:
-  - `validate_planning.py`: Only Proposed/Planned for target quarter
-  - `analyze_workload.py`: All In Progress + Planned initiatives
+  - `check_planning.py`: Only Proposed/Planned for target quarter
+  - `assess_workload.py`: All In Progress + Planned initiatives
   - `track_delivery.py` (future): Only In Progress initiatives
 - Keep existing logic to auto-discover most recent data file (no need to specify --data-file)
 - Single JSON file as source of truth for all reports
@@ -129,7 +129,7 @@ jira-em-toolkit/
 **Risk:** Need to test all output formats thoroughly
 
 ### Phase 4: Data Extraction Refactor (Medium Risk)
-- Modify extract.py to always get all statuses
+- Modify scan.py to always get all statuses
 - Update each script to filter internally
 - Verify auto-discovery logic works with new structure
 - Test that each script gets correct subset of data
@@ -159,7 +159,7 @@ jira-em-toolkit/
 - [ ] All templates in templates/ directory
 - [ ] Every script outputs ANSI hyperlinks in console mode
 - [ ] --markdown FILE behavior consistent across scripts
-- [ ] extract.py gets all initiative data
+- [ ] scan.py gets all initiative data
 - [ ] Each processing script filters internally
 - [ ] Auto-discovery of recent data file works
 - [ ] All existing workflows still work

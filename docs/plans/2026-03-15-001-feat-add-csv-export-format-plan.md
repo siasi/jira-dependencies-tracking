@@ -48,7 +48,7 @@ implemented: 2026-03-15
 
 **Files Modified:**
 - `src/output.py` (+130 lines)
-- `jira_extract.py` (+15 lines)
+- `jira_scan.py` (+15 lines)
 - `tests/test_output.py` (+350 lines)
 - `README.md` (updated with CSV docs)
 
@@ -137,7 +137,7 @@ INIT-1485,Initiative Title,growth,26 Q2,Proposed,CBPPE,CBPPE-530,Another Epic,ðŸ
 
 **Files to Modify:**
 1. `src/output.py` - Add CSV generation methods
-2. `jira_extract.py` - Add `--format` CLI option with path validation
+2. `jira_scan.py` - Add `--format` CLI option with path validation
 3. `tests/test_output.py` - Add comprehensive CSV test coverage
 4. `tests/test_security.py` - NEW - Add security test coverage
 5. `README.md` - Document CSV usage
@@ -279,7 +279,7 @@ fieldnames = sorted(rows[0].keys()) if rows else []
 
 **Attack Example:**
 ```bash
-python jira_extract.py extract --format csv --output "../../../etc/cron.d/malicious"
+python jira_scan.py extract --format csv --output "../../../etc/cron.d/malicious"
 ```
 
 **Mitigation:**
@@ -497,7 +497,7 @@ finally:
 ### Phase 2: CLI Integration
 
 **Files:**
-- `jira_extract.py`
+- `jira_scan.py`
 
 **Tasks:**
 - [ ] Add `--format` option to `extract` command (type=click.Choice(['json', 'csv', 'both']))
@@ -771,7 +771,7 @@ class OutputGenerator:
         return str_value
 ```
 
-### jira_extract.py (CLI integration with security)
+### jira_scan.py (CLI integration with security)
 
 ```python
 @click.command()
@@ -1262,7 +1262,7 @@ def generate_csv(
 - **Current output implementation**: `src/output.py:40-94` (JSON generation pattern)
 - **Data hierarchy builder**: `src/builder.py` (structure to flatten for CSV)
 - **Testing patterns**: `tests/test_output.py` (164 lines of output tests)
-- **CLI framework**: `jira_extract.py` (Click-based command interface)
+- **CLI framework**: `jira_scan.py` (Click-based command interface)
 - **Coding standards**: `CLAUDE.md` (functional style, Four Rules of Simple Design)
 
 ### External References

@@ -6,7 +6,7 @@
 
 ## Summary
 
-Aligned `validate_prioritisation.py` with `analyze_workload.py` and `validate_planning.py` to exempt owner teams from creating epics and setting RAG status for their own initiatives. This resolves inconsistent treatment of owner teams across validation scripts.
+Aligned `check_priorities.py` with `assess_workload.py` and `check_planning.py` to exempt owner teams from creating epics and setting RAG status for their own initiatives. This resolves inconsistent treatment of owner teams across validation scripts.
 
 ## Problem
 
@@ -14,9 +14,9 @@ There was an inconsistency in how different validation scripts treated owner tea
 
 | Script | Owner Team Treatment |
 |--------|---------------------|
-| `analyze_workload.py` | ✅ Exempt from creating epics |
-| `validate_planning.py` | ✅ Exempt from creating epics and setting RAG |
-| `validate_prioritisation.py` | ❌ Treated like any contributing team |
+| `assess_workload.py` | ✅ Exempt from creating epics |
+| `check_planning.py` | ✅ Exempt from creating epics and setting RAG |
+| `check_priorities.py` | ❌ Treated like any contributing team |
 
 This meant that initiatives led by a team would incorrectly flag that team for "missing commitments" even though they're the ones leading the initiative.
 
@@ -37,7 +37,7 @@ Contributing Teams:
 
 ## Solution
 
-Updated `validate_prioritisation.py` to filter out owner teams from commitment validation in two functions:
+Updated `check_priorities.py` to filter out owner teams from commitment validation in two functions:
 
 ### 1. _build_commitment_matrix() (lines 462-469)
 
@@ -147,7 +147,7 @@ Added comprehensive test coverage (3 new tests):
 
 ### Test Results
 ```bash
-python3 -m pytest tests/test_validate_prioritisation.py -v
+python3 -m pytest tests/test_check_priorities.py -v
 # 46 passed in 0.10s (3 new tests for owner team exemption)
 ```
 
@@ -155,22 +155,22 @@ python3 -m pytest tests/test_validate_prioritisation.py -v
 
 All three scripts now handle owner teams identically:
 
-### analyze_workload.py
+### assess_workload.py
 - Filters owner team from workload calculations
 - Owner team doesn't contribute to their own initiative count
 
-### validate_planning.py
+### check_planning.py
 - Owner team exempt from creating epics (lines 119-143)
 - Owner team exempt from RAG status checks (lines 156-168, 208-227, 252-267, 340-356)
 
-### validate_prioritisation.py ✨ (Now Updated)
+### check_priorities.py ✨ (Now Updated)
 - Owner team filtered from commitment matrix (lines 462-469)
 - Owner team filtered from initiative health (lines 680-686)
 
 ## Files Modified
 
-- `validate_prioritisation.py`: Added owner team filtering in 2 functions
-- `tests/test_validate_prioritisation.py`: Added 3 comprehensive tests
+- `check_priorities.py`: Added owner team filtering in 2 functions
+- `tests/test_check_priorities.py`: Added 3 comprehensive tests
 - `TODO.md`: Marked task as completed, documented decision
 
 ## Design Decision
@@ -224,6 +224,6 @@ Expected Commitments:
 
 ## Related Documentation
 
-- `analyze_workload.py`: First implementation of owner team exemption
-- `validate_planning.py` (lines 119-143, 156-168): Owner team exemption in planning validation
+- `assess_workload.py`: First implementation of owner team exemption
+- `check_planning.py` (lines 119-143, 156-168): Owner team exemption in planning validation
 - `docs/ARCHITECTURE.md`: Should be updated to document this design decision

@@ -9,7 +9,7 @@ date: 2026-04-03
 
 ## Purpose
 
-Document the solution for adding action items and Slack notifications to analyze_workload.py, including the debugging journey that uncovered multiple issues.
+Document the solution for adding action items and Slack notifications to assess_workload.py, including the debugging journey that uncovered multiple issues.
 
 ## What Was Solved
 
@@ -31,8 +31,8 @@ Document the solution for adding action items and Slack notifications to analyze
    - Impact: Correct owner now displayed for all initiatives
 
 3. **Discovery Initiative False Positives** (Discovery initiatives flagged for missing epics)
-   - Problem: analyze_workload.py didn't exclude [Discovery] initiatives from epic checks
-   - Solution: Added is_discovery_initiative() helper matching validate_planning.py pattern
+   - Problem: assess_workload.py didn't exclude [Discovery] initiatives from epic checks
+   - Solution: Added is_discovery_initiative() helper matching check_planning.py pattern
    - Impact: 34 → 31 action items (3 Discovery initiatives correctly excluded)
 
 4. **BOT Team Missing from Extraction** (27 false positive missing epic actions)
@@ -47,7 +47,7 @@ Document the solution for adding action items and Slack notifications to analyze
 
 ## Files Modified
 
-- `analyze_workload.py` - Core implementation
+- `assess_workload.py` - Core implementation
   - extract_workload_actions()
   - generate_workload_slack_messages()
   - print_workload_report() updates
@@ -98,7 +98,7 @@ Alternative: `data-quality` - Multiple data quality issues discovered during imp
 
 ## Related Documentation
 
-- validate_planning.py - Original action item pattern
+- check_planning.py - Original action item pattern
 - docs/plans/2026-04-03-001-feat-action-items-workload-analysis-plan.md - Implementation plan
 - PR #6: https://github.com/siasi/jira-dependencies-tracking/pull/6
 

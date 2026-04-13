@@ -466,11 +466,11 @@ git commit -m "feat: add queries parameter to OutputGenerator"
 ## Task 5: Wire Up Queries in CLI
 
 **Files:**
-- Modify: `jira_extract.py`
+- Modify: `jira_scan.py`
 
 **Step 1: Extract queries from fetch results**
 
-In `jira_extract.py`, find where `fetch_all()` is called (around line 90-95) and modify:
+In `jira_scan.py`, find where `fetch_all()` is called (around line 90-95) and modify:
 
 ```python
 # Fetch data
@@ -506,7 +506,7 @@ output_path = output_generator.generate(
 
 **Step 3: Test manually**
 
-Run: `python jira_extract.py extract --verbose`
+Run: `python jira_scan.py extract --verbose`
 Expected: Command runs successfully
 
 **Step 4: Verify output contains queries**
@@ -517,7 +517,7 @@ Expected: Should see queries object with initiatives and epics JQL
 **Step 5: Commit**
 
 ```bash
-git add jira_extract.py
+git add jira_scan.py
 git commit -m "feat: wire up queries in CLI output"
 ```
 
@@ -536,7 +536,7 @@ filters:
   quarter: "25 Q1"
 ```
 
-Run: `python jira_extract.py extract`
+Run: `python jira_scan.py extract`
 
 **Step 2: Verify output has filtered JQL**
 
@@ -557,7 +557,7 @@ Expected output:
 
 Remove `filters` section from `config.yaml`
 
-Run: `python jira_extract.py extract`
+Run: `python jira_scan.py extract`
 
 **Step 4: Verify output has unfiltered JQL**
 

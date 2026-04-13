@@ -16,7 +16,7 @@ Implement a configuration-based system to manage initiatives that have known inc
 
 ## Problem Statement / Motivation
 
-Currently, `validate_planning.py` flags all initiatives with inconsistencies (missing epics, missing RAG status, RED/YELLOW epics, etc.) in validation reports. However, some inconsistencies are **intentional and manager-approved**:
+Currently, `check_planning.py` flags all initiatives with inconsistencies (missing epics, missing RAG status, RED/YELLOW epics, etc.) in validation reports. However, some inconsistencies are **intentional and manager-approved**:
 
 - Team listed in "Teams Impacted" for awareness only (no epic needed)
 - Special cross-team arrangements where standard validation rules don't apply
@@ -39,7 +39,7 @@ Implement **Approach A (Early Filtering)** from brainstorm (see brainstorm: docs
        approved_by: "@Manager Name"  # optional
    ```
 
-2. **Load config at script startup** using existing config loading patterns from validate_planning.py
+2. **Load config at script startup** using existing config loading patterns from check_planning.py
 
 3. **Filter initiatives early** (after quarter filter, before validation) to completely exclude signed-off initiatives
 
@@ -50,7 +50,7 @@ Implement **Approach A (Early Filtering)** from brainstorm (see brainstorm: docs
 ### Architecture Impacts
 
 - **New config file:** `config/initiative_exceptions.yaml` (separate from jira_config.yaml and team_mappings.yaml)
-- **New loader function:** `_load_signed_off_initiatives()` in validate_planning.py (follows existing pattern)
+- **New loader function:** `_load_signed_off_initiatives()` in check_planning.py (follows existing pattern)
 - **Filtering logic:** Insert after line 1020 (quarter filter), before line 1027 (team exclusion filter)
 - **Example config:** `config/initiative_exceptions.yaml.example` for documentation
 
@@ -101,7 +101,7 @@ None. This is a pure filtering feature with no state persistence or external ser
 
 ### API Surface Parity
 
-Single entry point: `validate_initiative_status()` function in validate_planning.py. No parallel interfaces.
+Single entry point: `validate_initiative_status()` function in check_planning.py. No parallel interfaces.
 
 ### Integration Test Scenarios
 
@@ -172,7 +172,7 @@ Single entry point: `validate_initiative_status()` function in validate_planning
 
 ### Dependencies
 
-- Existing config loading infrastructure (validate_planning.py functions)
+- Existing config loading infrastructure (check_planning.py functions)
 - `yaml` library (already in requirements.txt)
 - `pytest` for testing (already in dev dependencies)
 
@@ -191,7 +191,7 @@ Single entry point: `validate_initiative_status()` function in validate_planning
 
 **Files to modify:**
 
-1. **validate_planning.py**
+1. **check_planning.py**
    - Add `_load_signed_off_initiatives() -> Set[str]` function after line 476
    - Add filtering logic after line 1020 (after quarter filter)
    - Import Set from typing module
@@ -205,7 +205,7 @@ Single entry point: `validate_initiative_status()` function in validate_planning
 **Implementation steps:**
 
 ```python
-# Step 1: Add loader function in validate_planning.py
+# Step 1: Add loader function in check_planning.py
 def _load_signed_off_initiatives() -> Set[str]:
     """Load list of initiative keys that have manager sign-off.
 
@@ -275,7 +275,7 @@ def validate_initiative_status(json_file: Path, quarter: str) -> ValidationResul
 
 ### Phase 2: Testing
 
-**File to modify:** tests/test_validate_planning.py
+**File to modify:** tests/test_check_planning.py
 
 **Add tests after line 1715 (new section):**
 
@@ -463,7 +463,7 @@ Some initiatives have intentional inconsistencies that managers have explicitly 
 
 2. Run validation - signed-off initiatives will be completely hidden:
    ```bash
-   python validate_planning.py --quarter "26 Q2"
+   python check_planning.py --quarter "26 Q2"
    ```
 
 **When to use this:**
@@ -516,11 +516,11 @@ Some initiatives have intentional inconsistencies that managers have explicitly 
 
 ### Internal References
 
-- **Config loading patterns:** validate_planning.py:358-476 (existing loader functions)
-- **Filtering location:** validate_planning.py:1015-1053 (quarter filter and team exclusion)
+- **Config loading patterns:** check_planning.py:358-476 (existing loader functions)
+- **Filtering location:** check_planning.py:1015-1053 (quarter filter and team exclusion)
 - **Error handling:** src/config.py:80-128 (ConfigError patterns)
 - **Existing exemptions:** config/team_mappings.yaml:72-87 (teams_exempt_from_rag, teams_excluded_from_analysis)
-- **Test patterns:** tests/test_validate_planning.py:704-1715 (config loading and filtering tests)
+- **Test patterns:** tests/test_check_planning.py:704-1715 (config loading and filtering tests)
 
 ### Institutional Learnings
 

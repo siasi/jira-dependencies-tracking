@@ -1,10 +1,10 @@
-# Validate Prioritisation Script Documentation
+# Check Priorities Script Documentation
 
-Validate team commitments to strategically prioritized initiatives and ensure teams respect relative initiative priorities.
+Check team commitments to strategically prioritized initiatives and ensure teams respect relative initiative priorities.
 
 ## Purpose
 
-This script helps technical leadership ensure teams are committed to strategically important initiatives in the right order. It identifies:
+This script helps technical leadership check that teams are committed to strategically important initiatives in the right order. It identifies:
 - **Priority conflicts** - Teams committed to lower-priority work while skipping higher-priority initiatives
 - **Missing commitments** - Teams expected to contribute but without proper commitment signals
 - **Initiative health** - Overall view of which initiatives have proper team commitments
@@ -13,13 +13,13 @@ This script helps technical leadership ensure teams are committed to strategical
 
 ```bash
 # Validate latest extraction
-python validate_prioritisation.py
+python check_priorities.py
 
 # Generate Slack notifications
-python validate_prioritisation.py --slack
+python check_priorities.py --slack
 
 # Export markdown report (auto-generates filename)
-python validate_prioritisation.py --markdown
+python check_priorities.py --markdown
 ```
 
 ## Scope
@@ -40,33 +40,33 @@ python validate_prioritisation.py --markdown
 
 ```bash
 # Validate latest extraction
-python validate_prioritisation.py
+python check_priorities.py
 
 # Validate specific file
-python validate_prioritisation.py data/jira_extract_20260408.json
+python check_priorities.py data/jira_extract_20260408.json
 
 # Use custom priority config
-python validate_prioritisation.py --config custom_priorities.yaml
+python check_priorities.py --config custom_priorities.yaml
 ```
 
 ### Generate Reports
 
 ```bash
 # Export markdown report (auto-generates filename)
-python validate_prioritisation.py --markdown
+python check_priorities.py --markdown
 
 # Export markdown with custom filename
-python validate_prioritisation.py --markdown dashboard.md
+python check_priorities.py --markdown dashboard.md
 
 # Verbose output with additional details
-python validate_prioritisation.py --verbose
+python check_priorities.py --verbose
 ```
 
 ### Generate Slack Notifications
 
 ```bash
 # Generate Slack notifications
-python validate_prioritisation.py --slack
+python check_priorities.py --slack
 ```
 
 ## Options
@@ -176,16 +176,16 @@ Validate team alignment before committing to strategic priorities:
 
 ```bash
 # Extract latest data
-python extract.py extract
+python scan.py extract
 
 # Configure priorities in config/priorities.yaml
 # (List initiatives in priority order)
 
 # Validate alignment
-python validate_prioritisation.py
+python check_priorities.py
 
 # Export dashboard for leadership review
-python validate_prioritisation.py --markdown dashboard.md
+python check_priorities.py --markdown dashboard.md
 ```
 
 ### Quarterly Business Review
@@ -194,7 +194,7 @@ Generate initiative health dashboard for leadership:
 
 ```bash
 # Generate markdown report
-python validate_prioritisation.py --markdown
+python check_priorities.py --markdown
 
 # Share report with leadership team
 ```
@@ -205,7 +205,7 @@ Track action items for team managers:
 
 ```bash
 # Generate Slack messages
-python validate_prioritisation.py --slack
+python check_priorities.py --slack
 
 # Send messages to managers
 # Review action items in output/prioritisation_validation/
@@ -230,7 +230,7 @@ python validate_prioritisation.py --slack
 
 3. Run validation:
    ```bash
-   python validate_prioritisation.py
+   python check_priorities.py
    ```
 
 ### Exclude Teams from Validation

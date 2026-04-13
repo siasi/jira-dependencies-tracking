@@ -25,7 +25,7 @@ A standalone validation script that:
 
 ### Standalone Script vs Extension
 
-**Decision:** Create `validate_tech_leadership.py` as a separate script rather than extending `validate_planning.py` or `analyze_workload.py`.
+**Decision:** Create `validate_tech_leadership.py` as a separate script rather than extending `check_planning.py` or `assess_workload.py`.
 
 **Rationale:**
 1. **Distinct concern:** Tech Leadership priority tracking is conceptually different from product planning validation
@@ -86,7 +86,7 @@ A standalone validation script that:
 **Rationale:**
 - Red RAG means blocked - not a real commitment
 - Yellow/green/amber means team is working on it or ready to work
-- Aligns with existing RAG validation logic in `validate_planning.py`
+- Aligns with existing RAG validation logic in `check_planning.py`
 
 ### 3. Priority Conflict Detection
 
@@ -157,7 +157,7 @@ priorities:
 
 #### Section 4: Action Items for Managers
 - **Purpose:** Actionable checklist grouped by manager
-- **Format:** Same pattern as `validate_planning.py` action items
+- **Format:** Same pattern as `check_planning.py` action items
 - **Example:**
   ```
   @Jane Smith (Team X):
@@ -211,7 +211,7 @@ python validate_tech_leadership.py --quarter "26 Q2" --verbose
 **Approach:** Standalone mode only (for now)
 
 **What this means:**
-- Does NOT integrate with `validate_planning.py` output
+- Does NOT integrate with `check_planning.py` output
 - Does NOT add sections to HTML dashboard
 - Does NOT extend existing Slack messages
 - Focused, single-purpose tool
@@ -235,7 +235,7 @@ python validate_tech_leadership.py --quarter "26 Q2" --verbose
 - Check if initiative summary starts with `[Discovery]`
 - Skip priority validation even if listed in config
 - Do not flag as conflict or missing commitment
-- Aligns with `validate_planning.py` pattern
+- Aligns with `check_planning.py` pattern
 
 ### 10. Multi-Team Manager Grouping
 
@@ -245,7 +245,7 @@ python validate_tech_leadership.py --quarter "26 Q2" --verbose
 - Group action items by manager Slack ID
 - Create subsections for each team the manager oversees
 - Manager sees complete picture across all their teams
-- Follows existing `validate_planning.py` pattern
+- Follows existing `check_planning.py` pattern
 
 ### 11. Completed Initiative Filtering
 
@@ -328,7 +328,7 @@ lib/jira_url.py          # Jira base URL from config
 
 ### Code Reuse Strategy
 
-**Reuse from `validate_planning.py`:**
+**Reuse from `check_planning.py`:**
 - Quarter filtering logic
 - Data quality checking patterns
 - Action item extraction structure
@@ -353,13 +353,13 @@ lib/jira_url.py          # Jira base URL from config
 
 **Decision:** Exclude Discovery initiatives
 
-**Rationale:** Discovery work is exploratory and shouldn't be prioritized the same way as delivery work. Even if a Discovery initiative appears in the priority config, skip validation for it. This aligns with the existing `validate_planning.py` pattern where Discovery initiatives are exempt from epic validation.
+**Rationale:** Discovery work is exploratory and shouldn't be prioritized the same way as delivery work. Even if a Discovery initiative appears in the priority config, skip validation for it. This aligns with the existing `check_planning.py` pattern where Discovery initiatives are exempt from epic validation.
 
 ### 2. How to handle multi-team managers?
 
 **Decision:** One message per manager (consolidate all teams)
 
-**Rationale:** Follow the existing `validate_planning.py` pattern where managers who oversee multiple teams receive one Slack message with team subsections. This gives managers a complete picture of all their teams' commitments in one place.
+**Rationale:** Follow the existing `check_planning.py` pattern where managers who oversee multiple teams receive one Slack message with team subsections. This gives managers a complete picture of all their teams' commitments in one place.
 
 ### 3. Should initiatives with status "Done" or "Cancelled" be excluded from priority validation?
 
@@ -413,11 +413,11 @@ lib/jira_url.py          # Jira base URL from config
 ## Related Work
 
 **Existing patterns to follow:**
-- `/Users/stefano.iasi/git/jira-dependencies-tracking/validate_planning.py` - Validation structure, action items
-- `/Users/stefano.iasi/git/jira-dependencies-tracking/analyze_workload.py` - Data loading, team commitment analysis
+- `/Users/stefano.iasi/git/jira-dependencies-tracking/check_planning.py` - Validation structure, action items
+- `/Users/stefano.iasi/git/jira-dependencies-tracking/assess_workload.py` - Data loading, team commitment analysis
 - `/Users/stefano.iasi/git/jira-dependencies-tracking/docs/plans/2026-04-03-001-feat-action-items-workload-analysis-plan.md` - Phase 2 refactoring plan
 
 **Dependencies:**
-- Existing data extraction (`extract.py`)
+- Existing data extraction (`scan.py`)
 - Existing config structure (`config/jira_config.yaml`, `config/team_mappings.yaml`)
 - Existing template infrastructure (`lib/template_renderer.py`)

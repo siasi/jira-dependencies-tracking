@@ -13,19 +13,19 @@ echo "3. Testing workload analysis..."
 python3 analyze_workload.py --help > /dev/null
 
 echo "4. Testing installed commands (if available)..."
-if command -v jem-extract &> /dev/null; then
-    jem-extract --help > /dev/null
-    echo "   jem-extract: OK"
+if command -v jem-scan &> /dev/null; then
+    jem-scan --help > /dev/null
+    echo "   jem-scan: OK"
 fi
 
-if command -v jem-validate-planning &> /dev/null; then
-    jem-validate-planning --help > /dev/null
-    echo "   jem-validate-planning: OK"
+if command -v jem-check-planning &> /dev/null; then
+    jem-check-planning --help > /dev/null
+    echo "   jem-check-planning: OK"
 fi
 
-if command -v jem-analyze-workload &> /dev/null; then
-    jem-analyze-workload --help > /dev/null
-    echo "   jem-analyze-workload: OK"
+if command -v jem-assess-workload &> /dev/null; then
+    jem-assess-workload --help > /dev/null
+    echo "   jem-assess-workload: OK"
 fi
 
 echo "5. Testing config loading..."

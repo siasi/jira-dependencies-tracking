@@ -33,13 +33,13 @@ This toolkit helps engineering leadership manage quarterly planning, validate in
 3. **Extract and analyze:**
    ```bash
    # Extract data from Jira
-   python extract.py extract
+   python scan.py extract
 
    # Validate planning readiness for Q2 2026
-   python validate_planning.py --quarter "26 Q2"
+   python check_planning.py --quarter "26 Q2"
 
    # Analyze team workload
-   python analyze_workload.py --quarter "26 Q2"
+   python assess_workload.py --quarter "26 Q2"
    ```
 
 See [Setup Guide](docs/guides/setup.md) for detailed installation instructions.
@@ -48,11 +48,11 @@ See [Setup Guide](docs/guides/setup.md) for detailed installation instructions.
 
 | Script | Purpose | Documentation |
 |--------|---------|---------------|
-| **extract.py** | Extract initiatives and epics from Jira to JSON/CSV | [Docs](docs/scripts/extract.md) |
-| **validate_planning.py** | Validate initiative readiness for Proposed → Planned status | [Docs](docs/scripts/validate-planning.md) |
-| **validate_data_quality.py** | Comprehensive data quality checks with status-aware rules | [Docs](docs/scripts/validate-data-quality.md) |
-| **validate_prioritisation.py** | Ensure teams respect strategic initiative priorities | [Docs](docs/scripts/validate-prioritisation.md) |
-| **analyze_workload.py** | Analyze epic distribution and team workload balance | [Docs](docs/scripts/analyze-workload.md) |
+| **scan.py** | Extract initiatives and epics from Jira to JSON/CSV | [Docs](docs/scripts/scan.md) |
+| **check_planning.py** | Validate initiative readiness for Proposed → Planned status | [Docs](docs/scripts/check-planning.md) |
+| **check_quality.py** | Comprehensive data quality checks with status-aware rules | [Docs](docs/scripts/check-quality.md) |
+| **check_priorities.py** | Ensure teams respect strategic initiative priorities | [Docs](docs/scripts/check-priorities.md) |
+| **assess_workload.py** | Analyze epic distribution and team workload balance | [Docs](docs/scripts/assess-workload.md) |
 
 ## Script Scope Quick Reference
 
@@ -60,12 +60,12 @@ Each script validates/analyzes a specific subset of initiatives. Use this refere
 
 | Script | Quarter Filter | Status Filter | Notes |
 |--------|---------------|---------------|-------|
-| **validate_planning.py** | Required (`--quarter`) | Proposed OR Planned | Planning readiness for specific quarter |
-| **validate_data_quality.py** | Optional, combinable | Flexible (see docs) | Supports complex filtering combinations |
-| **validate_prioritisation.py** | None | No filtering | Only initiatives in `priorities.yaml` |
-| **analyze_workload.py** | Required (`--quarter`) | In Progress OR Planned (matching quarter) | Active workload for specific quarter |
+| **check_planning.py** | Required (`--quarter`) | Proposed OR Planned | Planning readiness for specific quarter |
+| **check_quality.py** | Optional, combinable | Flexible (see docs) | Supports complex filtering combinations |
+| **check_priorities.py** | None | No filtering | Only initiatives in `priorities.yaml` |
+| **assess_workload.py** | Required (`--quarter`) | In Progress OR Planned (matching quarter) | Active workload for specific quarter |
 
-**validate_data_quality.py Filtering Options:**
+**check_quality.py Filtering Options:**
 - Default: In Progress (any quarter) + Planned (any quarter)
 - `--quarter Q`: In Progress (any quarter) + Planned (quarter Q)
 - `--status X`: Status X (any quarter)
@@ -91,12 +91,12 @@ For detailed scope information, see each script's documentation.
 - [Validation Library](docs/guides/validation-library.md) - Developer guide for shared validation library
 
 ### Scripts
-- [Extract Data](docs/scripts/extract.md) - Data extraction from Jira
+- [Scan Data](docs/scripts/scan.md) - Data extraction from Jira
 - [Snapshots](docs/scripts/snapshots.md) - 🧪 **EXPERIMENTAL** - Snapshot tracking and comparison
-- [Validate Planning](docs/scripts/validate-planning.md) - Planning readiness validation
-- [Validate Data Quality](docs/scripts/validate-data-quality.md) - Comprehensive data quality checks
-- [Validate Priorities](docs/scripts/validate-prioritisation.md) - Strategic priority validation
-- [Analyze Workload](docs/scripts/analyze-workload.md) - Team workload analysis
+- [Check Planning](docs/scripts/check-planning.md) - Planning readiness validation
+- [Check Quality](docs/scripts/check-quality.md) - Comprehensive data quality checks
+- [Check Priorities](docs/scripts/check-priorities.md) - Strategic priority validation
+- [Assess Workload](docs/scripts/assess-workload.md) - Team workload analysis
 
 ### Additional Resources
 - [Contributing Guide](docs/CONTRIBUTING.md) - Development guidelines
@@ -131,11 +131,11 @@ jira-em-toolkit/
 │   ├── scripts/    # Script-specific docs
 │   └── specs/      # Specifications
 ├── data/            # Output directory (gitignored)
-├── extract.py                 # Data extraction script
-├── validate_planning.py       # Planning validation script
-├── validate_data_quality.py   # Data quality validation script
-├── validate_prioritisation.py # Priority validation script
-├── analyze_workload.py        # Workload analysis script
+├── scan.py                    # Data extraction script
+├── check_planning.py          # Planning validation script
+├── check_quality.py           # Data quality validation script
+├── check_priorities.py        # Priority validation script
+├── assess_workload.py         # Workload analysis script
 └── README.md
 ```
 
