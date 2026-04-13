@@ -101,6 +101,35 @@
   - Added URL field to epic dictionaries for clickable terminal links
   - Fixed spacing between initiatives and sections using Jinja2 whitespace control 
 
+
+
+### Make the README lighter
+- [x] Restructured documentation into separate pages (completed 2026-04-13)
+- **Implementation**:
+  - Reduced README from 987 lines to ~180 lines (lightweight overview with navigation)
+  - Created `docs/guides/` directory for user guides:
+    - `setup.md` - Installation and initial configuration
+    - `configuration.md` - Advanced configuration options
+    - `validation-library.md` - Developer guide for validation library (technical)
+  - Created `docs/specs/` directory for specifications:
+    - `validation-rules.md` - Business validation rules (process/spec, not implementation)
+  - Created `docs/scripts/` directory with dedicated page per script:
+    - `extract.md` - Main data extraction documentation
+    - `snapshots.md` - 🧪 Experimental snapshot feature (separate page as requested)
+    - `validate-planning.md` - Planning readiness validation
+    - `validate-data-quality.md` - Data quality validation
+    - `validate-prioritisation.md` - Priority alignment validation
+    - `analyze-workload.md` - Workload distribution analysis
+  - Each page includes:
+    - Purpose and Quick Start section
+    - Scope definition (which initiatives are processed)
+    - Commands and Options with examples
+    - Use Cases
+    - Related Documentation footer with cross-references
+  - Snapshot feature clearly marked as experimental (🧪) with warnings
+  - All pages follow consistent structure and style
+  - All cross-references verified and working 
+
 ### Consolidate the behaviour of the action items
 [ ] The three scripts containing business logic should not report action items in console by default. Instead, they should only show a warning in case validations have found. The use can use the --verbose option to see the actions in console or the --slack option eventually. How this requirement compare to current implementation?
 - **Status**: Not implemented (2026-04-11)
@@ -108,10 +137,6 @@
 - **Current behavior**: All three scripts always show full action items in console by default
 - **Decision**: Changes were implemented but then rolled back. Task remains open for future consideration.
 - **Side change**: Removed non-functional `--verbose` flag from validate_data_quality.py (was only showing debug messages)
-
-### Make the README lighter
-[ ] The current README is too long. Propose me restructuring it's content by braking it into a README with an overview and then specific pages, one per script, with detailed behaviour and use cases. 
-- Treat the snapshot function as experimental. Event if related to the extract.py script, put its behaviour in a separated and dedicated page. 
 
 ### Consolidate output format for action items
 [] In the same way we consolidated the validation logic in a library is there a way to ensure the format of the output (console and slack) related to action items is consistent across the scripts? If so is there an opprotunity to reduce the number of templates we have?
